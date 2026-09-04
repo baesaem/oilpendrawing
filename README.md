@@ -29,10 +29,13 @@
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173/oilpendrawing/
-npm run build      # 타입 검사 + dist/ 빌드
+npm run dev        # 브라우저가 자동으로 http://localhost:5173/ 을 엽니다
+npm run build      # 타입 검사 + dist/ 빌드 (GitHub Pages용 /oilpendrawing/ 경로)
 VITE_BASE=/ npm run build   # 루트 경로에 배포할 때
 ```
+
+개발 서버는 5173 포트로 고정되고(다른 프로그램이 쓰고 있으면 오류로 알려 줍니다), 같은 네트워크의 태블릿에서도
+터미널에 표시된 `Network:` 주소로 열 수 있습니다. `http://localhost:5173/oilpendrawing/` 로 들어와도 루트로 안내됩니다.
 
 ## 배포
 
