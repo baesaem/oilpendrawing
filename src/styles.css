@@ -70,6 +70,12 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
 .brand h1 { font-family: var(--serif); font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
 .brand span { font-size: 11px; letter-spacing: .1em; color: var(--faint); }
 
+.preview-banner {
+  position: absolute; left: 50%; top: 52px; transform: translateX(-50%);
+  padding: 4px 12px; border-radius: 999px; border: 1px solid #6b5a33; background: #2a2416; color: #e5c98a; font-size: 12px; white-space: nowrap;
+}
+.preview-note { border-color: #6b5a33; background: #2a2416; color: #e5c98a; }
+
 /* ---------- 컨트롤 ---------- */
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; }

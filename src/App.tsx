@@ -13,6 +13,7 @@ import { applyTone, downloadBlob, isGrayscale, prepareInput, toneFilter } from '
 import { buildProcessPrompt, buildPrompt } from './prompt';
 import { EDITS_INPUT, generateDrawing } from './providers';
 import { listDrawings, loadSettings, putDrawing, saveSettings } from './storage';
+import { IS_PREVIEW, PREVIEW_NOTE } from './env';
 import { DEFAULT_PARAMS, LEVEL_LABEL, PROVIDER_LABEL, type Drawing, type DrawingParams, type Settings } from './types';
 
 interface UiError { message: string; hint?: string }
@@ -203,6 +204,7 @@ export function App() {
         <h1>오일펜 드로잉</h1>
         <span>PHOTO → OIL PEN</span>
       </div>
+      {IS_PREVIEW && <div className="preview-banner" title={PREVIEW_NOTE}>미리보기 모드 · AI 생성·저장은 배포판에서 동작합니다</div>}
 
       <Stage
         original={stageOriginal} result={current?.result ?? null} view={view} busy={busy} toneFilter={filter} wide={panelsHidden}

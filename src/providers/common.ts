@@ -1,3 +1,4 @@
+import { IS_PREVIEW, PREVIEW_NOTE } from '../env';
 import type { ProviderId, ProviderSettings } from '../types';
 
 export interface GenerateRequest {
@@ -38,6 +39,7 @@ export async function callApi(url: string, init: RequestInit, providerName: stri
     res = await fetch(url, init);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e;
+    if (IS_PREVIEW) throw new ProviderError('미리보기에서는 제공사에 연결할 수 없습니다.', undefined, PREVIEW_NOTE);
     throw new ProviderError(
       `${providerName} 서버에 연결할 수 없습니다.`,
       undefined,

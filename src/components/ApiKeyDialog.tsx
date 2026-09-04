@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { testConnection } from '../providers';
 import { PROVIDER_LABEL, type ProviderId, type ProviderSettings, type Settings } from '../types';
 import { CloseIcon } from './Icons';
+import { IS_PREVIEW, PREVIEW_NOTE } from '../env';
 
 const IDS: ProviderId[] = ['gemini', 'openai', 'xai'];
 const KEY_HELP: Record<ProviderId, string> = {
@@ -55,6 +56,7 @@ export function ApiKeyDialog({ settings, onSave, onClose, canClose }: Props) {
         <p className="muted" style={{ margin: 0 }}>
           키는 이 브라우저에만 저장되고, 요청은 브라우저에서 제공사 API로 직접 보냅니다. 서버에 키가 저장되지 않습니다.
         </p>
+        {IS_PREVIEW && <div className="note preview-note">미리보기 모드 · {PREVIEW_NOTE} 키를 넣지 않아도 "저장하고 시작"을 누르면 화면을 둘러볼 수 있습니다.</div>}
 
         <div className="field">
           <div className="field-row"><b>이미지 생성 제공사</b></div>
@@ -107,7 +109,7 @@ export function ApiKeyDialog({ settings, onSave, onClose, canClose }: Props) {
 
         <div className="dialog-actions">
           <button className="btn" onClick={runTest} disabled={testing || !ps.apiKey}>{testing ? '확인 중…' : '연결 확인'}</button>
-          <button className="btn btn-primary" onClick={() => onSave(draft)} disabled={!ps.apiKey}>저장하고 시작</button>
+          <button className="btn btn-primary" onClick={() => onSave(IS_PREVIEW && !ps.apiKey ? { ...draft, providers: { ...draft.providers, [id]: { ...ps, apiKey: 'preview' } } } : draft)} disabled={!ps.apiKey && !IS_PREVIEW}>저장하고 시작</button>
         </div>
       </div>
     </div>
