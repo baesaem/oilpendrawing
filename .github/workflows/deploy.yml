@@ -1,10 +1,10 @@
-# main 브랜치에 푸시되면 정적 빌드를 GitHub Pages로 배포합니다.
-# 저장소 Settings → Pages → Source 를 "GitHub Actions"로 설정해야 동작합니다.
+# main 또는 작업 브랜치에 푸시되면 정적 빌드를 GitHub Pages로 배포합니다.
+# configure-pages 의 enablement 로 Pages 가 꺼져 있으면 자동으로 켭니다(Source: GitHub Actions).
 name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, claude/ai-oil-painting-app-khyffc]
   workflow_dispatch:
 
 permissions:
@@ -25,6 +25,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - run: npm ci
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
