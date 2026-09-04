@@ -310,7 +310,7 @@ export function App() {
       <div className="stage" />
 
       <div className="brand">
-        <h1>오일펜 드로잉</h1>
+        <h1>리천 오일펜 드로잉 도우미</h1>
         <span>PHOTO → OIL PEN</span>
       </div>
       {IS_PREVIEW && <div className="preview-banner" title={PREVIEW_NOTE}>미리보기 모드 · AI 생성·저장은 배포판에서 동작합니다</div>}
