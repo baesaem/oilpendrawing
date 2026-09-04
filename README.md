@@ -25,6 +25,19 @@
 - 원본·결과 분할 비교, 스페이스바 전환, PNG 저장, 최근 30개 이력(브라우저 IndexedDB)
 - 제공사: Google Gemini, OpenAI(GPT 이미지), xAI(Grok) — 모델 ID와 기본 URL은 설정에서 변경 가능
 
+## 실행 (Windows, 가장 쉬운 방법)
+
+1. 저장소를 원하는 폴더에 내려받습니다.
+
+   ```bat
+   cd /d C:\Users\USER\프로젝트3
+   git clone https://github.com/baesaem/oilpendrawing.git
+   ```
+
+2. 만들어진 `oilpendrawing` 폴더에서 **`start.bat` 을 더블클릭**합니다.
+   처음 한 번은 필요한 파일을 내려받느라 몇 분 걸리고, 그다음부터는 바로 열립니다.
+   나중에 최신 버전을 받으려면 `update.bat` 을 더블클릭하세요.
+
 ## 개발
 
 ```bash
