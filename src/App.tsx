@@ -4,9 +4,12 @@ import { PanelIcon } from './components/Icons';
 import { InputPanel } from './components/InputPanel';
 import { Stage, type ViewMode } from './components/Stage';
 import { StylePanel } from './components/StylePanel';
-import { Toolbar } from './components/Toolbar';
+import { Toolbar, type Mode } from './components/Toolbar';
+import { GuideView, type GridSize } from './components/GuideView';
+import type { PaperRatio } from './guide';
+import type { GuideStep } from './tips';
 import { applyTone, downloadBlob, isGrayscale, prepareInput, toneFilter } from './image';
-import { buildPrompt } from './prompt';
+import { buildProcessPrompt, buildPrompt } from './prompt';
 import { EDITS_INPUT, generateDrawing } from './providers';
 import { listDrawings, loadSettings, putDrawing, saveSettings } from './storage';
 import { DEFAULT_PARAMS, LEVEL_LABEL, PROVIDER_LABEL, type Drawing, type DrawingParams, type Settings } from './types';
@@ -31,6 +34,11 @@ export function App() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<UiError | null>(null);
   const [panelsHidden, setPanelsHidden] = useState(false);
+  const [mode, setMode] = useState<Mode>('draw');
+  const [step, setStep] = useState<GuideStep>('compose');
+  const [grid, setGrid] = useState<GridSize>(3);
+  const [paper, setPaper] = useState<PaperRatio>('photo');
+  const [showProcess, setShowProcess] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => { listDrawings().then(setHistory); }, []);
@@ -39,7 +47,9 @@ export function App() {
   useEffect(() => {
     setCurrent(null);
     setView('original');
-    if (!input) { setInputIsGray(null); return; }
+    setStep('compose');
+    setShowProcess(false);
+    if (!input) { setInputIsGray(null); setMode('draw'); return; }
     let alive = true;
     setInputIsGray(null);
     isGrayscale(input).then((g) => alive && setInputIsGray(g)).catch(() => alive && setInputIsGray(false));
@@ -104,6 +114,7 @@ export function App() {
       setHistory((h) => [drawing, ...h].slice(0, 30));
       setCurrent(drawing);
       setView('compare');
+      if (mode === 'guide') setStep('final');
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') {
         setError({ message: '생성을 중단했습니다.' });
@@ -120,6 +131,46 @@ export function App() {
   };
 
   const cancel = () => abortRef.current?.abort();
+
+  /** 4단계 과정을 한 장으로 그려 달라고 요청 (API 1회) */
+  const makeProcess = async () => {
+    if (!input || busy) return;
+    setError(null);
+    const ac = new AbortController();
+    abortRef.current = ac;
+    try {
+      setBusy('이미지 준비 중…');
+      const photo = current?.input ?? (await prepareInput(input, { maxSide: 1536, grayscale: params.grayscaleInput && !inputIsGray }));
+      const prompt = buildProcessPrompt(params, !!current);
+      const sheet = await generateDrawing(settings, {
+        input: photo, reference: current?.result, prompt, signal: ac.signal, onStatus: setBusy,
+      });
+      if (current) {
+        const updated: Drawing = { ...current, process: sheet };
+        await putDrawing(updated);
+        setCurrent(updated);
+        setHistory((h) => h.map((d) => (d.id === updated.id ? updated : d)));
+      } else {
+        const drawing: Drawing = {
+          id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+          createdAt: Date.now(), input: photo, result: sheet, process: sheet,
+          params: { ...params }, provider: settings.provider, model: settings.providers[settings.provider].model, prompt,
+        };
+        await putDrawing(drawing);
+        setHistory((h) => [drawing, ...h].slice(0, 30));
+        setCurrent(drawing);
+      }
+      setShowProcess(true);
+      setStep('final');
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') setError({ message: '생성을 중단했습니다.' });
+      else { const err = e as Error & { hint?: string }; setError({ message: err.message || '알 수 없는 오류', hint: err.hint }); }
+    } finally {
+      setBusy(null);
+      abortRef.current = null;
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    }
+  };
 
   const download = async () => {
     if (!current) return;
@@ -147,7 +198,16 @@ export function App() {
         <span>PHOTO → OIL PEN</span>
       </div>
 
-      <Stage original={stageOriginal} result={current?.result ?? null} view={view} busy={busy} toneFilter={filter} wide={panelsHidden} />
+      <Stage
+        original={stageOriginal} result={current?.result ?? null} view={view} busy={busy} toneFilter={filter} wide={panelsHidden}
+        guide={mode === 'guide' && stageOriginal ? (
+          <GuideView
+            photo={stageOriginal} result={current?.result ?? null} process={current?.process ?? null} params={params}
+            step={step} onStep={setStep} grid={grid} onGrid={setGrid} paper={paper} onPaper={setPaper}
+            showProcess={showProcess} onShowProcess={setShowProcess} onMakeProcess={makeProcess} busy={busy} keyOk={keyOk}
+          />
+        ) : undefined}
+      />
 
       <aside className={`panel panel-left ${panelsHidden ? 'panel-hidden' : ''}`} aria-label="입력">
         <InputPanel
@@ -184,6 +244,7 @@ export function App() {
       )}
 
       <Toolbar
+        mode={mode} onMode={setMode} hasPhoto={!!stageOriginal}
         providerLabel={providerLabel} keyOk={keyOk} onOpenKeys={() => setKeysOpen(true)}
         view={view} onView={setView} hasResult={!!current}
         history={history} currentId={current?.id ?? null} onSelect={selectHistory}

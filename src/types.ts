@@ -76,6 +76,8 @@ export interface Drawing {
   input: Blob;
   reference?: Blob;
   result: Blob;
+  /** 4단계 과정 그림 (선택 생성) */
+  process?: Blob;
   params: DrawingParams;
   provider: ProviderId;
   model: string;

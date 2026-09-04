@@ -3,7 +3,12 @@ import type { Drawing } from '../types';
 import type { ViewMode } from './Stage';
 import { DownloadIcon, KeyIcon, PenIcon, StopIcon } from './Icons';
 
+export type Mode = 'draw' | 'guide';
+
 interface Props {
+  mode: Mode;
+  onMode: (m: Mode) => void;
+  hasPhoto: boolean;
   providerLabel: string;
   keyOk: boolean;
   onOpenKeys: () => void;
@@ -40,13 +45,23 @@ export function Toolbar(p: Props) {
 
       <div className="sep" />
 
-      <div className="view-seg" role="radiogroup" aria-label="보기">
-        {(['compare', 'result', 'original'] as ViewMode[]).map((v) => (
-          <button key={v} className={p.view === v ? 'on' : ''} role="radio" aria-checked={p.view === v} disabled={!p.hasResult && v !== 'original'} onClick={() => p.onView(v)}>
-            {v === 'compare' ? '비교' : v === 'result' ? '결과' : '원본'}
-          </button>
-        ))}
+      <div className="mode-seg" role="radiogroup" aria-label="모드">
+        <button className={p.mode === 'draw' ? 'on' : ''} role="radio" aria-checked={p.mode === 'draw'} onClick={() => p.onMode('draw')}>드로잉</button>
+        <button className={p.mode === 'guide' ? 'on' : ''} role="radio" aria-checked={p.mode === 'guide'} disabled={!p.hasPhoto} onClick={() => p.onMode('guide')} title="사진을 격자·윤곽·명암 단계로 나눠 보며 그립니다">그리기 가이드</button>
       </div>
+
+      {p.mode === 'draw' && (
+        <>
+          <div className="sep" />
+          <div className="view-seg" role="radiogroup" aria-label="보기">
+            {(['compare', 'result', 'original'] as ViewMode[]).map((v) => (
+              <button key={v} className={p.view === v ? 'on' : ''} role="radio" aria-checked={p.view === v} disabled={!p.hasResult && v !== 'original'} onClick={() => p.onView(v)}>
+                {v === 'compare' ? '비교' : v === 'result' ? '결과' : '원본'}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {p.history.length > 0 && (
         <>
