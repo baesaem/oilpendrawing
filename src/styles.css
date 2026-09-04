@@ -213,7 +213,7 @@ input[type=range]:focus-visible { outline: 1px solid var(--accent); outline-offs
 .guide-tip p { margin: 0; color: var(--text); }
 .guide-tip p.sub { color: var(--muted); }
 .mode-seg { display: flex; gap: 2px; padding: 2px; border-radius: 999px; background: #0f0e0d; }
-.mode-seg button { height: 28px; padding: 0 12px; border-radius: 999px; color: var(--muted); font-size: 12px; }
+.mode-seg button { height: 28px; padding: 0 12px; border-radius: 999px; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .mode-seg button.on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 
 /* ---------- 전체화면 ---------- */
@@ -239,12 +239,13 @@ input[type=range]:focus-visible { outline: 1px solid var(--accent); outline-offs
   box-shadow: 0 20px 50px -30px rgba(0,0,0,0.9);
   max-width: calc(100% - 40px);
 }
+.toolbar > * { flex: none; }
 .toolbar .sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); display: inline-block; }
 .status-dot.ok { background: var(--ok); }
 .status-dot.warn { background: var(--danger); }
 .view-seg { display: flex; gap: 2px; padding: 2px; border-radius: 999px; background: #0f0e0d; }
-.view-seg button { height: 28px; padding: 0 12px; border-radius: 999px; color: var(--muted); font-size: 12px; }
+.view-seg button { height: 28px; padding: 0 12px; border-radius: 999px; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .view-seg button.on { background: #2a2825; color: var(--text); }
 .hist { display: flex; gap: 4px; align-items: center; }
 .hist button { width: 36px; height: 36px; border-radius: 4px; border: 1px solid var(--line); overflow: hidden; background: #111; padding: 0; }
