@@ -40,7 +40,7 @@ VITE_BASE=/ npm run build   # 루트 경로에 배포할 때
 ## 배포
 
 `main`에 푸시하면 `.github/workflows/deploy.yml`이 GitHub Pages로 배포합니다.
-저장소 **Settings → Pages → Source**를 "GitHub Actions"로 설정하세요.
+저장소 **Settings → Pages → Source**를 "GitHub Actions"로 설정하세요. 배포 주소: https://baesaem.github.io/oilpendrawing/
 
 ## 화가 화풍 접목
 
