@@ -62,7 +62,7 @@ export function StylePanel({ params, onParams, children }: Props) {
         </div>
       </div>
 
-      <LightDial value={params.light} onChange={(light) => onParams({ light })} />
+      <LightDial value={params.light} auto={params.lightAuto} onChange={(light) => onParams({ light, lightAuto: false })} onAuto={() => onParams({ lightAuto: true })} />
 
       <div className="field">
         <div className="field-row"><b>밝기</b><span className="muted">{params.brightness > 0 ? `+${params.brightness}` : params.brightness}</span></div>

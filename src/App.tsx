@@ -11,7 +11,7 @@ import { GuideView, type GridSize } from './components/GuideView';
 import { FullscreenView } from './components/FullscreenView';
 import type { PaperRatio } from './guide';
 import type { GuideStep } from './tips';
-import { applyTone, downloadBlob, isGrayscale, prepareInput, toneFilter } from './image';
+import { applyTone, downloadBlob, estimateLight, isGrayscale, prepareInput, toneFilter } from './image';
 import { analyzeSampleBlob, renderLocalDrawing } from './local';
 import { compositeStamps, defaultPlacement, loadStamps, saveStamps, type PlacedStamp, type StampItem, type StampState } from './stamps';
 import { buildProcessPrompt, buildPrompt } from './prompt';
@@ -87,6 +87,8 @@ export function App() {
     let alive = true;
     setInputIsGray(null);
     isGrayscale(input).then((g) => alive && setInputIsGray(g)).catch(() => alive && setInputIsGray(false));
+    // 빛 방향은 사진에서 읽어 다이얼에 표시 (사용자가 돌리기 전까지)
+    estimateLight(input).then((light) => alive && setParams((p) => ({ ...p, lightAuto: true, light }))).catch(() => {});
     return () => { alive = false; };
   }, [input]);
 
@@ -177,7 +179,7 @@ export function App() {
     try {
       setBusy('그리는 중…');
       const gray = params.grayscaleInput && !inputIsGray;
-      const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: gray });
+      const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: gray, relight: params.lightAuto ? undefined : params.light });
       const preparedRef = reference ? await prepareInput(reference, { maxSide: 1024, grayscale: false }) : undefined;
       const result = await renderLocalDrawing(preparedInput, { strokes: params.strokes, color: params.color }, ac.signal);
       await commit({ id: newId(), createdAt: Date.now(), input: preparedInput, reference: preparedRef, result, params: { ...params }, engine: 'local' });
@@ -193,7 +195,7 @@ export function App() {
     try {
       setBusy('이미지 준비 중…');
       const gray = params.grayscaleInput && !inputIsGray;
-      const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: gray });
+      const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: gray, relight: params.lightAuto ? undefined : params.light });
       const preparedRef = reference ? await prepareInput(reference, { maxSide: 1024, grayscale: false }) : undefined;
       const prompt = buildPrompt(params, !!preparedRef);
       const result = await generateDrawing(settings, { input: preparedInput, reference: preparedRef, prompt, signal: ac.signal, onStatus: setBusy });
@@ -208,24 +210,30 @@ export function App() {
   const liveRef = useRef(0);
   useEffect(() => {
     if (!current || current.engine !== 'local' || busy) return;
-    const same = current.params.color === params.color && JSON.stringify(current.params.strokes) === JSON.stringify(params.strokes);
+    const lightChanged = current.params.lightAuto !== params.lightAuto || (!params.lightAuto && current.params.light !== params.light);
+    const same = current.params.color === params.color && JSON.stringify(current.params.strokes) === JSON.stringify(params.strokes) && !lightChanged;
     if (same) return;
+    // 빛 방향을 바꾸려면 원본 사진을 다시 조명해야 하는데, 이력에서 불러온 경우엔 원본 파일이 없습니다
+    if (lightChanged && !input) return;
     const id = ++liveRef.current;
     const ac = new AbortController();
     const timer = window.setTimeout(async () => {
       setLive(true);
       try {
-        const base = await renderLocalDrawing(current.input, { strokes: params.strokes, color: params.color }, ac.signal);
+        const photo = lightChanged && input
+          ? await prepareInput(input, { maxSide: 1536, grayscale: params.grayscaleInput && !inputIsGray, relight: params.lightAuto ? undefined : params.light })
+          : current.input;
+        const base = await renderLocalDrawing(photo, { strokes: params.strokes, color: params.color }, ac.signal);
         if (id !== liveRef.current) return;
         const result = await compositeStamps(base, stamps.placed, stamps.items);
-        const updated: Drawing = { ...current, base, result, params: { ...current.params, strokes: params.strokes, color: params.color } };
+        const updated: Drawing = { ...current, input: photo, base, result, params: { ...current.params, strokes: params.strokes, color: params.color, light: params.light, lightAuto: params.lightAuto } };
         setCurrent(updated);
         setHistory((h) => h.map((d) => (d.id === updated.id ? updated : d)));
         void putDrawing(updated);
       } catch { /* 중단·오류는 조용히 */ } finally { if (id === liveRef.current) setLive(false); }
     }, 350);
     return () => { window.clearTimeout(timer); ac.abort(); };
-  }, [params.strokes, params.color, current, busy, stamps]);
+  }, [params.strokes, params.color, params.light, params.lightAuto, params.grayscaleInput, inputIsGray, input, current, busy, stamps]);
 
   // 낙관·사인 배치가 바뀌면 (끌어 놓기 끝, 크기 조절, 추가·제거) 결과에 다시 구워 넣습니다.
   const bakeRef = useRef(0);

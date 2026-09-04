@@ -99,14 +99,24 @@ CORS 로 막을 때 코드 수정 없이 대응하기 위한 것이므로, 모�
 `callApi`(`common.ts`)가 네트워크/HTTP 오류를 한국어 메시지 + 힌트로 바꾼다.
 새 제공사를 붙일 때도 이걸 거쳐야 오류 표시가 일관된다.
 
+### 빛의 방향
+
+`DrawingParams.lightAuto`. 사진을 올리면 `estimateLight`(`image.ts`)가 뭉갠 밝기의 평균 기울기로 8방향 중 하나를 골라
+다이얼에 넣는다. 사용자가 다이얼을 돌리면 `lightAuto=false` 가 되고, `prepareInput` 의 `relight` 가 사진에 그 방향의
+밝기 기울기(multiply + screen)를 입힌다. 편집형 제공사와 로컬 렌더러 모두 글이 아니라 사진의 명암을 따르므로
+빛 방향은 이렇게 **사진을 바꿔서** 전달한다. 지시문은 자동이면 "사진의 조명을 유지", 수동이면 "다시 조명된 사진을 따르라"고 쓴다.
+실시간 재렌더는 빛이 바뀌면 원본 `File` 에서 다시 준비하므로, 이력에서 불러온(원본 파일이 없는) 결과에는 적용되지 않는다.
+
 ### 지시문 조립
 
 `prompt.ts` 의 `buildPrompt` 가 `DrawingParams` 를 문장들로 조립한다. 순서가 의미를 갖는다:
 
 ```
-기본 지시 → 화풍(STYLE_TEXT) → 화가(artistText) → 숙련도(LEVEL_TEXT)
+기본 지시 → 화풍(STYLE_TEXT) → 선·톤(strokesText) → 화가(artistText) → 숙련도(LEVEL_TEXT)
 → 강도 → 색 → 빛 방향 → 톤 → 종이 질감 → (견본이 있으면) 견본 반영
 ```
+
+`strokesText` 는 로컬 렌더러의 `StrokeProfile` 을 문장으로 옮긴 것이라 두 경로가 같은 설정을 본다.
 
 화풍(`PenStyle`, 13종)은 기법이고, 화가(`ArtistId`, `artists.ts`, 10명)는 그 위에 얹는
 해석이다. 둘은 곱해서 쓴다. 화가 목록은 **사후 60년 이상 지난 작가만** 넣는다 —

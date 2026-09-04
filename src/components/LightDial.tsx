@@ -2,7 +2,7 @@ import { LIGHT_DIRS, LIGHT_LABEL, type LightDir } from '../types';
 
 const ANGLE: Record<LightDir, number> = { N: -90, NE: -45, E: 0, SE: 45, S: 90, SW: 135, W: 180, NW: 225 };
 
-export function LightDial({ value, onChange }: { value: LightDir; onChange: (d: LightDir) => void }) {
+export function LightDial({ value, auto, onChange, onAuto }: { value: LightDir; auto: boolean; onChange: (d: LightDir) => void; onAuto: () => void }) {
   const R = 54, C = 66;
   const a = (ANGLE[value] * Math.PI) / 180;
   // 구체의 하이라이트 위치: 빛이 오는 쪽
@@ -35,9 +35,13 @@ export function LightDial({ value, onChange }: { value: LightDir; onChange: (d: 
         })}
       </svg>
       <div className="dial-label">
-        <span className="small" style={{ fontWeight: 500 }}>빛의 방향</span>
+        <span className="small" style={{ fontWeight: 500 }}>빛의 방향 {auto && <span className="faint">· 사진에서 읽음</span>}</span>
         <b>{LIGHT_LABEL[value]}</b>
-        <span className="small muted">8방향 중 선택. 그림자와 해칭 방향이 함께 바뀝니다.</span>
+        {auto ? (
+          <span className="small muted">사진의 명암에서 추정한 방향입니다. 점을 누르면 사진을 그 방향으로 다시 조명해서 그립니다.</span>
+        ) : (
+          <span className="small muted">사진을 이 방향의 빛으로 다시 조명해서 로컬·AI 양쪽에 보냅니다. <button className="link" onClick={onAuto}>사진대로</button></span>
+        )}
       </div>
     </div>
   );

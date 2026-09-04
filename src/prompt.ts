@@ -1,5 +1,5 @@
 import { ARTIST_BY_ID } from './artists';
-import type { DrawingParams, LightDir, PenStyle } from './types';
+import type { DrawingParams, LightDir, PenStyle, StrokeProfile } from './types';
 
 const LEVEL_TEXT = {
   beginner:
@@ -77,6 +77,27 @@ function artistText(p: DrawingParams): string {
     'Keep it a hand-made pen drawing of the given photograph; borrow the stroke language, not the artist\'s subjects.';
 }
 
+/** 선·톤 패널 값을 문장으로. 로컬 렌더러와 AI 가 같은 설정을 보게 합니다 */
+export function strokesText(s: StrokeProfile): string {
+  const parts: string[] = [];
+  switch (s.fill) {
+    case 'sketch': parts.push('short strokes that follow each surface (vertical on walls, receding along the perspective on floors), foliage as small looping scribbles'); break;
+    case 'hatch': parts.push(`parallel hatching in one direction at roughly ${s.hatchAngle} degrees from horizontal`); break;
+    case 'cross': parts.push(`cross-hatching, first layer at roughly ${s.hatchAngle} degrees, darker areas with more crossing layers`); break;
+    case 'contour': parts.push('contour lines only, hatching reserved for the darkest areas'); break;
+    case 'scribble': parts.push('loose looping scribble strokes piled up for tone'); break;
+    case 'stipple': parts.push('stippled dots instead of lines, density for tone'); break;
+  }
+  parts.push(`${s.tones} distinct tone steps including bare paper`);
+  parts.push(s.paperKeep > 65 ? 'well over half of the paper left untouched' : s.paperKeep >= 40 ? 'about half of the paper left untouched' : 'most of the sheet toned, only the highlights left white');
+  parts.push(s.lineWidth <= 1.3 ? 'a very fine 0.1-0.3 mm liner' : s.lineWidth <= 2.2 ? 'a fine 0.3-0.5 mm pen' : 'a bold 0.7-1 mm pen');
+  if (s.edgeDensity > 70) parts.push('every edge and detail outlined'); else if (s.edgeDensity < 40) parts.push('only the main outlines drawn');
+  if (s.fill !== 'contour') parts.push(s.hatchSpacing <= 4 ? 'strokes packed tightly' : s.hatchSpacing >= 9 ? 'open, widely spaced strokes' : 'medium stroke spacing');
+  parts.push(s.jitter < 25 ? 'steady, almost ruled lines' : s.jitter > 60 ? 'loose, wobbly hand lines' : 'natural, slightly irregular hand lines');
+  if (s.vignette > 20) parts.push('the drawing fades out unfinished toward the edges of the paper');
+  return `Stroke and tone settings: ${parts.join('; ')}.`;
+}
+
 function intensityText(v: number): string {
   if (v < 20) return 'very light touch, sparse strokes, lots of untouched paper';
   if (v < 40) return 'light pressure, open hatching with visible paper between strokes';
@@ -111,11 +132,15 @@ export function buildPrompt(p: DrawingParams, hasReference: boolean): string {
     'Redraw the provided photograph as a hand-made oil-based ballpoint pen drawing on paper.',
     'Keep the exact composition, proportions, perspective and every subject of the photo; change only the medium.',
     STYLE_TEXT[p.style],
+    strokesText(p.strokes),
     artistText(p),
     LEVEL_TEXT[p.level],
     `Stroke density and pressure: ${intensityText(p.intensity)}.`,
     colorText(p),
-    `Key light comes ${LIGHT_TEXT[p.light]}; cast shadows fall ${SHADOW_TEXT[p.light]}. ` +
+    // 빛: 자동이면 사진의 명암을 그대로, 수동이면 사진이 이미 그 방향으로 다시 조명되어 있음
+    (p.lightAuto
+      ? 'Keep the lighting exactly as it appears in the photograph. '
+      : `The photograph has been relit so the key light comes ${LIGHT_TEXT[p.light]} and cast shadows fall ${SHADOW_TEXT[p.light]}; follow that lighting. `) +
       'Hatching follows the form and turns away from the light; the lit side stays mostly open paper.',
     toneText(p),
     'Visible paper grain, slight ink build-up where strokes overlap, no digital smoothing, no photographic textures.',
@@ -153,6 +178,7 @@ export function buildProcessPrompt(p: DrawingParams, hasFinal: boolean): string 
     'Every panel shows the whole subject in exactly the same composition and size; white paper background; ' +
       'strokes must look like real pen marks a person can make.',
     STYLE_TEXT[p.style],
+    strokesText(p.strokes),
     artistText(p),
     colorText(p),
     hasFinal ? 'The second image is the finished drawing: panel 4 must match it, and panels 1-3 are its earlier stages.' : '',

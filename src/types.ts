@@ -120,6 +120,8 @@ export interface DrawingParams {
   intensity: number;
   color: ColorMode;
   light: LightDir;
+  /** 빛 방향을 사진에서 자동 추정할지. 끄면(다이얼을 돌리면) 사진을 그 방향으로 다시 조명해서 씁니다 */
+  lightAuto: boolean;
   /** -50~+50 */
   brightness: number;
   /** -50~+50 */
@@ -139,6 +141,7 @@ export const DEFAULT_PARAMS: DrawingParams = {
   intensity: 60,
   color: 'mono',
   light: 'NW',
+  lightAuto: true,
   brightness: 0,
   contrast: 0,
   referenceWeight: 60,
