@@ -1,7 +1,7 @@
 import { useObjectUrl } from '../hooks';
 import type { Drawing } from '../types';
 import type { ViewMode } from './Stage';
-import { DownloadIcon, KeyIcon, PenIcon, StopIcon } from './Icons';
+import { DownloadIcon, ExpandIcon, KeyIcon, PenIcon, StopIcon } from './Icons';
 
 export type Mode = 'draw' | 'guide';
 
@@ -23,6 +23,7 @@ interface Props {
   onGenerate: () => void;
   onCancel: () => void;
   onDownload: () => void;
+  onFullscreen: () => void;
 }
 
 function Thumb({ d, on, onClick }: { d: Drawing; on: boolean; onClick: () => void }) {
@@ -74,6 +75,7 @@ export function Toolbar(p: Props) {
 
       <div className="sep" />
       <button className="btn btn-ghost btn-sm" onClick={p.onDownload} disabled={!p.hasResult} title="PNG 저장"><DownloadIcon /> 저장</button>
+      <button className="btn btn-ghost btn-sm" onClick={p.onFullscreen} disabled={!p.hasPhoto} title="전체화면 (F)"><ExpandIcon /> 전체화면</button>
 
       {p.busy ? (
         <button className="btn btn-generate" onClick={p.onCancel}><StopIcon /> 중단</button>

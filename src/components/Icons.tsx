@@ -35,3 +35,9 @@ export const StopIcon = (p: SVGProps<SVGSVGElement>) => (
 export const PanelIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></svg>
 );
+export const ExpandIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" /></svg>
+);
+export const CompressIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M3 8V3h5M21 8V3h-5M3 16v5h5M21 16v5h-5" /><path d="M9 9L3 3M15 9l6-6M9 15l-6 6M15 15l6 6" /></svg>
+);

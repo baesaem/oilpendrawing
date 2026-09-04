@@ -6,6 +6,7 @@ import { Stage, type ViewMode } from './components/Stage';
 import { StylePanel } from './components/StylePanel';
 import { Toolbar, type Mode } from './components/Toolbar';
 import { GuideView, type GridSize } from './components/GuideView';
+import { FullscreenView } from './components/FullscreenView';
 import type { PaperRatio } from './guide';
 import type { GuideStep } from './tips';
 import { applyTone, downloadBlob, isGrayscale, prepareInput, toneFilter } from './image';
@@ -39,6 +40,7 @@ export function App() {
   const [grid, setGrid] = useState<GridSize>(3);
   const [paper, setPaper] = useState<PaperRatio>('photo');
   const [showProcess, setShowProcess] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => { listDrawings().then(setHistory); }, []);
@@ -67,6 +69,10 @@ export function App() {
         setView((v) => (v === 'result' ? 'original' : 'result'));
       } else if (e.key === 'h' || e.key === 'H') {
         setPanelsHidden((h) => !h);
+      } else if (e.key === 'f' || e.key === 'F') {
+        setFullscreen((f) => !f);
+      } else if (e.key === 'Escape') {
+        setFullscreen(false);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -250,7 +256,17 @@ export function App() {
         history={history} currentId={current?.id ?? null} onSelect={selectHistory}
         canGenerate={!!input && keyOk && !busy} busy={!!busy}
         onGenerate={generate} onCancel={cancel} onDownload={download}
+        onFullscreen={() => setFullscreen(true)}
       />
+
+      {fullscreen && stageOriginal && (
+        <FullscreenView
+          mode={mode} photo={stageOriginal} result={current?.result ?? null} process={current?.process ?? null} showProcess={showProcess}
+          params={params} step={step} onStep={setStep} grid={grid} onGrid={setGrid} paper={paper}
+          showResult={view !== 'original'} onToggleResult={() => setView((v) => (v === 'original' ? 'result' : 'original'))}
+          toneFilter={filter} onClose={() => setFullscreen(false)}
+        />
+      )}
 
       {keysOpen && (
         <ApiKeyDialog settings={settings} onSave={onSaveSettings} onClose={() => setKeysOpen(false)} canClose={keyOk} />

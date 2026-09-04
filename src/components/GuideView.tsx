@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
-import { edgeMap, PAPER_ASPECT, PAPER_LABEL, valueMap, VALUE_LEVELS, type PaperRatio } from '../guide';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { PAPER_ASPECT, PAPER_LABEL, VALUE_LEVELS, type PaperRatio } from '../guide';
+import { useGuideImage } from '../useGuideImage';
 import { useObjectUrl } from '../hooks';
 import { buildTip, GUIDE_STEPS, type GuideStep } from '../tips';
 import type { DrawingParams } from '../types';
@@ -25,7 +26,7 @@ interface Props {
 }
 
 /** 격자 + 용지 비율 틀 오버레이 */
-function Overlay({ grid, aspect, imgW, imgH }: { grid: GridSize; aspect: number | null; imgW: number; imgH: number }) {
+export function Overlay({ grid, aspect, imgW, imgH }: { grid: GridSize; aspect: number | null; imgW: number; imgH: number }) {
   // 용지 비율에 맞춰 이미지 안에 들어가는 최대 사각형
   let fx = 0, fy = 0, fw = 100, fh = 100;
   if (aspect && imgW && imgH) {
@@ -53,8 +54,6 @@ function Overlay({ grid, aspect, imgW, imgH }: { grid: GridSize; aspect: number 
 }
 
 export function GuideView(p: Props) {
-  const [derived, setDerived] = useState<{ key: string; blob: Blob } | null>(null);
-  const [working, setWorking] = useState(false);
   const [dims, setDims] = useState({ w: 0, h: 0 });
   // 그림이 팁 상자를 덮지 않도록, 남는 공간 높이를 측정해 이미지 최대 높이로 씁니다.
   const frameRef = useRef<HTMLDivElement>(null);
@@ -67,25 +66,9 @@ export function GuideView(p: Props) {
     return () => ro.disconnect();
   }, []);
 
-  // 2·3단계 이미지는 사진에서 계산 (숙련도가 바뀌면 다시)
-  const derivedKey = `${p.step}-${p.params.level}`;
-  useEffect(() => {
-    if (p.step !== 'shape' && p.step !== 'value') return;
-    let alive = true;
-    setWorking(true);
-    const job = p.step === 'shape' ? edgeMap(p.photo, p.params.level) : valueMap(p.photo, p.params.level);
-    job.then((blob) => alive && setDerived({ key: derivedKey, blob })).finally(() => alive && setWorking(false));
-    return () => { alive = false; };
-  }, [p.step, p.photo, p.params.level, derivedKey]);
-
-  const shown: Blob | null = useMemo(() => {
-    switch (p.step) {
-      case 'compose': return p.photo;
-      case 'shape':
-      case 'value': return derived?.key === derivedKey ? derived.blob : null;
-      case 'final': return p.showProcess && p.process ? p.process : p.result ?? p.photo;
-    }
-  }, [p.step, p.photo, p.result, p.process, p.showProcess, derived, derivedKey]);
+  const { blob: shown, working } = useGuideImage({
+    photo: p.photo, result: p.result, process: p.process, showProcess: p.showProcess, step: p.step, level: p.params.level,
+  });
   const url = useObjectUrl(shown);
   const tips = buildTip(p.step, p.params.level, p.params.style, p.params.light);
   const stepMeta = GUIDE_STEPS.find((s) => s.id === p.step)!;
