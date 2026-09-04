@@ -1,4 +1,5 @@
-import type { Level, LightDir, PenStyle } from './types';
+import { ARTIST_BY_ID } from './artists';
+import type { ArtistId, Level, LightDir, PenStyle } from './types';
 import { LIGHT_LABEL } from './types';
 
 export type GuideStep = 'compose' | 'shape' | 'value' | 'final';
@@ -55,13 +56,15 @@ export const STYLE_TIP: Record<PenStyle, string> = {
   architectural: '수직선은 항상 수직으로. 소실점을 종이 밖에라도 점으로 찍어 두고 선을 맞춥니다.',
 };
 
-export function buildTip(step: GuideStep, level: Level, style: PenStyle, light: LightDir): string[] {
+export function buildTip(step: GuideStep, level: Level, style: PenStyle, light: LightDir, artist: ArtistId = 'none'): string[] {
   const out = [COMMON[step]];
   const lv = BY_LEVEL[step][level];
   if (lv) out.push(lv);
   if (step === 'value' || step === 'final') {
     out.push(`빛은 ${LIGHT_LABEL[light]}에서 옵니다. 해칭은 빛의 반대편으로 갈수록 촘촘하게, 그림자는 그 반대 방향으로 떨어집니다.`);
     out.push(STYLE_TIP[style]);
+    const a = ARTIST_BY_ID[artist];
+    if (a && a.id !== 'none') out.push(`${a.name} 풍: ${a.tip}`);
   }
   return out;
 }

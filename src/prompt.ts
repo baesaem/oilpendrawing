@@ -1,3 +1,4 @@
+import { ARTIST_BY_ID } from './artists';
 import type { DrawingParams, LightDir, PenStyle } from './types';
 
 const LEVEL_TEXT = {
@@ -45,6 +46,13 @@ const SHADOW_TEXT: Record<LightDir, string> = {
   S: 'above the forms', SW: 'toward the upper right', W: 'toward the right', NW: 'toward the lower right',
 };
 
+function artistText(p: DrawingParams): string {
+  const a = ARTIST_BY_ID[p.artist];
+  if (!a || a.id === 'none') return '';
+  return `Interpret the technique above through a specific master's drawing manner — ${a.prompt} ` +
+    'Keep it a hand-made pen drawing of the given photograph; borrow the stroke language, not the artist\'s subjects.';
+}
+
 function intensityText(v: number): string {
   if (v < 20) return 'very light touch, sparse strokes, lots of untouched paper';
   if (v < 40) return 'light pressure, open hatching with visible paper between strokes';
@@ -79,6 +87,7 @@ export function buildPrompt(p: DrawingParams, hasReference: boolean): string {
     'Redraw the provided photograph as a hand-made oil-based ballpoint pen drawing on paper.',
     'Keep the exact composition, proportions, perspective and every subject of the photo; change only the medium.',
     STYLE_TEXT[p.style],
+    artistText(p),
     LEVEL_TEXT[p.level],
     `Stroke density and pressure: ${intensityText(p.intensity)}.`,
     colorText(p),
@@ -120,6 +129,7 @@ export function buildProcessPrompt(p: DrawingParams, hasFinal: boolean): string 
     'Every panel shows the whole subject in exactly the same composition and size; white paper background; ' +
       'strokes must look like real pen marks a person can make.',
     STYLE_TEXT[p.style],
+    artistText(p),
     colorText(p),
     hasFinal ? 'The second image is the finished drawing: panel 4 must match it, and panels 1-3 are its earlier stages.' : '',
   ].filter(Boolean).join('\n');

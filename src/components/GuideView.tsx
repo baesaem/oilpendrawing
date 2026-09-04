@@ -70,7 +70,7 @@ export function GuideView(p: Props) {
     photo: p.photo, result: p.result, process: p.process, showProcess: p.showProcess, step: p.step, level: p.params.level,
   });
   const url = useObjectUrl(shown);
-  const tips = buildTip(p.step, p.params.level, p.params.style, p.params.light);
+  const tips = buildTip(p.step, p.params.level, p.params.style, p.params.light, p.params.artist);
   const stepMeta = GUIDE_STEPS.find((s) => s.id === p.step)!;
   const overlayOn = p.step !== 'final' || !p.showProcess;
 

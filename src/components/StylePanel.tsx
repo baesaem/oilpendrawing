@@ -1,5 +1,6 @@
 import { COLOR_LABEL, LEVEL_DESC, LEVEL_LABEL, PEN_STYLES, STYLE_DESC, STYLE_LABEL, type ColorMode, type DrawingParams, type Level, type PenStyle } from '../types';
 import { LightDial } from './LightDial';
+import { ARTISTS, ARTIST_BY_ID, type ArtistId } from '../artists';
 
 const LEVELS: Level[] = ['beginner', 'intermediate', 'advanced'];
 const COLORS: Array<{ id: ColorMode; sw: string[] }> = [
@@ -27,6 +28,14 @@ export function StylePanel({ params, onParams }: { params: DrawingParams; onPara
           {PEN_STYLES.map((st) => <option key={st} value={st}>{STYLE_LABEL[st]}</option>)}
         </select>
         <div className="small muted">{STYLE_DESC[params.style]}</div>
+      </div>
+
+      <div className="field">
+        <div className="field-row"><b>화가 화풍 접목</b><span className="muted small">선택</span></div>
+        <select className="text-input select" value={params.artist} onChange={(e) => onParams({ artist: e.target.value as ArtistId })} aria-label="화가 화풍">
+          {ARTISTS.map((a) => <option key={a.id} value={a.id}>{a.id === 'none' ? '없음' : `${a.name} (${a.years})`}</option>)}
+        </select>
+        <div className="small muted">{ARTIST_BY_ID[params.artist].desc}</div>
       </div>
 
       <div className="field">

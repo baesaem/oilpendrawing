@@ -1,14 +1,19 @@
 export type Level = 'beginner' | 'intermediate' | 'advanced';
 export type ColorMode = 'color' | 'mono' | 'sepia';
 export type LightDir = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
+import type { ArtistId } from './artists';
+export type { ArtistId } from './artists';
+
 export type ProviderId = 'gemini' | 'openai' | 'xai';
 export type PenStyle =
   | 'hatching' | 'crosshatch' | 'contour' | 'scribble' | 'stipple'
   | 'engraving' | 'urban' | 'realistic' | 'comic' | 'architectural';
 
 export interface DrawingParams {
-  /** 화풍 */
+  /** 화풍(기법) */
   style: PenStyle;
+  /** 접목할 유명 화가 화풍 */
+  artist: ArtistId;
   level: Level;
   /** 0~100 선 밀도·필압 */
   intensity: number;
@@ -26,6 +31,7 @@ export interface DrawingParams {
 
 export const DEFAULT_PARAMS: DrawingParams = {
   style: 'hatching',
+  artist: 'none',
   level: 'intermediate',
   intensity: 60,
   color: 'mono',
