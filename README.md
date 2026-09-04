@@ -38,6 +38,15 @@
    처음 한 번은 필요한 파일을 내려받느라 몇 분 걸리고, 그다음부터는 바로 열립니다.
    나중에 최신 버전을 받으려면 `update.bat` 을 더블클릭하세요.
 
+## 작업 흐름 (PC 에서 작업, GitHub 에서 배포)
+
+1. PC 에서 코드를 고친다. `start.bat` 을 켜 두면 저장할 때마다 브라우저가 갱신된다.
+2. **`deploy.bat` 을 더블클릭**한다. 바뀐 파일을 보여 주고, 한 줄 설명을 받아 GitHub 으로 보낸다.
+3. GitHub Actions 가 자동으로 빌드해 배포한다. 1~2분 뒤 배포 주소에 반영된다.
+   진행 상황은 https://github.com/baesaem/oilpendrawing/actions 에서 볼 수 있다.
+
+다른 PC 에서 이어 작업할 때는 `update.bat` 으로 최신 내용을 받는다.
+
 ## 개발
 
 ```bash
