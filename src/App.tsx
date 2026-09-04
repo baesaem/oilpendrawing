@@ -17,7 +17,7 @@ import { EDITS_INPUT, generateDrawing } from './providers';
 import { listDrawings, loadSettings, putDrawing, saveSettings } from './storage';
 import { IS_PREVIEW, PREVIEW_NOTE } from './env';
 import {
-  DEFAULT_PARAMS, FILL_FOR_STYLE, LEVEL_LABEL, PROVIDER_LABEL, blendStrokes, mergeParams, strokesForLevel,
+  DEFAULT_PARAMS, FILL_FOR_STYLE, LEVEL_LABEL, PARK_STROKES, PROVIDER_LABEL, RICHEON_STROKES, blendStrokes, mergeParams, strokesForLevel,
   type Drawing, type DrawingParams, type Settings, type StrokeProfile,
 } from './types';
 
@@ -34,9 +34,13 @@ export function App() {
   const [params, setParams] = useState<DrawingParams>(DEFAULT_PARAMS);
   const patchParams = useCallback((p: Partial<DrawingParams>) => setParams((prev) => {
     const next = { ...prev, ...p };
-    // 화풍을 고르면 로컬 채우기 방식도 같이 맞춥니다 (대응되는 것만)
-    const fill = p.style ? FILL_FOR_STYLE[p.style] : undefined;
-    if (fill) next.strokes = { ...next.strokes, fill };
+    // 화풍을 고르면 로컬 선·톤도 같이 맞춥니다: 작가 스타일은 프리셋 전체, 나머지는 채우기 방식만
+    if (p.style === 'richeon') next.strokes = { ...RICHEON_STROKES };
+    else if (p.style === 'parkyongsoon') next.strokes = { ...PARK_STROKES };
+    else {
+      const fill = p.style ? FILL_FOR_STYLE[p.style] : undefined;
+      if (fill) next.strokes = { ...next.strokes, fill };
+    }
     return next;
   }), []);
   const patchStrokes = useCallback((p: Partial<StrokeProfile>) => setParams((prev) => ({ ...prev, strokes: { ...prev.strokes, ...p } })), []);

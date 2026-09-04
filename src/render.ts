@@ -163,6 +163,153 @@ function stippleLayer(ink: Ink, tone: Uint8Array, layers: number, spacing: numbe
   }
 }
 
+/** 1차원 부드러운 난수 (-1~1): 가장자리 흐림의 불규칙한 경계에 씀 */
+function smoothNoise1D(n: number, rng: () => number): Float32Array {
+  let a = new Float32Array(n);
+  for (let i = 0; i < n; i++) a[i] = rng() * 2 - 1;
+  const r = Math.max(2, Math.round(n / 40));
+  for (let pass = 0; pass < 3; pass++) {
+    const b = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      let sum = 0, c = 0;
+      for (let k = -r; k <= r; k++) { const j = i + k; if (j >= 0 && j < n) { sum += a[j]; c++; } }
+      b[i] = sum / c;
+    }
+    a = b;
+  }
+  let max = 1e-6;
+  for (let i = 0; i < n; i++) max = Math.max(max, Math.abs(a[i]));
+  for (let i = 0; i < n; i++) a[i] /= max;
+  return a;
+}
+
+/**
+ * 면의 방향장: 구조 텐서로 각 픽셀 주변의 지배적인 에지 방향을 구합니다.
+ * 벽에서는 세로, 바닥의 원근선에서는 그 방향 — 리천 드로잉의 "면을 따라가는 해칭"의 근거입니다.
+ */
+function orientationField(lum: Float32Array, w: number, h: number) {
+  const { gx, gy } = sobel(boxBlur(lum, w, h, 2), w, h);
+  const N = w * h;
+  const jxx = new Float32Array(N), jyy = new Float32Array(N), jxy = new Float32Array(N);
+  for (let i = 0; i < N; i++) { jxx[i] = gx[i] * gx[i]; jyy[i] = gy[i] * gy[i]; jxy[i] = gx[i] * gy[i]; }
+  // 두 크기: 가까운 에지(반경 7)를 우선하고, 없으면 넓은 범위(반경 28)의 지배적 방향을 따릅니다.
+  // 벽 안쪽처럼 에지에서 떨어진 면도 그 면을 두르는 선의 방향을 물려받게 하기 위해서입니다.
+  const fine = [boxBlur(jxx, w, h, 7), boxBlur(jyy, w, h, 7), boxBlur(jxy, w, h, 7)];
+  const coarse = [boxBlur(jxx, w, h, 28), boxBlur(jyy, w, h, 28), boxBlur(jxy, w, h, 28)];
+  const tx = new Float32Array(N), ty = new Float32Array(N), coh = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    let a = fine[0][i] - fine[1][i], b = 2 * fine[2][i], e = fine[0][i] + fine[1][i];
+    let c = e > 0.02 ? Math.sqrt(a * a + b * b) / (e + 1e-4) : 0;
+    if (c < 0.2) {
+      a = coarse[0][i] - coarse[1][i]; b = 2 * coarse[2][i]; e = coarse[0][i] + coarse[1][i];
+      c = e > 0.004 ? Math.sqrt(a * a + b * b) / (e + 1e-4) * 0.9 : 0;
+    }
+    const th = 0.5 * Math.atan2(b, a) + Math.PI / 2; // 그래디언트에 수직 = 에지를 따라가는 방향
+    tx[i] = Math.cos(th); ty[i] = Math.sin(th);
+    coh[i] = c; // 평탄한 곳(하늘)은 방향 없음
+  }
+  return { tx, ty, coh };
+}
+
+/** 나뭇잎·풀처럼 잔결이 많은 곳: 주변 밝기 분산이 큰 영역 */
+function textureMask(lum: Float32Array, w: number, h: number): Uint8Array {
+  const N = w * h;
+  const sq = new Float32Array(N);
+  for (let i = 0; i < N; i++) sq[i] = lum[i] * lum[i];
+  const m = boxBlur(lum, w, h, 3), m2 = boxBlur(sq, w, h, 3);
+  const v = new Float32Array(N);
+  for (let i = 0; i < N; i++) v[i] = Math.sqrt(Math.max(0, m2[i] - m[i] * m[i])) > 0.085 ? 1 : 0;
+  const sm = boxBlur(v, w, h, 5);
+  const out = new Uint8Array(N);
+  for (let i = 0; i < N; i++) out[i] = sm[i] > 0.45 ? 1 : 0;
+  return out;
+}
+
+/**
+ * 어반 스케치 층: 방향장을 따라가는 짧은 획들. 방향이 없는 곳(하늘)은 기준 각도로 긴 사선.
+ * 잔결 영역(나뭇잎)은 획 대신 작은 고리 선 뭉치로 채웁니다.
+ */
+function sketchLayer(ink: Ink, mask: (i: number) => boolean, field: ReturnType<typeof orientationField>, foliage: Uint8Array,
+  baseAngle: number, perpendicular: boolean, spacing: number, width: number, phase: number, jitter: number, rng: () => number) {
+  const { w, h } = ink;
+  const j = jitter / 100;
+  const r = width / 2;
+  const bth = (baseAngle * Math.PI) / 180;
+  const bx = Math.cos(bth), by = Math.sin(bth);
+  const cell = spacing * 2.5;
+  const len = spacing * (5 + 4 * (1 - j));
+
+  for (let gy = -cell * phase; gy < h; gy += cell) for (let gx = -cell * phase; gx < w; gx += cell) {
+    const sx = gx + rng() * cell, sy = gy + rng() * cell;
+    const ix = sx | 0, iy = sy | 0;
+    if (ix < 0 || iy < 0 || ix >= w || iy >= h) continue;
+    const i0 = iy * w + ix;
+    if (!mask(i0)) continue;
+
+    if (foliage[i0]) {
+      // 고리 선: 세로로 눌린 타원을 1.3~1.8바퀴, 잎 뭉치의 어두운 쪽에 몰림
+      const rr = spacing * (0.45 + rng() * 0.5);
+      const turns = 1.3 + rng() * 0.5;
+      const ph = rng() * 6.28;
+      for (let t = 0; t < turns * 6.283; t += 0.25) {
+        const px = sx + rr * Math.cos(t + ph) * (1 + 0.15 * Math.sin(t * 3)), py = sy + rr * 0.7 * Math.sin(t + ph);
+        const x = px | 0, y = py | 0;
+        if (x < 0 || y < 0 || x >= w || y >= h || !mask(y * w + x)) continue;
+        ink.dot(px, py, r * 0.9, 0.8);
+      }
+      continue;
+    }
+
+    // 획: 방향장을 따라가되, 방향이 약하면 기준 각도
+    let dx: number, dy: number;
+    const c = field.coh[i0];
+    if (c > 0.2) { dx = field.tx[i0]; dy = field.ty[i0]; }
+    else { dx = bx; dy = by; }
+    if (perpendicular) { const t = dx; dx = -dy; dy = t; }
+    const seg = len * (c > 0.2 ? 1 : 1.8) * (0.7 + rng() * 0.6);
+    const pressure = 0.75 + rng() * 0.45;
+    const wob = rng() * 6.28, wobF = 0.1 + rng() * 0.1;
+    let px = sx - dx * seg * 0.5, py = sy - dy * seg * 0.5;
+    let tail = 0, drawn = false;
+    for (let s = 0; s < seg; s += 0.8) {
+      const x = px | 0, y = py | 0;
+      if (x < 0 || y < 0 || x >= w || y >= h) break;
+      const i = y * w + x;
+      const inside = mask(i);
+      if (inside) { tail = 2 + j * 3; drawn = true; }
+      else if (tail > 0) tail -= 0.8;
+      else { if (drawn) break; px += dx * 0.8; py += dy * 0.8; continue; }
+      const taper = Math.min(1, s / 5, (seg - s) / 5);
+      const wv = Math.sin(s * wobF + wob) * j * 1.2;
+      ink.dot(px - dy * wv, py + dx * wv, r * (0.65 + 0.35 * taper) * pressure, 0.85 * (0.7 + 0.3 * taper));
+      // 방향장을 조금씩 따라감 (부호는 이전 방향과 맞춤)
+      if (field.coh[i] > 0.2) {
+        let fx = field.tx[i], fy = field.ty[i];
+        if (perpendicular) { const t = fx; fx = -fy; fy = t; }
+        if (fx * dx + fy * dy < 0) { fx = -fx; fy = -fy; }
+        dx = dx * 0.85 + fx * 0.15; dy = dy * 0.85 + fy * 0.15;
+        const n = Math.hypot(dx, dy) || 1; dx /= n; dy /= n;
+      }
+      px += dx * 0.8; py += dy * 0.8;
+    }
+  }
+}
+
+/** 가장자리를 미완성처럼 흐림: 불규칙한 경계 안쪽으로만 잉크를 남깁니다 */
+function applyVignette(ink: Float32Array, w: number, h: number, amount: number, rng: () => number) {
+  const m = (amount / 100) * 0.22 * Math.min(w, h);
+  if (m < 1) return;
+  const eL = smoothNoise1D(h, rng), eR = smoothNoise1D(h, rng), eT = smoothNoise1D(w, rng), eB = smoothNoise1D(w, rng);
+  const amp = m * 0.7;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const d = Math.min(x + eL[y] * amp, w - 1 - x + eR[y] * amp, y + eT[x] * amp, h - 1 - y + eB[x] * amp);
+    if (d >= m) continue;
+    const t = Math.max(0, d / m);
+    const f = t * t * (3 - 2 * t);
+    ink[y * w + x] *= f;
+  }
+}
+
 /* ---------- 메인 ---------- */
 
 export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
@@ -192,6 +339,20 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   const CROSS = [0, 47, -38, 90, 22, 68];
   const PHASE = [0, 0.618, 0.236, 0.854, 0.472, 0.09];
   switch (p.fill) {
+    case 'sketch': {
+      const field = orientationField(lum, w, h);
+      const foliage = textureMask(lum, w, h);
+      for (let j = 1; j <= layers; j++) {
+        sketchLayer(ink, (i) => tone[i] >= j, field, foliage, angle, j % 2 === 0, spacing, width, PHASE[j - 1], p.jitter, rng);
+      }
+      // 톤이 5단계 이상이면 가장 어두운 단계는 먹으로 채워 대비를 줍니다 (처마 밑, 열린 문 안쪽)
+      if (layers >= 4) {
+        const dark = boxBlur(Float32Array.from(tone, (k) => (k >= layers ? 1 : 0)), w, h, 1);
+        // 잔결 영역(나뭇잎)은 고리 선 사이의 반짝임을 남겨야 하므로 먹을 넣지 않음
+        for (let i = 0; i < N; i++) if (dark[i] > 0.6 && !foliage[i]) ink.buf[i] = 1 - (1 - ink.buf[i]) * (1 - 0.8 * dark[i]);
+      }
+      break;
+    }
     case 'hatch':
       for (let j = 1; j <= layers; j++) hatchLayer(ink, (i) => tone[i] >= j, angle, spacing, width, PHASE[j - 1], p.jitter, rng);
       break;
@@ -227,7 +388,10 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     if (a > 0) ink.buf[i] = 1 - (1 - ink.buf[i]) * (1 - a);
   }
 
-  // 4) 합성
+  // 4) 가장자리 미완성 처리
+  applyVignette(ink.buf, w, h, clamp(p.vignette ?? 0, 0, 100), mulberry32(4242));
+
+  // 5) 합성
   let paper = hexToRgb(p.paperColor), inkC = hexToRgb(p.inkColor);
   if (opts.color === 'sepia') { paper = [243, 231, 208]; inkC = [74, 46, 28]; }
   const out = new Uint8ClampedArray(N * 4);

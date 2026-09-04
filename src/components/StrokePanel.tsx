@@ -1,4 +1,4 @@
-import { FILL_LABEL, type FillMode, type StrokeProfile } from '../types';
+import { CLASSIC_STROKES, FILL_LABEL, PARK_STROKES, RICHEON_STROKES, type FillMode, type StrokeProfile } from '../types';
 
 interface Props {
   strokes: StrokeProfile;
@@ -8,7 +8,7 @@ interface Props {
   onReset: () => void;
 }
 
-const FILLS: FillMode[] = ['hatch', 'cross', 'contour', 'scribble', 'stipple'];
+const FILLS: FillMode[] = ['sketch', 'hatch', 'cross', 'contour', 'scribble', 'stipple'];
 
 function Range({ label, value, min, max, step = 1, unit = '', onChange }: {
   label: string; value: number; min: number; max: number; step?: number; unit?: string; onChange: (v: number) => void;
@@ -34,8 +34,17 @@ export function StrokePanel({ strokes: s, onChange, fromSample, onReset }: Props
       </div>
 
       <div className="field">
+        <div className="field-row"><b>프리셋</b></div>
+        <div className="chips">
+          <button onClick={() => onChange({ ...RICHEON_STROKES })} title="가는 펜, 면 방향 해칭, 나뭇잎 고리선, 가장자리 여백, 낙관 (@richeons_drawing_journey)">리천 스타일</button>
+          <button onClick={() => onChange({ ...PARK_STROKES })} title="아주 가는 선, 끝까지 완성, 수평 하늘 해칭, 먹 그림자 (@parkyongsoon_art)">박용순 세밀</button>
+          <button onClick={() => onChange({ ...CLASSIC_STROKES })} title="굵은 펜의 한 방향 해칭">클래식</button>
+        </div>
+      </div>
+
+      <div className="field">
         <div className="field-row"><b>채우기</b></div>
-        <div className="seg" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }} role="radiogroup" aria-label="채우기 방식">
+        <div className="seg" style={{ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }} role="radiogroup" aria-label="채우기 방식">
           {FILLS.map((f) => (
             <button key={f} className={s.fill === f ? 'on' : ''} role="radio" aria-checked={s.fill === f} onClick={() => onChange({ fill: f })} title={FILL_LABEL[f]} style={{ fontSize: 11 }}>
               {FILL_SHORT[f]}
@@ -56,6 +65,18 @@ export function StrokePanel({ strokes: s, onChange, fromSample, onReset }: Props
         <Range label="손떨림" value={s.jitter} min={0} max={100} onChange={(jitter) => onChange({ jitter })} />
       )}
 
+      <Range label="가장자리 여백" value={s.vignette} min={0} max={100} onChange={(vignette) => onChange({ vignette })} />
+
+      <div className="field">
+        <div className="field-row"><b>낙관 · 날짜</b><span className="muted small">비우면 없음</span></div>
+        <div className="color-row">
+          <input className="text-input" value={s.seal} maxLength={4} placeholder="梨川" onChange={(e) => onChange({ seal: e.target.value })} aria-label="낙관 글자" style={{ flex: 1 }} />
+          <button className="toggle" role="switch" aria-checked={s.sealDate} onClick={() => onChange({ sealDate: !s.sealDate })} style={{ flex: 1 }}>
+            <span>날짜</span><span className={`switch ${s.sealDate ? 'on' : ''}`} />
+          </button>
+        </div>
+      </div>
+
       <div className="field">
         <div className="field-row"><b>종이 · 잉크색</b><span className="muted small">흑백일 때만</span></div>
         <div className="color-row">
@@ -67,4 +88,4 @@ export function StrokePanel({ strokes: s, onChange, fromSample, onReset }: Props
   );
 }
 
-const FILL_SHORT: Record<FillMode, string> = { hatch: '해칭', cross: '교차', contour: '윤곽', scribble: '스크리블', stipple: '점묘' };
+const FILL_SHORT: Record<FillMode, string> = { sketch: '스케치', hatch: '해칭', cross: '교차', contour: '윤곽', scribble: '낙서', stipple: '점묘' };

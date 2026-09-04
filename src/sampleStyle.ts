@@ -183,9 +183,10 @@ export function analyzeSample(img: RawImage): SampleAnalysis {
 
   const profile: StrokeProfile = {
     fill, tones, paperKeep, lineWidth, edgeDensity: DEFAULT_STROKES.edgeDensity, hatchAngle, hatchSpacing, jitter, paperColor, inkColor,
+    vignette: DEFAULT_STROKES.vignette, seal: DEFAULT_STROKES.seal, sealDate: DEFAULT_STROKES.sealDate,
   };
   const summary = `${FILL_TEXT[fill]} · ${tones}단계 · 선 ${lineWidth}px · 간격 ${hatchSpacing}px · ${hatchAngle}°`;
   return { profile, summary };
 }
 
-const FILL_TEXT: Record<FillMode, string> = { hatch: '한 방향 해칭', cross: '교차 해칭', contour: '윤곽선 위주', scribble: '스크리블', stipple: '점묘' };
+const FILL_TEXT: Record<FillMode, string> = { sketch: '어반 스케치', hatch: '한 방향 해칭', cross: '교차 해칭', contour: '윤곽선 위주', scribble: '스크리블', stipple: '점묘' };

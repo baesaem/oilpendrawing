@@ -15,6 +15,20 @@ const LEVEL_TEXT = {
 };
 
 const STYLE_TEXT: Record<PenStyle, string> = {
+  richeon:
+    'Style: Korean urban sketchbook pen drawing with a fine black liner. Thin uniform lines; hatching follows each surface ' +
+    '(vertical strokes on walls, strokes receding along the perspective on roads and floors, long sweeping diagonals in the sky ' +
+    'if it is toned at all); shadows built with tight cross-hatching. Foliage is drawn as cloud-like scalloped masses filled with ' +
+    'small looping scribbles, darker underneath and left open on top. Sky, clouds and sunlit surfaces stay white untouched paper. ' +
+    'The drawing fades out unfinished toward the edges of the paper; nothing is filled to the border. ' +
+    'A small red square seal and a handwritten date sit in one lower corner.',
+  parkyongsoon:
+    'Style: professional Korean pen-and-ink illustration with an ultra-fine liner, fully rendered edge to edge. ' +
+    'Extremely fine, even, closely spaced lines; tone built patiently with many layers; deep shadows filled solid black for ' +
+    'strong contrast. The sky is drawn with long horizontal hatching and clouds are left as soft white negative shapes inside it. ' +
+    'Weathered textures are lovingly described: corrugated roofs as parallel lines, old plaster and stone with stippled cracks, ' +
+    'dense foliage as clustered leaf marks with white sparkle highlights. Only the foreground ground may stay light. ' +
+    'No seal; a small handwritten signature and year in a lower corner.',
   hatching:
     'Style: classic parallel hatching. Tone is built with straight, evenly spaced strokes in one dominant direction per plane.',
   crosshatch:
