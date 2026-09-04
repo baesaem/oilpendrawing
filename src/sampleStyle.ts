@@ -183,7 +183,7 @@ export function analyzeSample(img: RawImage): SampleAnalysis {
 
   const profile: StrokeProfile = {
     fill, tones, paperKeep, lineWidth, edgeDensity: DEFAULT_STROKES.edgeDensity, hatchAngle, hatchSpacing, jitter, paperColor, inkColor,
-    vignette: DEFAULT_STROKES.vignette, seal: DEFAULT_STROKES.seal, sealDate: DEFAULT_STROKES.sealDate,
+    vignette: DEFAULT_STROKES.vignette,
   };
   const summary = `${FILL_TEXT[fill]} · ${tones}단계 · 선 ${lineWidth}px · 간격 ${hatchSpacing}px · ${hatchAngle}°`;
   return { profile, summary };

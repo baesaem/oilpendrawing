@@ -5,6 +5,7 @@ import { InputPanel } from './components/InputPanel';
 import { Stage, type ViewMode } from './components/Stage';
 import { StylePanel } from './components/StylePanel';
 import { StrokePanel } from './components/StrokePanel';
+import { StampPanel } from './components/StampPanel';
 import { Toolbar, type Mode } from './components/Toolbar';
 import { GuideView, type GridSize } from './components/GuideView';
 import { FullscreenView } from './components/FullscreenView';
@@ -12,12 +13,13 @@ import type { PaperRatio } from './guide';
 import type { GuideStep } from './tips';
 import { applyTone, downloadBlob, isGrayscale, prepareInput, toneFilter } from './image';
 import { analyzeSampleBlob, renderLocalDrawing } from './local';
+import { compositeStamps, defaultPlacement, loadStamps, saveStamps, type PlacedStamp, type StampItem, type StampState } from './stamps';
 import { buildProcessPrompt, buildPrompt } from './prompt';
 import { EDITS_INPUT, generateDrawing } from './providers';
 import { listDrawings, loadSettings, putDrawing, saveSettings } from './storage';
 import { IS_PREVIEW, PREVIEW_NOTE } from './env';
 import {
-  DEFAULT_PARAMS, FILL_FOR_STYLE, LEVEL_LABEL, PARK_STROKES, PROVIDER_LABEL, RICHEON_STROKES, blendStrokes, mergeParams, strokesForLevel,
+  DEFAULT_PARAMS, FILL_FOR_STYLE, FINE_STROKES, LEVEL_LABEL, PROVIDER_LABEL, RICHEON_STROKES, blendStrokes, mergeParams, strokesForLevel,
   type Drawing, type DrawingParams, type Settings, type StrokeProfile,
 } from './types';
 
@@ -36,7 +38,7 @@ export function App() {
     const next = { ...prev, ...p };
     // 화풍을 고르면 로컬 선·톤도 같이 맞춥니다: 작가 스타일은 프리셋 전체, 나머지는 채우기 방식만
     if (p.style === 'richeon') next.strokes = { ...RICHEON_STROKES };
-    else if (p.style === 'parkyongsoon') next.strokes = { ...PARK_STROKES };
+    else if (p.style === 'fineink') next.strokes = { ...FINE_STROKES };
     else {
       const fill = p.style ? FILL_FOR_STYLE[p.style] : undefined;
       if (fill) next.strokes = { ...next.strokes, fill };
@@ -51,6 +53,10 @@ export function App() {
   /** 견본에서 읽은 선·톤 (반영도로 기본값과 섞어 씀) */
   const [measured, setMeasured] = useState<StrokeProfile | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisState>({ busy: false, summary: null });
+
+  /** 등록한 낙관·사인과 배치 (이 브라우저에 저장) */
+  const [stamps, setStamps] = useState<StampState>(() => loadStamps());
+  useEffect(() => { saveStamps(stamps); }, [stamps]);
 
   const [current, setCurrent] = useState<Drawing | null>(null);
   const [history, setHistory] = useState<Drawing[]>([]);
@@ -147,7 +153,14 @@ export function App() {
     // 포커스가 생성 버튼에 남아 있으면 스페이스바가 화면 전환 대신 재생성을 일으키므로 해제합니다.
     (document.activeElement as HTMLElement | null)?.blur?.();
   };
-  const commit = async (drawing: Drawing) => {
+  /** 낙관·사인 배치를 결과에 구워 넣은 레코드 */
+  const withStamps = async (d: Drawing, placed: PlacedStamp[], items: StampItem[]): Promise<Drawing> => {
+    const base = d.base ?? d.result;
+    const result = await compositeStamps(base, placed, items);
+    return { ...d, base, result };
+  };
+  const commit = async (raw: Drawing) => {
+    const drawing = await withStamps(raw, stamps.placed, stamps.items);
     await putDrawing(drawing);
     setHistory((h) => [drawing, ...h].slice(0, 30));
     setCurrent(drawing);
@@ -202,16 +215,43 @@ export function App() {
     const timer = window.setTimeout(async () => {
       setLive(true);
       try {
-        const result = await renderLocalDrawing(current.input, { strokes: params.strokes, color: params.color }, ac.signal);
+        const base = await renderLocalDrawing(current.input, { strokes: params.strokes, color: params.color }, ac.signal);
         if (id !== liveRef.current) return;
-        const updated: Drawing = { ...current, result, params: { ...current.params, strokes: params.strokes, color: params.color } };
+        const result = await compositeStamps(base, stamps.placed, stamps.items);
+        const updated: Drawing = { ...current, base, result, params: { ...current.params, strokes: params.strokes, color: params.color } };
         setCurrent(updated);
         setHistory((h) => h.map((d) => (d.id === updated.id ? updated : d)));
         void putDrawing(updated);
       } catch { /* 중단·오류는 조용히 */ } finally { if (id === liveRef.current) setLive(false); }
     }, 350);
     return () => { window.clearTimeout(timer); ac.abort(); };
-  }, [params.strokes, params.color, current, busy]);
+  }, [params.strokes, params.color, current, busy, stamps]);
+
+  // 낙관·사인 배치가 바뀌면 (끌어 놓기 끝, 크기 조절, 추가·제거) 결과에 다시 구워 넣습니다.
+  const bakeRef = useRef(0);
+  const rebake = useCallback(async () => {
+    if (!current) return;
+    const id = ++bakeRef.current;
+    const updated = await withStamps(current, stamps.placed, stamps.items);
+    if (id !== bakeRef.current) return;
+    setCurrent(updated);
+    setHistory((h) => h.map((d) => (d.id === updated.id ? updated : d)));
+    void putDrawing(updated);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, stamps]);
+  const stampsKey = JSON.stringify(stamps.placed.map((p) => [p.stampId, p.size]));
+  useEffect(() => { void rebake(); /* 추가·제거·크기 */ // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stampsKey, stamps.items]);
+
+  const addStamp = (item: StampItem) => setStamps((s) => ({ ...s, items: [...s.items, item] }));
+  const removeStamp = (id: string) => setStamps((s) => ({ items: s.items.filter((i) => i.id !== id), placed: s.placed.filter((p) => p.stampId !== id) }));
+  const placeStamp = (item: StampItem) => setStamps((s) => ({ ...s, placed: [...s.placed, defaultPlacement(item, s.placed.filter((p) => s.items.find((i) => i.id === p.stampId)?.kind === item.kind))] }));
+  const unplaceStamp = (id: string) => setStamps((s) => ({ ...s, placed: s.placed.filter((p) => p.id !== id) }));
+  const resizeStamp = (id: string, size: number) => setStamps((s) => ({ ...s, placed: s.placed.map((p) => (p.id === id ? { ...p, size } : p)) }));
+  const moveStamp = (id: string, x: number, y: number) => setStamps((s) => ({ ...s, placed: s.placed.map((p) => (p.id === id ? { ...p, x, y } : p)) }));
+  const placedWithItems = stamps.placed
+    .map((placed) => ({ placed, item: stamps.items.find((i) => i.id === placed.stampId)! }))
+    .filter((x) => x.item);
 
   const cancel = () => abortRef.current?.abort();
 
@@ -276,7 +316,8 @@ export function App() {
       {IS_PREVIEW && <div className="preview-banner" title={PREVIEW_NOTE}>미리보기 모드 · AI 생성·저장은 배포판에서 동작합니다</div>}
 
       <Stage
-        original={stageOriginal} result={current?.result ?? null} view={view} busy={busy} live={live} toneFilter={filter} wide={panelsHidden}
+        original={stageOriginal} result={current ? current.base ?? current.result : null} view={view} busy={busy} live={live} toneFilter={filter} wide={panelsHidden}
+        stamps={current ? placedWithItems : []} onStampMove={moveStamp} onStampDrop={() => { void rebake(); }}
         guide={mode === 'guide' && stageOriginal ? (
           <GuideView
             photo={stageOriginal} result={current?.result ?? null} process={current?.process ?? null} params={params}
@@ -304,6 +345,10 @@ export function App() {
         <StylePanel params={params} onParams={patchParams}>
           <StrokePanel strokes={params.strokes} onChange={patchStrokes} fromSample={!!measured} onReset={resetStrokes} />
         </StylePanel>
+        <StampPanel
+          items={stamps.items} placed={stamps.placed} hasResult={!!current}
+          onAddItem={addStamp} onRemoveItem={removeStamp} onPlace={placeStamp} onUnplace={unplaceStamp} onResize={resizeStamp}
+        />
       </aside>
 
       {panelsHidden && (

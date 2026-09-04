@@ -1,4 +1,4 @@
-import { CLASSIC_STROKES, FILL_LABEL, PARK_STROKES, RICHEON_STROKES, type FillMode, type StrokeProfile } from '../types';
+import { CLASSIC_STROKES, FILL_LABEL, FINE_STROKES, RICHEON_STROKES, type FillMode, type StrokeProfile } from '../types';
 
 interface Props {
   strokes: StrokeProfile;
@@ -36,8 +36,8 @@ export function StrokePanel({ strokes: s, onChange, fromSample, onReset }: Props
       <div className="field">
         <div className="field-row"><b>프리셋</b></div>
         <div className="chips">
-          <button onClick={() => onChange({ ...RICHEON_STROKES })} title="가는 펜, 면 방향 해칭, 나뭇잎 고리선, 가장자리 여백, 낙관 (@richeons_drawing_journey)">리천 스타일</button>
-          <button onClick={() => onChange({ ...PARK_STROKES })} title="아주 가는 선, 끝까지 완성, 수평 하늘 해칭, 먹 그림자 (@parkyongsoon_art)">박용순 세밀</button>
+          <button onClick={() => onChange({ ...RICHEON_STROKES })} title="가는 펜, 면 방향 해칭, 나뭇잎 고리선, 가장자리 여백 (@richeons_drawing_journey)">리천 스타일</button>
+          <button onClick={() => onChange({ ...FINE_STROKES })} title="아주 가는 선, 끝까지 완성, 수평 하늘 해칭, 먹 그림자">세밀 펜화</button>
           <button onClick={() => onChange({ ...CLASSIC_STROKES })} title="굵은 펜의 한 방향 해칭">클래식</button>
         </div>
       </div>
@@ -66,16 +66,6 @@ export function StrokePanel({ strokes: s, onChange, fromSample, onReset }: Props
       )}
 
       <Range label="가장자리 여백" value={s.vignette} min={0} max={100} onChange={(vignette) => onChange({ vignette })} />
-
-      <div className="field">
-        <div className="field-row"><b>낙관 · 날짜</b><span className="muted small">비우면 없음</span></div>
-        <div className="color-row">
-          <input className="text-input" value={s.seal} maxLength={4} placeholder="梨川" onChange={(e) => onChange({ seal: e.target.value })} aria-label="낙관 글자" style={{ flex: 1 }} />
-          <button className="toggle" role="switch" aria-checked={s.sealDate} onClick={() => onChange({ sealDate: !s.sealDate })} style={{ flex: 1 }}>
-            <span>날짜</span><span className={`switch ${s.sealDate ? 'on' : ''}`} />
-          </button>
-        </div>
-      </div>
 
       <div className="field">
         <div className="field-row"><b>종이 · 잉크색</b><span className="muted small">흑백일 때만</span></div>

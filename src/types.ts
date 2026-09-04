@@ -6,7 +6,7 @@ export type { ArtistId } from './artists';
 
 export type ProviderId = 'gemini' | 'openai' | 'xai';
 export type PenStyle =
-  | 'richeon' | 'parkyongsoon'
+  | 'richeon' | 'fineink'
   | 'hatching' | 'crosshatch' | 'contour' | 'scribble' | 'stipple'
   | 'engraving' | 'urban' | 'realistic' | 'comic' | 'architectural'
   | 'ghibli' | 'webtoon' | 'manga';
@@ -46,34 +46,30 @@ export interface StrokeProfile {
   inkColor: string;
   /** 가장자리를 미완성처럼 흐리는 정도 0~100 (어반 스케치 특유의 여백) */
   vignette: number;
-  /** 낙관 글자 (비우면 없음, 최대 4자) */
-  seal: string;
-  /** 낙관 옆에 날짜를 쓸지 */
-  sealDate: boolean;
 }
 
 /**
  * 리천 스타일 (instagram.com/richeons_drawing_journey).
  * 가는 검정 펜, 면의 방향을 따르는 해칭, 나뭇잎은 고리 선 뭉치, 하늘·하이라이트는 흰 종이,
- * 가장자리는 미완성으로 흐려지고, 오른쪽 아래에 붉은 낙관 "梨川"과 날짜.
+ * 가장자리는 미완성으로 흐려진다. 낙관·사인은 별도 등록 기능(stamps.ts)으로 찍는다.
  */
 export const RICHEON_STROKES: StrokeProfile = {
   fill: 'sketch', tones: 5, paperKeep: 58, lineWidth: 1.2, edgeDensity: 70, hatchAngle: 55, hatchSpacing: 5, jitter: 30,
-  paperColor: '#f6f3ec', inkColor: '#17171a', vignette: 40, seal: '梨川', sealDate: true,
+  paperColor: '#f6f3ec', inkColor: '#17171a', vignette: 40,
 };
 /**
- * 박용순 스타일 (instagram.com/parkyongsoon_art). 전문 펜화가.
+ * 세밀 펜화 (전문 펜화가의 방식).
  * 아주 가늘고 고른 선으로 종이 끝까지 빈틈없이 완성. 하늘은 수평 해칭 속에 구름을 흰 여백으로 남기고,
- * 깊은 그림자는 먹으로 채운다. 나뭇잎은 촘촘한 잎 뭉치, 낡은 벽은 잔결 질감. 낙관 대신 손글씨 서명.
+ * 깊은 그림자는 먹으로 채운다. 나뭇잎은 촘촘한 잎 뭉치, 낡은 벽은 잔결 질감.
  */
-export const PARK_STROKES: StrokeProfile = {
+export const FINE_STROKES: StrokeProfile = {
   fill: 'sketch', tones: 6, paperKeep: 40, lineWidth: 1, edgeDensity: 90, hatchAngle: 0, hatchSpacing: 3, jitter: 25,
-  paperColor: '#f7f5f0', inkColor: '#111114', vignette: 0, seal: '', sealDate: false,
+  paperColor: '#f7f5f0', inkColor: '#111114', vignette: 0,
 };
 /** 예전 기본값: 굵은 펜의 한 방향 해칭 */
 export const CLASSIC_STROKES: StrokeProfile = {
   fill: 'hatch', tones: 4, paperKeep: 55, lineWidth: 2, edgeDensity: 50, hatchAngle: 35, hatchSpacing: 7, jitter: 35,
-  paperColor: '#f5f0e6', inkColor: '#221e1b', vignette: 0, seal: '', sealDate: false,
+  paperColor: '#f5f0e6', inkColor: '#221e1b', vignette: 0,
 };
 export const DEFAULT_STROKES: StrokeProfile = RICHEON_STROKES;
 
@@ -88,7 +84,7 @@ export function strokesForLevel(level: Level): StrokeProfile {
 
 /** 화풍 선택이 로컬 채우기 방식에 대응되는 경우 */
 export const FILL_FOR_STYLE: Partial<Record<PenStyle, FillMode>> = {
-  richeon: 'sketch', parkyongsoon: 'sketch', urban: 'sketch',
+  richeon: 'sketch', fineink: 'sketch', urban: 'sketch',
   hatching: 'hatch', crosshatch: 'cross', contour: 'contour', scribble: 'scribble', stipple: 'stipple',
   engraving: 'hatch', architectural: 'hatch', realistic: 'cross', comic: 'contour',
 };
@@ -109,8 +105,8 @@ export function blendStrokes(base: StrokeProfile, m: StrokeProfile, weight: numb
     jitter: Math.round(mix(base.jitter, m.jitter)),
     paperColor: t >= 0.5 ? m.paperColor : base.paperColor,
     inkColor: t >= 0.5 ? m.inkColor : base.inkColor,
-    // 가장자리 처리와 낙관은 견본에서 재지 않으므로 기본값을 유지
-    vignette: base.vignette, seal: base.seal, sealDate: base.sealDate,
+    // 가장자리 처리는 견본에서 재지 않으므로 기본값을 유지
+    vignette: base.vignette,
   };
 }
 
@@ -152,7 +148,10 @@ export const DEFAULT_PARAMS: DrawingParams = {
 
 /** 이력에서 불러온 옛 레코드에 새 필드가 없을 수 있으므로 기본값과 병합합니다 */
 export function mergeParams(p: Partial<DrawingParams> | undefined): DrawingParams {
-  return { ...DEFAULT_PARAMS, ...p, strokes: { ...DEFAULT_STROKES, ...(p?.strokes ?? {}) } };
+  const merged = { ...DEFAULT_PARAMS, ...p, strokes: { ...DEFAULT_STROKES, ...(p?.strokes ?? {}) } };
+  // 옛 이름의 화풍 ID
+  if ((merged.style as string) === 'parkyongsoon') merged.style = 'fineink';
+  return merged;
 }
 
 export interface ProviderSettings {
@@ -197,6 +196,8 @@ export interface Drawing {
   result: Blob;
   /** 4단계 과정 그림 (선택 생성) */
   process?: Blob;
+  /** 낙관·사인을 찍기 전 원본 결과. result 는 여기에 배치를 구워 넣은 것 */
+  base?: Blob;
   params: DrawingParams;
   /** 없으면 옛 레코드 = AI */
   engine?: Engine;
@@ -218,12 +219,12 @@ export const LIGHT_LABEL: Record<LightDir, string> = {
 export const LIGHT_DIRS: LightDir[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
 export const PEN_STYLES: PenStyle[] = [
-  'richeon', 'parkyongsoon', 'hatching', 'crosshatch', 'contour', 'scribble', 'stipple', 'engraving', 'urban', 'realistic', 'comic', 'architectural',
+  'richeon', 'fineink', 'hatching', 'crosshatch', 'contour', 'scribble', 'stipple', 'engraving', 'urban', 'realistic', 'comic', 'architectural',
   'ghibli', 'webtoon', 'manga',
 ];
 export const STYLE_LABEL: Record<PenStyle, string> = {
   richeon: '리천 스타일 (어반 펜 스케치)',
-  parkyongsoon: '박용순 스타일 (세밀 펜화)',
+  fineink: '세밀 펜화',
   hatching: '클래식 해칭',
   crosshatch: '크로스 해칭',
   contour: '윤곽선 드로잉',
@@ -240,7 +241,7 @@ export const STYLE_LABEL: Record<PenStyle, string> = {
 };
 export const STYLE_DESC: Record<PenStyle, string> = {
   richeon: '가는 검정 펜으로 면의 방향을 따라 해칭(벽은 세로, 바닥은 원근 방향). 나뭇잎은 뭉게구름처럼 둘러 그리고 안을 고리 선으로 채웁니다. 하늘과 밝은 곳은 흰 종이로 비우고 가장자리는 미완성으로 둡니다. @richeons_drawing_journey',
-  parkyongsoon: '아주 가늘고 고른 선으로 종이 끝까지 빈틈없이 완성하는 전문 펜화. 하늘은 수평 해칭 속에 구름을 흰 여백으로 남기고, 깊은 그림자는 먹으로 채웁니다. 낡은 벽·기와·나뭇잎의 잔결 질감이 핵심. @parkyongsoon_art',
+  fineink: '아주 가늘고 고른 선으로 종이 끝까지 빈틈없이 완성하는 전문 펜화. 하늘은 수평 해칭 속에 구름을 흰 여백으로 남기고, 깊은 그림자는 먹으로 채웁니다. 낡은 벽·기와·나뭇잎의 잔결 질감이 핵심.',
   hatching: '한 방향 평행선으로 명암을 쌓는 정석 펜 드로잉. 가장 무난하고 사진 재현이 안정적입니다.',
   crosshatch: '여러 각도의 선을 교차시켜 부드러운 중간톤을 만듭니다. 입체감과 질감이 풍부합니다.',
   contour: '명암을 거의 넣지 않고 윤곽과 형태선만으로 그립니다. 여백이 많고 간결합니다.',

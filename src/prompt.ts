@@ -21,14 +21,14 @@ const STYLE_TEXT: Record<PenStyle, string> = {
     'if it is toned at all); shadows built with tight cross-hatching. Foliage is drawn as cloud-like scalloped masses filled with ' +
     'small looping scribbles, darker underneath and left open on top. Sky, clouds and sunlit surfaces stay white untouched paper. ' +
     'The drawing fades out unfinished toward the edges of the paper; nothing is filled to the border. ' +
-    'A small red square seal and a handwritten date sit in one lower corner.',
-  parkyongsoon:
+    'Leave one lower corner clear for a seal.',
+  fineink:
     'Style: professional Korean pen-and-ink illustration with an ultra-fine liner, fully rendered edge to edge. ' +
     'Extremely fine, even, closely spaced lines; tone built patiently with many layers; deep shadows filled solid black for ' +
     'strong contrast. The sky is drawn with long horizontal hatching and clouds are left as soft white negative shapes inside it. ' +
     'Weathered textures are lovingly described: corrugated roofs as parallel lines, old plaster and stone with stippled cracks, ' +
     'dense foliage as clustered leaf marks with white sparkle highlights. Only the foreground ground may stay light. ' +
-    'No seal; a small handwritten signature and year in a lower corner.',
+    'Leave one lower corner clear for a signature.',
   hatching:
     'Style: classic parallel hatching. Tone is built with straight, evenly spaced strokes in one dominant direction per plane.',
   crosshatch:

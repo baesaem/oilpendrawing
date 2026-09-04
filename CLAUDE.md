@@ -53,20 +53,27 @@ UI 문구는 모두 한국어이고, 코드 주석도 한국어로 쓴다.
 ### 로컬 렌더러와 견본 분석
 
 `StrokeProfile`(`types.ts`)이 렌더러의 전부다: 채우기 방식, 톤 단계, 여백, 선 굵기, 윤곽선 밀도,
-해칭 각도·간격, 손떨림, 가장자리 여백(vignette), 낙관(seal), 종이·잉크색. 렌더는 밝기 → 톤 단계 →
+해칭 각도·간격, 손떨림, 가장자리 여백(vignette), 종이·잉크색. 렌더는 밝기 → 톤 단계 →
 단계별 해칭 층(`hatchLayer`, 토막·각도·필압이 난수로 흔들리되 seed 고정) → Sobel 윤곽선 팽창 →
-가장자리 흐림 → 종이색 위 합성 순서이고, 낙관·날짜는 폰트가 필요해 `local.ts` 의 `drawSeal` 이 화면 스레드에서 찍는다.
+가장자리 흐림 → 종이색 위 합성 순서다.
 
 채우기 `sketch`(어반 스케치)가 기본이다. `orientationField` 가 구조 텐서로 면의 방향장을 만들고
 `sketchLayer` 가 그 방향으로 짧은 획을 잇는다(방향이 없는 하늘은 `hatchAngle` 의 긴 사선). `textureMask` 로
 잡은 잔결 영역(나뭇잎)은 획 대신 고리 선으로 채운다. 짝수 층은 방향을 90도 돌려 그림자에 교차 해칭이 생기고,
 톤이 5단계 이상이면 가장 어두운 단계를 먹으로 채운다.
 
-참고 작가 프리셋은 `RICHEON_STROKES`(기본, instagram @richeons_drawing_journey — 이 앱 주인의 드로잉)와
-`PARK_STROKES`(@parkyongsoon_art). 화풍(`PenStyle`) `richeon`·`parkyongsoon` 을 고르면 `App.patchParams` 가
+프리셋은 `RICHEON_STROKES`(기본, instagram @richeons_drawing_journey — 이 앱 주인의 드로잉)와
+`FINE_STROKES`(세밀 펜화. 참고한 작가의 이름은 UI·문서에 쓰지 않는다). 화풍(`PenStyle`) `richeon`·`fineink` 를 고르면 `App.patchParams` 가
 프리셋 전체를 `strokes` 에 넣고, 다른 화풍은 `FILL_FOR_STYLE` 로 채우기 방식만 바꾼다. 숙련도 기본값
 `strokesForLevel` 도 리천 프리셋을 단순화한 것이다. 새 작가를 추가할 때는 이 넷(프리셋, `PenStyle`,
-`STYLE_TEXT`, `STYLE_TIP`)을 함께 넣는다.
+`STYLE_TEXT`, `STYLE_TIP`)을 함께 넣는다. 옛 ID `parkyongsoon` 은 `mergeParams` 가 `fineink` 로 바꾼다.
+
+### 낙관·사인
+
+`stamps.ts`. 등록 항목(`StampItem`, 투명 PNG data URL)과 배치(`PlacedStamp`, 그림에 대한 상대 좌표 0~1과 폭 비율)를
+localStorage `oilpen.stamps.v1` 에 둔다. 낙관 2개·사인 3개 한도. `Drawing.base` 가 찍기 전 결과이고 `result` 는 배치를
+구워 넣은 것이라, 전체화면·가이드·저장은 `result` 를 그대로 쓴다. `Stage` 는 끌기 중 부드럽게 보이도록 `base` 위에
+DOM 오버레이(`StampLayer`)로 그리고, 놓는 순간 `App.rebake` 가 `compositeStamps` 로 다시 굽는다.
 
 견본을 올리면 `analyzeSample` 이 프로필을 재고, `App` 이 `blendStrokes(strokesForLevel(level), measured, referenceWeight)` 로
 슬라이더를 채운다. 측정은 근사치이므로 **슬라이더가 항상 최종 권한**이다. 숙련도·견본·반영도가 바뀌면 슬라이더가
