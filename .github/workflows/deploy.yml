@@ -31,6 +31,9 @@ jobs:
           node-version: 22
           cache: npm
       - uses: actions/configure-pages@v5
+        with:
+          # 저장소가 공개이면 Pages 가 꺼져 있어도 여기서 켠다(Source: GitHub Actions)
+          enablement: true
       - run: npm ci
       - name: 정적 빌드
         run: |
