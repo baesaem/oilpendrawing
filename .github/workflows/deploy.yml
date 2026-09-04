@@ -1,5 +1,8 @@
-# main 또는 작업 브랜치에 푸시되면 정적 빌드를 GitHub Pages로 배포합니다.
-# configure-pages 의 enablement 로 Pages 가 꺼져 있으면 자동으로 켭니다(Source: GitHub Actions).
+# GitHub Pages 배포 (리천 기타교실과 같은 구조)
+# - main 또는 작업 브랜치에 푸시되면 정적 빌드를 올린다.
+# - 저장소 변수 PAGES_DOMAIN 에 커스텀 도메인(예: oilpen.richeon.kr)을 넣으면
+#   CNAME 을 써서 도메인 뿌리에 배포하고, 비어 있으면 https://baesaem.github.io/oilpendrawing/ 에 배포한다.
+# - Pages 는 무료 계정에서는 공개 저장소에서만 동작한다. Settings → Pages → Source: GitHub Actions.
 name: Deploy to GitHub Pages
 
 on:
@@ -14,11 +17,13 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      PAGES_DOMAIN: ${{ vars.PAGES_DOMAIN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,10 +31,17 @@ jobs:
           node-version: 22
           cache: npm
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - run: npm ci
-      - run: npm run build
+      - name: 정적 빌드
+        run: |
+          if [ -n "$PAGES_DOMAIN" ]; then
+            # 커스텀 도메인은 뿌리에 놓이므로 base 를 / 로
+            VITE_BASE=/ npm run build
+            echo "$PAGES_DOMAIN" > dist/CNAME
+          else
+            npm run build
+          fi
+          touch dist/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

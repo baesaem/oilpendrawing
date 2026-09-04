@@ -37,10 +37,16 @@ VITE_BASE=/ npm run build   # 루트 경로에 배포할 때
 개발 서버는 5173 포트로 고정되고(다른 프로그램이 쓰고 있으면 오류로 알려 줍니다), 같은 네트워크의 태블릿에서도
 터미널에 표시된 `Network:` 주소로 열 수 있습니다. `http://localhost:5173/oilpendrawing/` 로 들어와도 루트로 안내됩니다.
 
-## 배포
+## 배포 (리천 기타교실과 같은 구조)
 
-`main`에 푸시하면 `.github/workflows/deploy.yml`이 GitHub Pages로 배포합니다.
-저장소 **Settings → Pages → Source**를 "GitHub Actions"로 설정하세요. 배포 주소: https://baesaem.github.io/oilpendrawing/
+`main` 또는 작업 브랜치에 푸시하면 `.github/workflows/deploy.yml`이 GitHub Pages로 배포합니다.
+
+1. 저장소를 **공개(Public)** 로 둡니다. 무료 계정의 Pages는 공개 저장소에서만 동작합니다.
+2. **Settings → Pages → Source**를 "GitHub Actions"로 설정합니다.
+3. (선택) 커스텀 도메인: **Settings → Secrets and variables → Actions → Variables**에 `PAGES_DOMAIN` = `oilpen.richeon.kr` 처럼 넣고,
+   DNS에 `oilpen` CNAME → `baesaem.github.io` 레코드를 추가합니다. 변수가 비어 있으면 https://baesaem.github.io/oilpendrawing/ 에 배포됩니다.
+
+소개 페이지는 `/intro/` 에 있습니다 (`public/intro/index.html`).
 
 ## 화가 화풍 접목
 
