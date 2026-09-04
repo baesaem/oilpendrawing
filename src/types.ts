@@ -132,6 +132,8 @@ export interface DrawingParams {
   grayscaleInput: boolean;
   /** 로컬 렌더러의 선·톤 */
   strokes: StrokeProfile;
+  /** AI 로 그릴 때 로컬 결과를 견본 이미지로 함께 보낼지 (같은 구도라 해칭 방향·톤 배치를 잘 따름) */
+  aiRefFromLocal: boolean;
 }
 
 export const DEFAULT_PARAMS: DrawingParams = {
@@ -147,6 +149,7 @@ export const DEFAULT_PARAMS: DrawingParams = {
   referenceWeight: 60,
   grayscaleInput: false,
   strokes: DEFAULT_STROKES,
+  aiRefFromLocal: true,
 };
 
 /** 이력에서 불러온 옛 레코드에 새 필드가 없을 수 있으므로 기본값과 병합합니다 */

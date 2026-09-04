@@ -196,8 +196,12 @@ export function App() {
       setBusy('이미지 준비 중…');
       const gray = params.grayscaleInput && !inputIsGray;
       const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: gray, relight: params.lightAuto ? undefined : params.light });
-      const preparedRef = reference ? await prepareInput(reference, { maxSide: 1024, grayscale: false }) : undefined;
-      const prompt = buildPrompt(params, !!preparedRef);
+      // 로컬 결과가 있고 스위치가 켜져 있으면 그것을 견본으로 (같은 구도라 올린 견본보다 정확히 따름)
+      const localRef = params.aiRefFromLocal && current?.engine === 'local' ? current.base ?? current.result : null;
+      const preparedRef = localRef
+        ? await prepareInput(localRef, { maxSide: 1024, grayscale: false })
+        : reference ? await prepareInput(reference, { maxSide: 1024, grayscale: false }) : undefined;
+      const prompt = buildPrompt(params, localRef ? 'local' : preparedRef ? 'sample' : 'none');
       const result = await generateDrawing(settings, { input: preparedInput, reference: preparedRef, prompt, signal: ac.signal, onStatus: setBusy });
       await commit({
         id: newId(), createdAt: Date.now(), input: preparedInput, reference: preparedRef, result, params: { ...params },
@@ -340,7 +344,7 @@ export function App() {
           input={input} reference={reference} inputIsGray={inputIsGray}
           params={params} onParams={patchParams}
           onInput={setInput} onReference={setReference}
-          analysis={analysis}
+          analysis={analysis} hasLocal={current?.engine === 'local'} keyOk={keyOk}
         />
         {keyOk && !EDITS_INPUT[settings.provider] && (
           <div className="note">

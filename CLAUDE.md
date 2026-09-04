@@ -117,6 +117,9 @@ CORS 로 막을 때 코드 수정 없이 대응하기 위한 것이므로, 모�
 ```
 
 `strokesText` 는 로컬 렌더러의 `StrokeProfile` 을 문장으로 옮긴 것이라 두 경로가 같은 설정을 본다.
+`buildPrompt` 의 두 번째 인자 `RefKind` 가 두 번째 이미지의 정체다: `sample`(올린 견본) 또는 `local`(같은 사진의 로컬 결과,
+`DrawingParams.aiRefFromLocal` 이 켜져 있고 로컬 결과가 떠 있을 때 `App.drawAi` 가 `current.base` 를 보냄). 로컬을 보낼 때는
+"손으로 다시 그리되 기계적 규칙성은 베끼지 말라"고 덧붙인다.
 
 화풍(`PenStyle`, 13종)은 기법이고, 화가(`ArtistId`, `artists.ts`, 10명)는 그 위에 얹는
 해석이다. 둘은 곱해서 쓴다. 화가 목록은 **사후 60년 이상 지난 작가만** 넣는다 —

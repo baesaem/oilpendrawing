@@ -52,9 +52,12 @@ interface Props {
   onReference: (f: File | null) => void;
   /** 견본 분석 상태: null = 아직, 문자열 = 요약 */
   analysis: { busy: boolean; summary: string | null; warning?: string };
+  /** 로컬 결과가 떠 있는지 (AI 견본으로 보낼 수 있는지) */
+  hasLocal: boolean;
+  keyOk: boolean;
 }
 
-export function InputPanel({ input, reference, inputIsGray, params, onParams, onInput, onReference, analysis }: Props) {
+export function InputPanel({ input, reference, inputIsGray, params, onParams, onInput, onReference, analysis, hasLocal, keyOk }: Props) {
   return (
     <>
       <div className="field">
@@ -113,6 +116,24 @@ export function InputPanel({ input, reference, inputIsGray, params, onParams, on
           </>
         )}
       </div>
+
+      {keyOk && (
+        <div className="field">
+          <button
+            className="toggle" role="switch" aria-checked={params.aiRefFromLocal}
+            onClick={() => onParams({ aiRefFromLocal: !params.aiRefFromLocal })}
+            title="같은 구도의 로컬 드로잉을 두 번째 이미지로 보내면 AI 가 해칭 방향과 톤 배치를 훨씬 정확히 따릅니다"
+          >
+            <span>AI에 로컬 결과를 견본으로 보내기</span>
+            <span className={`switch ${params.aiRefFromLocal ? 'on' : ''}`} />
+          </button>
+          <div className="small faint">
+            {params.aiRefFromLocal
+              ? (hasLocal ? '지금 떠 있는 로컬 드로잉이 견본으로 함께 갑니다. 올린 견본 이미지는 이때 쓰이지 않습니다.' : '먼저 "드로잉 만들기"로 로컬 결과를 만들면 그것이 견본으로 갑니다.')
+              : '올린 견본 이미지만 보냅니다. 반영도는 견본 반영도 슬라이더를 따릅니다.'}
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -127,7 +127,10 @@ function toneText(p: DrawingParams): string {
   return parts.length ? parts.join('; ') + '.' : '';
 }
 
-export function buildPrompt(p: DrawingParams, hasReference: boolean): string {
+/** 두 번째 이미지의 정체: 없음 / 사용자가 올린 견본 / 같은 사진을 로컬 렌더러로 그린 결과 */
+export type RefKind = 'none' | 'sample' | 'local';
+
+export function buildPrompt(p: DrawingParams, ref: RefKind): string {
   const lines = [
     'Redraw the provided photograph as a hand-made oil-based ballpoint pen drawing on paper.',
     'Keep the exact composition, proportions, perspective and every subject of the photo; change only the medium.',
@@ -147,12 +150,18 @@ export function buildPrompt(p: DrawingParams, hasReference: boolean): string {
     'This drawing is a reference that a human student will copy by hand into a sketchbook: every mark must read as a ' +
       'real pen stroke a person could make, with no effects impossible by hand.',
   ];
-  if (hasReference) {
-    const w = p.referenceWeight;
-    const strength = w >= 70 ? 'closely' : w >= 40 ? 'moderately' : 'loosely';
+  const w = p.referenceWeight;
+  const strength = w >= 70 ? 'closely' : w >= 40 ? 'moderately' : 'loosely';
+  if (ref === 'sample') {
     lines.push(
       `A second image is a style sample. Follow its line weight, hatching angle, tone steps and paper exposure ${strength} ` +
         '(do not copy its subject; the subject comes only from the photograph).',
+    );
+  } else if (ref === 'local') {
+    lines.push(
+      'A second image is a rough pen-drawing rendering of the same photograph made with exactly the stroke settings above. ' +
+        `Follow its hatching directions, tone placement and paper exposure ${strength}, but redraw every mark by hand: ` +
+        'more skill, natural variation, and cleaner form than the rough version. Do not reproduce its mechanical regularity.',
     );
   }
   return lines.filter(Boolean).join('\n');
