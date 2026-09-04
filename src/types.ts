@@ -7,7 +7,8 @@ export type { ArtistId } from './artists';
 export type ProviderId = 'gemini' | 'openai' | 'xai';
 export type PenStyle =
   | 'hatching' | 'crosshatch' | 'contour' | 'scribble' | 'stipple'
-  | 'engraving' | 'urban' | 'realistic' | 'comic' | 'architectural';
+  | 'engraving' | 'urban' | 'realistic' | 'comic' | 'architectural'
+  | 'ghibli' | 'webtoon' | 'manga';
 
 export interface DrawingParams {
   /** 화풍(기법) */
@@ -104,6 +105,7 @@ export const LIGHT_DIRS: LightDir[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW
 
 export const PEN_STYLES: PenStyle[] = [
   'hatching', 'crosshatch', 'contour', 'scribble', 'stipple', 'engraving', 'urban', 'realistic', 'comic', 'architectural',
+  'ghibli', 'webtoon', 'manga',
 ];
 export const STYLE_LABEL: Record<PenStyle, string> = {
   hatching: '클래식 해칭',
@@ -116,6 +118,9 @@ export const STYLE_LABEL: Record<PenStyle, string> = {
   realistic: '극사실 세밀화',
   comic: '잉크 일러스트',
   architectural: '건축 제도풍',
+  ghibli: '지브리풍 애니메이션',
+  webtoon: '웹툰',
+  manga: '일본 만화(망가)',
 };
 export const STYLE_DESC: Record<PenStyle, string> = {
   hatching: '한 방향 평행선으로 명암을 쌓는 정석 펜 드로잉. 가장 무난하고 사진 재현이 안정적입니다.',
@@ -128,4 +133,7 @@ export const STYLE_DESC: Record<PenStyle, string> = {
   realistic: '아주 촘촘한 선으로 사진처럼 세밀하게 묘사합니다. 가장 오래 그린 듯한 결과입니다.',
   comic: '굵은 외곽선과 검게 채운 그림자(스팟 블랙). 만화·잉크 일러스트 느낌입니다.',
   architectural: '직선 위주의 정확한 원근과 균일한 선. 건축 도면·투시도 같은 인상입니다.',
+  ghibli: '손그림 애니메이션 배경화 느낌. 부드럽고 깨끗한 윤곽, 단순화한 형태, 셀 방식의 2~3단계 평면 명암, 따뜻하고 서정적인 분위기.',
+  webtoon: '한국 웹툰의 깔끔한 디지털 선화. 굵기가 일정한 외곽선, 단순한 셀 셰이딩, 인물은 또렷하고 배경은 간략하게.',
+  manga: '일본 만화 원고 느낌. 가늘고 날카로운 펜선, 스크린톤처럼 규칙적인 점·선 무늬로 명암, 강조 부분에 굵은 잉크.',
 };

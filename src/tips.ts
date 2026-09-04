@@ -54,6 +54,9 @@ export const STYLE_TIP: Record<PenStyle, string> = {
   realistic: '아주 작은 부분씩 나눠 그립니다. 종이 한 손가락 넓이를 끝내고 다음으로.',
   comic: '외곽선을 먼저 굵게 확정한 뒤 가장 어두운 그림자만 검게 채웁니다. 중간톤은 생략해도 됩니다.',
   architectural: '수직선은 항상 수직으로. 소실점을 종이 밖에라도 점으로 찍어 두고 선을 맞춥니다.',
+  ghibli: '형태를 둥글고 단순하게 정리한 뒤, 그림자는 경계가 또렷한 덩어리 2~3개로만 나눕니다. 그림자 안은 같은 간격의 해칭으로 평평하게.',
+  webtoon: '외곽선 굵기를 끝까지 일정하게 유지합니다. 그림자는 모양을 먼저 연하게 그린 뒤 그 안만 채우세요.',
+  manga: '중간톤은 선 대신 규칙적인 점이나 사선 무늬로. 가장 강조할 곳 한두 군데만 검게 채웁니다.',
 };
 
 export function buildTip(step: GuideStep, level: Level, style: PenStyle, light: LightDir, artist: ArtistId = 'none'): string[] {

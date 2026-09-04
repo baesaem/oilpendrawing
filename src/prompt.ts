@@ -35,6 +35,16 @@ const STYLE_TEXT: Record<PenStyle, string> = {
     'Style: comic ink illustration. Bold, confident outlines, solid black spot-shadows, simplified mid-tones, high graphic contrast.',
   architectural:
     'Style: architectural drafting. Ruler-straight lines, accurate perspective, uniform line weight, restrained hatching only in shadows.',
+  ghibli:
+    'Style: hand-drawn Japanese animation look reminiscent of classic Studio Ghibli films, rendered in pen: soft clean outlines, ' +
+    'simplified gentle shapes, cel-shading with two or three flat tone steps made of even hatching, warm nostalgic atmosphere, ' +
+    'no photographic detail.',
+  webtoon:
+    'Style: Korean webtoon line art in pen: crisp digital-looking outlines of uniform weight, simple cel shading with clean flat ' +
+    'shadow shapes, subjects drawn sharply while the background is simplified, modern and clean.',
+  manga:
+    'Style: Japanese manga ink page in pen: thin sharp linework, screentone-like regular dot and line patterns for mid-tones, ' +
+    'bold spot blacks for emphasis, expressive line weight variation, black-and-white graphic clarity.',
 };
 
 const LIGHT_TEXT: Record<LightDir, string> = {
