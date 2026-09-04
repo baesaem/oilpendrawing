@@ -10,6 +10,80 @@ export type PenStyle =
   | 'engraving' | 'urban' | 'realistic' | 'comic' | 'architectural'
   | 'ghibli' | 'webtoon' | 'manga';
 
+/** 결과를 만든 엔진: 브라우저 로컬 렌더러 또는 AI 제공사 */
+export type Engine = 'local' | 'ai';
+
+/** 로컬 렌더러의 채우기 방식 */
+export type FillMode = 'hatch' | 'cross' | 'contour' | 'scribble' | 'stipple';
+export const FILL_LABEL: Record<FillMode, string> = {
+  hatch: '한 방향 해칭', cross: '교차 해칭', contour: '윤곽선 위주', scribble: '스크리블', stipple: '점묘',
+};
+
+/**
+ * 선·톤 프로필. 견본 드로잉을 분석해 채우거나 사용자가 직접 조절합니다.
+ * 모든 픽셀 단위 값은 긴 변 1000px 기준입니다.
+ */
+export interface StrokeProfile {
+  fill: FillMode;
+  /** 톤 단계 수 (종이 포함) 2~6 */
+  tones: number;
+  /** 종이를 비워 두는 정도 0~100. 높을수록 밝은 곳을 넓게 남깁니다 */
+  paperKeep: number;
+  /** 선 굵기 px 1~6 */
+  lineWidth: number;
+  /** 윤곽선 밀도 0~100 */
+  edgeDensity: number;
+  /** 해칭 각도 0~179도 (0 = 수평) */
+  hatchAngle: number;
+  /** 해칭 간격 px 3~24 */
+  hatchSpacing: number;
+  /** 손떨림·불규칙 0~100 */
+  jitter: number;
+  /** 종이색 #rrggbb */
+  paperColor: string;
+  /** 잉크색 #rrggbb */
+  inkColor: string;
+}
+
+export const DEFAULT_STROKES: StrokeProfile = {
+  fill: 'hatch', tones: 4, paperKeep: 55, lineWidth: 2, edgeDensity: 50, hatchAngle: 35, hatchSpacing: 7, jitter: 35,
+  paperColor: '#f5f0e6', inkColor: '#221e1b',
+};
+
+/** 숙련도별 기본 선·톤 (견본이 없을 때 출발점) */
+export function strokesForLevel(level: Level): StrokeProfile {
+  switch (level) {
+    case 'beginner': return { ...DEFAULT_STROKES, tones: 3, lineWidth: 2.5, edgeDensity: 35, hatchSpacing: 9, jitter: 40 };
+    case 'intermediate': return { ...DEFAULT_STROKES };
+    case 'advanced': return { ...DEFAULT_STROKES, fill: 'cross', tones: 5, lineWidth: 1.5, edgeDensity: 65, hatchSpacing: 5, jitter: 30 };
+  }
+}
+
+/** 화풍 선택이 로컬 채우기 방식에 대응되는 경우 */
+export const FILL_FOR_STYLE: Partial<Record<PenStyle, FillMode>> = {
+  hatching: 'hatch', crosshatch: 'cross', contour: 'contour', scribble: 'scribble', stipple: 'stipple',
+  engraving: 'hatch', architectural: 'hatch', realistic: 'cross', urban: 'hatch', comic: 'contour',
+};
+
+/** 기본값과 측정값을 반영도(0~100)로 섞습니다 */
+export function blendStrokes(base: StrokeProfile, m: StrokeProfile, weight: number): StrokeProfile {
+  const t = Math.max(0, Math.min(1, weight / 100));
+  const mix = (a: number, b: number) => a + (b - a) * t;
+  return {
+    fill: t >= 0.5 ? m.fill : base.fill,
+    tones: Math.round(mix(base.tones, m.tones)),
+    paperKeep: Math.round(mix(base.paperKeep, m.paperKeep)),
+    lineWidth: Math.round(mix(base.lineWidth, m.lineWidth) * 2) / 2,
+    edgeDensity: Math.round(mix(base.edgeDensity, m.edgeDensity)),
+    // 각도는 중간값이 의미가 없으므로 섞지 않고 고릅니다
+    hatchAngle: t >= 0.5 ? m.hatchAngle : base.hatchAngle,
+    hatchSpacing: Math.round(mix(base.hatchSpacing, m.hatchSpacing)),
+    jitter: Math.round(mix(base.jitter, m.jitter)),
+    paperColor: t >= 0.5 ? m.paperColor : base.paperColor,
+    inkColor: t >= 0.5 ? m.inkColor : base.inkColor,
+  };
+}
+
 export interface DrawingParams {
   /** 화풍(기법) */
   style: PenStyle;
@@ -28,6 +102,8 @@ export interface DrawingParams {
   referenceWeight: number;
   /** 입력을 흑백으로 변환해서 보냄 */
   grayscaleInput: boolean;
+  /** 로컬 렌더러의 선·톤 */
+  strokes: StrokeProfile;
 }
 
 export const DEFAULT_PARAMS: DrawingParams = {
@@ -41,7 +117,13 @@ export const DEFAULT_PARAMS: DrawingParams = {
   contrast: 0,
   referenceWeight: 60,
   grayscaleInput: false,
+  strokes: DEFAULT_STROKES,
 };
+
+/** 이력에서 불러온 옛 레코드에 새 필드가 없을 수 있으므로 기본값과 병합합니다 */
+export function mergeParams(p: Partial<DrawingParams> | undefined): DrawingParams {
+  return { ...DEFAULT_PARAMS, ...p, strokes: { ...DEFAULT_STROKES, ...(p?.strokes ?? {}) } };
+}
 
 export interface ProviderSettings {
   apiKey: string;
@@ -86,9 +168,11 @@ export interface Drawing {
   /** 4단계 과정 그림 (선택 생성) */
   process?: Blob;
   params: DrawingParams;
-  provider: ProviderId;
-  model: string;
-  prompt: string;
+  /** 없으면 옛 레코드 = AI */
+  engine?: Engine;
+  provider?: ProviderId;
+  model?: string;
+  prompt?: string;
 }
 
 export const LEVEL_LABEL: Record<Level, string> = { beginner: '초급', intermediate: '중급', advanced: '상급' };

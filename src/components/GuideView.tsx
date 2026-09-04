@@ -122,7 +122,7 @@ export function GuideView(p: Props) {
             </div>
           )}
         </div>
-        {p.step === 'final' && !p.result && <p className="sub">아직 AI 드로잉이 없습니다. 하단의 "드로잉 생성"을 누르면 이 단계에 완성 참고가 표시됩니다.</p>}
+        {p.step === 'final' && !p.result && <p className="sub">아직 드로잉이 없습니다. 하단의 "드로잉 만들기"를 누르면 이 단계에 완성 참고가 표시됩니다.</p>}
         {tips.map((t, i) => <p key={i} className={i === 0 ? '' : 'sub'}>{t}</p>)}
       </div>
     </>

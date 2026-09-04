@@ -48,13 +48,14 @@ export function ApiKeyDialog({ settings, onSave, onClose, canClose }: Props) {
       <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="keys-title" onClick={(e) => e.stopPropagation()}>
         <div className="panel-head">
           <div>
-            <div className="small faint" style={{ letterSpacing: '.08em' }}>시작하기</div>
-            <h2 id="keys-title">내 API 키로 그립니다</h2>
+            <div className="small faint" style={{ letterSpacing: '.08em' }}>선택 기능</div>
+            <h2 id="keys-title">AI 로도 그려 보기</h2>
           </div>
           {canClose && <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="닫기"><CloseIcon /></button>}
         </div>
         <p className="muted" style={{ margin: 0 }}>
-          키는 이 브라우저에만 저장되고, 요청은 브라우저에서 제공사 API로 직접 보냅니다. 서버에 키가 저장되지 않습니다.
+          키 없이도 "드로잉 만들기"는 동작합니다. AI 제공사의 다른 해석을 보고 싶을 때만 키를 넣으세요.
+          키는 이 브라우저에만 저장되고, 요청은 브라우저에서 제공사 API로 직접 보냅니다.
         </p>
         {IS_PREVIEW && <div className="note preview-note">미리보기 모드 · {PREVIEW_NOTE} 키를 넣지 않아도 "저장하고 시작"을 누르면 화면을 둘러볼 수 있습니다.</div>}
 

@@ -7,7 +7,7 @@ export const GUIDE_STEPS: Array<{ id: GuideStep; label: string; short: string }>
   { id: 'compose', label: '1 구도', short: '격자로 위치 잡기' },
   { id: 'shape', label: '2 큰 형태', short: '윤곽선만 연하게' },
   { id: 'value', label: '3 명암', short: '어두운 곳부터 해칭' },
-  { id: 'final', label: '4 완성 참고', short: 'AI 드로잉 보며 마무리' },
+  { id: 'final', label: '4 완성 참고', short: '완성 참고 보며 마무리' },
 ];
 
 const COMMON: Record<GuideStep, string> = {

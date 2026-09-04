@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { COLOR_LABEL, LEVEL_DESC, LEVEL_LABEL, PEN_STYLES, STYLE_DESC, STYLE_LABEL, type ColorMode, type DrawingParams, type Level, type PenStyle } from '../types';
 import { LightDial } from './LightDial';
 import { ARTISTS, ARTIST_BY_ID, type ArtistId } from '../artists';
@@ -17,7 +18,14 @@ function intensityHint(v: number) {
   return '매우 촘촘하게 겹친 선';
 }
 
-export function StylePanel({ params, onParams }: { params: DrawingParams; onParams: (p: Partial<DrawingParams>) => void }) {
+interface Props {
+  params: DrawingParams;
+  onParams: (p: Partial<DrawingParams>) => void;
+  /** 공통 설정 다음, AI 전용 설정 앞에 끼워 넣을 내용 (선·톤 패널) */
+  children?: ReactNode;
+}
+
+export function StylePanel({ params, onParams, children }: Props) {
   return (
     <>
       <div className="panel-head"><h2>표현 설정</h2></div>
@@ -31,14 +39,6 @@ export function StylePanel({ params, onParams }: { params: DrawingParams; onPara
       </div>
 
       <div className="field">
-        <div className="field-row"><b>화가 화풍 접목</b><span className="muted small">선택</span></div>
-        <select className="text-input select" value={params.artist} onChange={(e) => onParams({ artist: e.target.value as ArtistId })} aria-label="화가 화풍">
-          {ARTISTS.map((a) => <option key={a.id} value={a.id}>{a.id === 'none' ? '없음' : `${a.name} (${a.years})`}</option>)}
-        </select>
-        <div className="small muted">{ARTIST_BY_ID[params.artist].desc}</div>
-      </div>
-
-      <div className="field">
         <div className="field-row"><b>숙련도</b></div>
         <div className="seg" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }} role="radiogroup" aria-label="숙련도">
           {LEVELS.map((l) => (
@@ -48,11 +48,6 @@ export function StylePanel({ params, onParams }: { params: DrawingParams; onPara
           ))}
         </div>
         <div className="small muted">{LEVEL_DESC[params.level]}</div>
-      </div>
-
-      <div className="field">
-        <div className="field-row"><b>강도</b><span className="muted">{params.intensity} · {intensityHint(params.intensity)}</span></div>
-        <input type="range" min={0} max={100} value={params.intensity} onChange={(e) => onParams({ intensity: Number(e.target.value) })} aria-label="강도" />
       </div>
 
       <div className="field">
@@ -77,7 +72,24 @@ export function StylePanel({ params, onParams }: { params: DrawingParams; onPara
         <div className="field-row"><b>대비</b><span className="muted">{params.contrast > 0 ? `+${params.contrast}` : params.contrast}</span></div>
         <input type="range" min={-50} max={50} value={params.contrast} onChange={(e) => onParams({ contrast: Number(e.target.value) })} aria-label="대비" />
       </div>
-      <div className="small faint">밝기·대비는 결과에 즉시 적용되고, 다음 생성 때 지시문에도 반영됩니다.</div>
+      <div className="small faint">밝기·대비는 결과에 즉시 적용되고, AI 생성 때 지시문에도 반영됩니다.</div>
+
+      {children}
+
+      <details className="advanced">
+        <summary>AI 생성 전용 · 화가 화풍 접목 · 강도</summary>
+        <div className="field">
+          <div className="field-row"><b>화가 화풍 접목</b><span className="muted small">선택</span></div>
+          <select className="text-input select" value={params.artist} onChange={(e) => onParams({ artist: e.target.value as ArtistId })} aria-label="화가 화풍">
+            {ARTISTS.map((a) => <option key={a.id} value={a.id}>{a.id === 'none' ? '없음' : `${a.name} (${a.years})`}</option>)}
+          </select>
+          <div className="small muted">{ARTIST_BY_ID[params.artist].desc}</div>
+        </div>
+        <div className="field" style={{ marginTop: 10 }}>
+          <div className="field-row"><b>강도</b><span className="muted">{params.intensity} · {intensityHint(params.intensity)}</span></div>
+          <input type="range" min={0} max={100} value={params.intensity} onChange={(e) => onParams({ intensity: Number(e.target.value) })} aria-label="강도" />
+        </div>
+      </details>
     </>
   );
 }

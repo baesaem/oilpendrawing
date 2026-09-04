@@ -50,9 +50,11 @@ interface Props {
   onParams: (patch: Partial<DrawingParams>) => void;
   onInput: (f: File | null) => void;
   onReference: (f: File | null) => void;
+  /** 견본 분석 상태: null = 아직, 문자열 = 요약 */
+  analysis: { busy: boolean; summary: string | null; warning?: string };
 }
 
-export function InputPanel({ input, reference, inputIsGray, params, onParams, onInput, onReference }: Props) {
+export function InputPanel({ input, reference, inputIsGray, params, onParams, onInput, onReference, analysis }: Props) {
   return (
     <>
       <div className="field">
@@ -90,13 +92,16 @@ export function InputPanel({ input, reference, inputIsGray, params, onParams, on
         </div>
         <Drop
           blob={reference} onFile={onReference} className="drop-sm" label="견본 이미지"
-          emptyTitle="참고할 펜 드로잉" emptyHint="선 밀도·해칭 방향·톤을 따릅니다"
+          emptyTitle="참고할 펜 드로잉" emptyHint="선 굵기·해칭 방향·톤을 읽어 따릅니다"
         />
         {reference && (
           <>
             <div className="file-meta">
               <span title={reference.name}>{reference.name}</span>
               <button className="link" onClick={() => onReference(null)}>제거</button>
+            </div>
+            <div className={`small ${analysis.warning ? 'warn-text' : 'muted'}`}>
+              {analysis.busy ? '견본 분석 중…' : analysis.warning ?? (analysis.summary ? `읽은 기법: ${analysis.summary}` : '')}
             </div>
             <div className="field">
               <div className="field-row"><b>견본 반영도</b><span className="muted">{params.referenceWeight}%</span></div>

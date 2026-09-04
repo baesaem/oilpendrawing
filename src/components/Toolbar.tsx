@@ -18,9 +18,13 @@ interface Props {
   history: Drawing[];
   currentId: string | null;
   onSelect: (d: Drawing) => void;
-  canGenerate: boolean;
+  /** 로컬 렌더러로 그리기 (기본) */
+  canDraw: boolean;
+  onDraw: () => void;
+  /** AI 로 그리기 (선택, 키 필요) */
+  canAi: boolean;
+  onAi: () => void;
   busy: boolean;
-  onGenerate: () => void;
   onCancel: () => void;
   onDownload: () => void;
   onFullscreen: () => void;
@@ -39,9 +43,9 @@ export function Toolbar(p: Props) {
   return (
     <div className="toolbar">
       <button className="btn btn-ghost btn-sm" onClick={p.onOpenKeys} title="API 키 설정">
-        <span className={`status-dot ${p.keyOk ? 'ok' : 'warn'}`} />
+        <span className={`status-dot ${p.keyOk ? 'ok' : ''}`} />
         <KeyIcon />
-        <span>{p.keyOk ? p.providerLabel : 'API 키 연결'}</span>
+        <span>{p.keyOk ? p.providerLabel : 'AI 키 (선택)'}</span>
       </button>
 
       <div className="sep" />
@@ -80,7 +84,10 @@ export function Toolbar(p: Props) {
       {p.busy ? (
         <button className="btn btn-generate" onClick={p.onCancel}><StopIcon /> 중단</button>
       ) : (
-        <button className="btn btn-primary btn-generate" onClick={p.onGenerate} disabled={!p.canGenerate}><PenIcon /> 드로잉 생성</button>
+        <>
+          <button className="btn btn-primary btn-generate" onClick={p.onDraw} disabled={!p.canDraw} title="브라우저에서 바로 그립니다 (API 비용 없음)"><PenIcon /> 드로잉 만들기</button>
+          <button className="btn btn-generate btn-ai" onClick={p.onAi} disabled={!p.canAi} title={p.keyOk ? 'AI 제공사에 요청합니다 (API 비용)' : 'API 키를 연결하면 쓸 수 있습니다'}>AI로 그리기</button>
+        </>
       )}
     </div>
   );
