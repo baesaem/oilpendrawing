@@ -1,0 +1,275 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #2b2420; background: #f4eee3; -webkit-font-smoothing: antialiased; }
+    a { color: #b5532a; } a:hover { color: #8f3f1e; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #f4eee3; color: #2b2420; overflow: hidden;">
+
+  <!-- 상단 바 -->
+  <div style="height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; border-bottom: 1px solid #d9cfbd; background: #f4eee3;">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <div style="font-family: 'Nanum Myeongjo', 'Noto Serif KR', serif; font-weight: 800; font-size: 22px; letter-spacing: -0.02em; color: #2b2420;">오일펜 드로잉</div>
+      <div style="font-size: 12px; color: #8a7b6e; letter-spacing: 0.08em;">PHOTO → OIL PEN</div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border: 1px solid #d9cfbd; border-radius: 999px; background: #faf6ee; font-size: 13px; color: #5d5148;">
+        <div style="width: 8px; height: 8px; border-radius: 50%; background: #3f8f5a;"></div>
+        <span>API 키 연결됨 · OpenAI 이미지</span>
+      </div>
+      <div style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 1px solid #d9cfbd; border-radius: 999px; background: #faf6ee;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d5148" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- 본문 3열 -->
+  <div style="flex: 1; display: grid; grid-template-columns: 320px minmax(0, 1fr) 360px; min-height: 0;">
+
+    <!-- 왼쪽: 입력 -->
+    <div style="display: flex; flex-direction: column; gap: 28px; padding: 24px; border-right: 1px solid #d9cfbd; background: #ede5d6; overflow: hidden;">
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 22px; height: 22px; border-radius: 50%; background: #2b2420; color: #f4eee3; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;">1</div>
+          <div style="font-size: 15px; font-weight: 700;">원본 이미지</div>
+          <div style="margin-left: auto; font-size: 12px; color: #8a7b6e;">컬러 · 2400×1600</div>
+        </div>
+        <div style="border: 1px dashed #b9ab94; border-radius: 6px; padding: 8px; background: #f7f2e9; display: flex; flex-direction: column; gap: 8px;">
+          <svg width="256" height="170" viewBox="0 0 256 170" style="display: block; border-radius: 3px; width: 100%; height: auto;">
+            <defs>
+              <linearGradient id="wall" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e9dcc4"></stop><stop offset="1" stop-color="#b9a688"></stop></linearGradient>
+              <linearGradient id="table" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8b5e3c"></stop><stop offset="1" stop-color="#5a3a24"></stop></linearGradient>
+              <radialGradient id="pear" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#d9c85a"></stop><stop offset="1" stop-color="#6f7a2c"></stop></radialGradient>
+              <radialGradient id="cup" cx="0.3" cy="0.25" r="0.9"><stop offset="0" stop-color="#f4efe6"></stop><stop offset="1" stop-color="#8e8578"></stop></radialGradient>
+            </defs>
+            <rect width="256" height="170" fill="url(#wall)"></rect>
+            <rect x="0" y="112" width="256" height="58" fill="url(#table)"></rect>
+            <path d="M150 112 C118 112 116 84 132 66 C142 54 146 42 154 36 C162 42 166 54 176 66 C192 84 182 112 150 112 Z" fill="url(#pear)"></path>
+            <path d="M154 36 C156 28 160 24 164 22" stroke="#4a3b22" stroke-width="3" fill="none" stroke-linecap="round"></path>
+            <ellipse cx="150" cy="114" rx="34" ry="5" fill="#2b1a10" opacity="0.35"></ellipse>
+            <path d="M52 70 L60 112 L104 112 L112 70 Z" fill="url(#cup)"></path>
+            <ellipse cx="82" cy="70" rx="30" ry="6" fill="#ddd5c8"></ellipse>
+            <path d="M112 78 C128 76 130 100 108 104" stroke="#a89e90" stroke-width="5" fill="none"></path>
+            <ellipse cx="80" cy="114" rx="30" ry="4" fill="#2b1a10" opacity="0.35"></ellipse>
+          </svg>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 4px;">
+            <div style="font-size: 12px; color: #5d5148;">still-life_03.jpg</div>
+            <div style="font-size: 12px; color: #b5532a; font-weight: 500;">교체</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; height: 40px; padding: 0 12px; border-radius: 6px; background: #f7f2e9; border: 1px solid #d9cfbd;">
+          <div style="font-size: 13px; color: #2b2420;">흑백으로 변환하여 입력</div>
+          <div style="width: 36px; height: 20px; border-radius: 999px; background: #cfc4b0; position: relative;"><div style="position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #faf6ee;"></div></div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 22px; height: 22px; border-radius: 50%; background: #2b2420; color: #f4eee3; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;">2</div>
+          <div style="font-size: 15px; font-weight: 700;">견본 이미지</div>
+          <div style="margin-left: auto; font-size: 12px; color: #8a7b6e;">선택</div>
+        </div>
+        <div style="display: flex; gap: 12px; border: 1px dashed #b9ab94; border-radius: 6px; padding: 8px; background: #f7f2e9;">
+          <svg width="96" height="96" viewBox="0 0 96 96" style="display: block; flex: none; border-radius: 3px; background: #fbf8f1;">
+            <defs><pattern id="h1" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="5" stroke="#3a2c22" stroke-width="0.8"></line></pattern></defs>
+            <path d="M28 70 C20 52 26 38 40 26 C52 16 66 20 72 34 C78 50 66 70 48 74 C40 76 32 76 28 70 Z" fill="url(#h1)" stroke="#2b2420" stroke-width="1.3"></path>
+            <path d="M40 26 C44 20 50 18 54 20" stroke="#2b2420" stroke-width="1.3" fill="none"></path>
+            <path d="M14 78 L84 78" stroke="#2b2420" stroke-width="1.1"></path>
+            <path d="M34 66 c6 4 14 6 22 4" stroke="#2b2420" stroke-width="0.8" fill="none"></path>
+          </svg>
+          <div style="display: flex; flex-direction: column; gap: 6px; justify-content: center; min-width: 0;">
+            <div style="font-size: 13px; font-weight: 500;">sample_hatching.png</div>
+            <div style="font-size: 12px; color: #6f6257; line-height: 1.5;">견본의 선 밀도·해칭 방향·톤을 참고해 그립니다.</div>
+            <div style="font-size: 12px; color: #b5532a; font-weight: 500;">교체 · 제거</div>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; font-size: 13px;"><span>견본 반영도</span><span style="color: #6f6257;">60%</span></div>
+          <div style="position: relative; height: 4px; border-radius: 2px; background: #cfc4b0;"><div style="position: absolute; left: 0; top: 0; height: 4px; width: 60%; border-radius: 2px; background: #b5532a;"></div><div style="position: absolute; left: 60%; top: -6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: #faf6ee; border: 2px solid #b5532a;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 가운데: 결과 미리보기 -->
+    <div style="display: flex; flex-direction: column; gap: 16px; padding: 24px 32px; min-width: 0; background: #f4eee3;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; gap: 4px; padding: 3px; border: 1px solid #d9cfbd; border-radius: 999px; background: #ede5d6;">
+          <div style="height: 30px; padding: 0 14px; display: flex; align-items: center; border-radius: 999px; background: #2b2420; color: #f4eee3; font-size: 13px; font-weight: 500;">비교 보기</div>
+          <div style="height: 30px; padding: 0 14px; display: flex; align-items: center; border-radius: 999px; color: #5d5148; font-size: 13px;">결과만</div>
+          <div style="height: 30px; padding: 0 14px; display: flex; align-items: center; border-radius: 999px; color: #5d5148; font-size: 13px;">원본만</div>
+        </div>
+        <div style="font-size: 13px; color: #8a7b6e;">방금 생성 · 상급 · 강도 70 · 빛 좌상단</div>
+      </div>
+
+      <div style="flex: 1; position: relative; border-radius: 8px; overflow: hidden; background: #fbf8f1; box-shadow: 0 1px 0 #d9cfbd, 0 18px 40px -24px rgba(43,36,32,0.45); min-height: 0;">
+        <svg viewBox="0 0 640 420" preserveAspectRatio="xMidYMid slice" style="position: absolute; inset: 0; width: 100%; height: 100%;">
+          <defs>
+            <linearGradient id="wall2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e9dcc4"></stop><stop offset="1" stop-color="#b9a688"></stop></linearGradient>
+            <linearGradient id="table2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8b5e3c"></stop><stop offset="1" stop-color="#5a3a24"></stop></linearGradient>
+            <radialGradient id="pear2" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#d9c85a"></stop><stop offset="1" stop-color="#6f7a2c"></stop></radialGradient>
+            <radialGradient id="cup2" cx="0.3" cy="0.25" r="0.9"><stop offset="0" stop-color="#f4efe6"></stop><stop offset="1" stop-color="#8e8578"></stop></radialGradient>
+            <pattern id="hatchA" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(38)"><line x1="0" y1="0" x2="0" y2="7" stroke="#3a2c22" stroke-width="1"></line></pattern>
+            <pattern id="hatchB" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(38)"><line x1="0" y1="0" x2="0" y2="5" stroke="#2b2420" stroke-width="1.1"></line></pattern>
+            <pattern id="cross" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(-40)"><line x1="0" y1="0" x2="0" y2="6" stroke="#2b2420" stroke-width="0.9"></line></pattern>
+            <pattern id="hatchC" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(38)"><line x1="0" y1="0" x2="0" y2="9" stroke="#6b5a4b" stroke-width="0.8"></line></pattern>
+            <clipPath id="leftHalf"><rect x="0" y="0" width="352" height="420"></rect></clipPath>
+            <clipPath id="rightHalf"><rect x="352" y="0" width="288" height="420"></rect></clipPath>
+          </defs>
+
+          <!-- 오른쪽: 원본 사진 -->
+          <g clip-path="url(#rightHalf)">
+            <rect width="640" height="420" fill="url(#wall2)"></rect>
+            <rect x="0" y="276" width="640" height="144" fill="url(#table2)"></rect>
+            <path d="M372 276 C296 276 290 210 328 166 C352 138 362 108 380 92 C398 108 408 138 432 166 C470 210 448 276 372 276 Z" fill="url(#pear2)"></path>
+            <path d="M380 92 C384 74 394 64 404 60" stroke="#4a3b22" stroke-width="7" fill="none" stroke-linecap="round"></path>
+            <ellipse cx="372" cy="280" rx="82" ry="12" fill="#2b1a10" opacity="0.35"></ellipse>
+            <path d="M130 176 L150 276 L256 276 L276 176 Z" fill="url(#cup2)"></path>
+            <ellipse cx="203" cy="176" rx="73" ry="14" fill="#ddd5c8"></ellipse>
+            <path d="M276 196 C316 190 320 250 266 258" stroke="#a89e90" stroke-width="12" fill="none"></path>
+            <ellipse cx="200" cy="280" rx="72" ry="9" fill="#2b1a10" opacity="0.35"></ellipse>
+          </g>
+
+          <!-- 왼쪽: 오일펜 드로잉 -->
+          <g clip-path="url(#leftHalf)">
+            <rect width="640" height="420" fill="#fbf8f1"></rect>
+            <rect x="0" y="0" width="640" height="276" fill="url(#hatchC)" opacity="0.35"></rect>
+            <rect x="0" y="276" width="640" height="144" fill="url(#hatchA)" opacity="0.8"></rect>
+            <rect x="0" y="276" width="640" height="144" fill="url(#cross)" opacity="0.5"></rect>
+            <line x1="0" y1="276" x2="640" y2="276" stroke="#2b2420" stroke-width="1.6"></line>
+            <path d="M372 276 C296 276 290 210 328 166 C352 138 362 108 380 92 C398 108 408 138 432 166 C470 210 448 276 372 276 Z" fill="#fbf8f1" stroke="#2b2420" stroke-width="2"></path>
+            <path d="M372 276 C296 276 290 210 328 166 C352 138 362 108 380 92 C398 108 408 138 432 166 C470 210 448 276 372 276 Z" fill="url(#hatchB)" opacity="0.7"></path>
+            <path d="M400 130 C430 160 440 220 400 270 C450 260 470 200 432 166 C420 150 410 138 400 130 Z" fill="url(#cross)"></path>
+            <path d="M380 92 C384 74 394 64 404 60" stroke="#2b2420" stroke-width="3.5" fill="none" stroke-linecap="round"></path>
+            <ellipse cx="372" cy="282" rx="84" ry="12" fill="url(#cross)"></ellipse>
+            <path d="M130 176 L150 276 L256 276 L276 176 Z" fill="#fbf8f1" stroke="#2b2420" stroke-width="2"></path>
+            <path d="M220 180 L236 276 L256 276 L276 176 Z" fill="url(#hatchB)" opacity="0.7"></path>
+            <path d="M240 190 L246 276 L256 276 L272 186 Z" fill="url(#cross)" opacity="0.8"></path>
+            <ellipse cx="203" cy="176" rx="73" ry="14" fill="#fbf8f1" stroke="#2b2420" stroke-width="2"></ellipse>
+            <path d="M276 196 C316 190 320 250 266 258" stroke="#2b2420" stroke-width="2" fill="none"></path>
+            <path d="M280 206 C306 204 308 240 270 248" stroke="#2b2420" stroke-width="1.2" fill="none"></path>
+            <ellipse cx="200" cy="282" rx="74" ry="9" fill="url(#cross)"></ellipse>
+            <path d="M40 40 C120 60 200 62 300 70" stroke="#6b5a4b" stroke-width="0.8" fill="none" opacity="0.6"></path>
+            <path d="M30 90 C120 100 220 104 340 112" stroke="#6b5a4b" stroke-width="0.8" fill="none" opacity="0.5"></path>
+          </g>
+
+          <!-- 분할 핸들 -->
+          <line x1="352" y1="0" x2="352" y2="420" stroke="#f4eee3" stroke-width="3"></line>
+          <circle cx="352" cy="210" r="18" fill="#f4eee3" stroke="#2b2420" stroke-width="1.5"></circle>
+          <path d="M344 210 L348 206 M344 210 L348 214 M360 210 L356 206 M360 210 L356 214" stroke="#2b2420" stroke-width="1.5" fill="none" stroke-linecap="round"></path>
+        </svg>
+        <div style="position: absolute; left: 16px; top: 14px; padding: 4px 10px; border-radius: 4px; background: rgba(43,36,32,0.85); color: #f4eee3; font-size: 12px; letter-spacing: 0.04em;">오일펜 드로잉</div>
+        <div style="position: absolute; right: 16px; top: 14px; padding: 4px 10px; border-radius: 4px; background: rgba(244,238,227,0.9); color: #2b2420; font-size: 12px; letter-spacing: 0.04em;">원본</div>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; gap: 8px;">
+          <div style="height: 36px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid #d9cfbd; border-radius: 6px; background: #faf6ee; font-size: 13px; color: #2b2420;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2b2420" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="M7 10l5 5 5-5"></path><path d="M4 21h16"></path></svg>
+            PNG 저장
+          </div>
+          <div style="height: 36px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid #d9cfbd; border-radius: 6px; background: #faf6ee; font-size: 13px; color: #2b2420;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2b2420" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
+            같은 설정으로 다시
+          </div>
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <div style="width: 44px; height: 44px; border-radius: 4px; border: 2px solid #b5532a; background: #fbf8f1;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 4px; border: 1px solid #d9cfbd; background: #ede5d6;"></div>
+          <div style="width: 44px; height: 44px; border-radius: 4px; border: 1px solid #d9cfbd; background: #ede5d6;"></div>
+          <div style="font-size: 12px; color: #8a7b6e; margin-left: 6px;">이력 3</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 오른쪽: 표현 설정 -->
+    <div style="display: flex; flex-direction: column; gap: 18px; padding: 24px; border-left: 1px solid #d9cfbd; background: #ede5d6; overflow: hidden;">
+      <div style="font-family: 'Nanum Myeongjo', 'Noto Serif KR', serif; font-weight: 700; font-size: 18px;">표현 설정</div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-size: 13px; font-weight: 500;">숙련도</div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 3px; border-radius: 6px; background: #d9cfbd;">
+          <div style="height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 13px; color: #5d5148;">초급</div>
+          <div style="height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 13px; color: #5d5148;">중급</div>
+          <div style="height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 13px; font-weight: 700; color: #2b2420; background: #faf6ee; box-shadow: 0 1px 2px rgba(43,36,32,0.15);">상급</div>
+        </div>
+        <div style="font-size: 12px; color: #6f6257; line-height: 1.5;">교차 해칭으로 중간톤을 쌓고, 반사광과 질감까지 세밀하게 표현합니다.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="font-weight: 500;">강도</span><span style="color: #6f6257;">70 · 선 밀도·필압</span></div>
+        <div style="position: relative; height: 4px; border-radius: 2px; background: #cfc4b0;"><div style="position: absolute; left: 0; top: 0; height: 4px; width: 70%; border-radius: 2px; background: #b5532a;"></div><div style="position: absolute; left: 70%; top: -6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: #faf6ee; border: 2px solid #b5532a;"></div></div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-size: 13px; font-weight: 500;">색 표현</div>
+        <div style="display: flex; gap: 8px;">
+          <div style="flex: 1; height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border-radius: 6px; border: 1px solid #d9cfbd; background: #faf6ee; font-size: 12px; color: #5d5148;">
+            <div style="display: flex; gap: 2px;"><div style="width: 8px; height: 8px; border-radius: 50%; background: #b5532a;"></div><div style="width: 8px; height: 8px; border-radius: 50%; background: #6f7a2c;"></div><div style="width: 8px; height: 8px; border-radius: 50%; background: #3f5f8a;"></div></div>컬러
+          </div>
+          <div style="flex: 1; height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border-radius: 6px; border: 2px solid #2b2420; background: #faf6ee; font-size: 12px; font-weight: 700; color: #2b2420;">
+            <div style="display: flex; gap: 2px;"><div style="width: 8px; height: 8px; border-radius: 50%; background: #2b2420;"></div><div style="width: 8px; height: 8px; border-radius: 50%; background: #7a7068;"></div><div style="width: 8px; height: 8px; border-radius: 50%; background: #d9cfbd;"></div></div>흑백
+          </div>
+          <div style="flex: 1; height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border-radius: 6px; border: 1px solid #d9cfbd; background: #faf6ee; font-size: 12px; color: #5d5148;">
+            <div style="display: flex; gap: 2px;"><div style="width: 8px; height: 8px; border-radius: 50%; background: #5a3a24;"></div><div style="width: 8px; height: 8px; border-radius: 50%; background: #8b5e3c;"></div><div style="width: 8px; height: 8px; border-radius: 50%; background: #d4b48c;"></div></div>세피아
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 16px; align-items: center;">
+        <svg width="132" height="132" viewBox="0 0 132 132" style="flex: none;">
+          <defs><radialGradient id="ball" cx="0.3" cy="0.28" r="0.75"><stop offset="0" stop-color="#fbf8f1"></stop><stop offset="0.7" stop-color="#8a7b6e"></stop><stop offset="1" stop-color="#3a2c22"></stop></radialGradient></defs>
+          <circle cx="66" cy="66" r="60" fill="#faf6ee" stroke="#d9cfbd" stroke-width="1"></circle>
+          <circle cx="66" cy="66" r="24" fill="url(#ball)"></circle>
+          <ellipse cx="80" cy="96" rx="22" ry="5" fill="#2b2420" opacity="0.25"></ellipse>
+          <circle cx="66" cy="12" r="4" fill="#cfc4b0"></circle>
+          <circle cx="104" cy="28" r="4" fill="#cfc4b0"></circle>
+          <circle cx="120" cy="66" r="4" fill="#cfc4b0"></circle>
+          <circle cx="104" cy="104" r="4" fill="#cfc4b0"></circle>
+          <circle cx="66" cy="120" r="4" fill="#cfc4b0"></circle>
+          <circle cx="28" cy="104" r="4" fill="#cfc4b0"></circle>
+          <circle cx="12" cy="66" r="4" fill="#cfc4b0"></circle>
+          <circle cx="28" cy="28" r="7" fill="#b5532a" stroke="#faf6ee" stroke-width="2"></circle>
+          <line x1="34" y1="34" x2="50" y2="50" stroke="#b5532a" stroke-width="1.5" stroke-dasharray="3 3"></line>
+        </svg>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-size: 13px; font-weight: 500;">빛의 방향</div>
+          <div style="font-size: 20px; font-family: 'Nanum Myeongjo', serif; font-weight: 700;">좌상단</div>
+          <div style="font-size: 12px; color: #6f6257; line-height: 1.5;">8방향 중 선택. 그림자와 해칭 방향이 함께 바뀝니다.</div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="font-weight: 500;">밝기</span><span style="color: #6f6257;">+10</span></div>
+        <div style="position: relative; height: 4px; border-radius: 2px; background: #cfc4b0;"><div style="position: absolute; left: 50%; top: 0; height: 4px; width: 5%; border-radius: 2px; background: #b5532a;"></div><div style="position: absolute; left: 50%; top: -4px; width: 1px; height: 12px; background: #8a7b6e;"></div><div style="position: absolute; left: 55%; top: -6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: #faf6ee; border: 2px solid #b5532a;"></div></div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; font-size: 13px;"><span style="font-weight: 500;">대비</span><span style="color: #6f6257;">0</span></div>
+        <div style="position: relative; height: 4px; border-radius: 2px; background: #cfc4b0;"><div style="position: absolute; left: 50%; top: -4px; width: 1px; height: 12px; background: #8a7b6e;"></div><div style="position: absolute; left: 50%; top: -6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: #faf6ee; border: 2px solid #b5532a;"></div></div>
+      </div>
+
+      <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
+        <div style="height: 52px; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 6px; background: #b5532a; color: #faf6ee; font-size: 15px; font-weight: 700; letter-spacing: -0.01em;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#faf6ee" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.6 7.6"></path></svg>
+          드로잉 생성
+        </div>
+        <div style="text-align: center; font-size: 12px; color: #8a7b6e;">예상 소요 약 30초 · 내 API 키로 직접 요청</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

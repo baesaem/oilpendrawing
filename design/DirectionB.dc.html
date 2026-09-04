@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Nanum Pen Script', 'Apple SD Gothic Neo', cursive, sans-serif; color: #e8e4dc; background: #1c1b19; }
+    a { color: #e0a35c; } a:hover { color: #f0c080; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div style="width: 960px; height: 600px; position: relative; background: #1c1b19; color: #e8e4dc; overflow: hidden; font-size: 22px;">
+
+  <div style="position: absolute; left: 24px; top: 12px; right: 24px; display: flex; flex-direction: column; gap: 2px;">
+    <div style="font-size: 30px; line-height: 1.2;">대안 B · 다크 스튜디오</div>
+    <div style="font-size: 18px; color: #9a948a; line-height: 1.3;">전체 화면 캔버스 + 떠 있는 패널 · 장점: 그림에 집중, 몰입감 · 단점: 초보자에겐 조작이 숨어 보임</div>
+  </div>
+
+  <!-- 전체 캔버스 영역 -->
+  <div style="position: absolute; left: 24px; top: 80px; right: 24px; bottom: 24px; border: 2px dashed #4a4640; border-radius: 6px; background: #242320; display: flex; align-items: center; justify-content: center;">
+    <div style="width: 520px; height: 360px; border: 2px solid #6b665e; background: #2e2c28; display: flex; align-items: center; justify-content: center; position: relative;">
+      <svg width="200" height="140" viewBox="0 0 200 140" fill="none" stroke="#9a948a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 120 L180 120"></path><path d="M60 118 C40 80 70 50 100 40 C130 50 160 80 140 118 Z"></path><path d="M100 40 C104 30 110 26 116 24"></path><path d="M70 100 c10 6 30 8 50 2"></path></svg>
+      <div style="position: absolute; left: 12px; top: 10px; font-size: 18px; color: #9a948a;">결과 / 원본 토글 (스페이스바)</div>
+    </div>
+  </div>
+
+  <!-- 왼쪽 떠있는 패널 -->
+  <div style="position: absolute; left: 44px; top: 100px; width: 200px; display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 2px solid #6b665e; border-radius: 6px; background: rgba(28,27,25,0.92);">
+    <div style="font-size: 20px;">입력</div>
+    <div style="height: 90px; border: 2px dashed #6b665e; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #9a948a; font-size: 18px;">원본 사진</div>
+    <div style="height: 60px; border: 2px dashed #6b665e; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #9a948a; font-size: 18px;">견본 (선택)</div>
+  </div>
+
+  <!-- 오른쪽 떠있는 패널 -->
+  <div style="position: absolute; right: 44px; top: 100px; width: 220px; display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 2px solid #6b665e; border-radius: 6px; background: rgba(28,27,25,0.92);">
+    <div style="font-size: 20px;">표현</div>
+    <div style="display: flex; gap: 4px;"><div style="flex: 1; height: 30px; border: 2px solid #6b665e; display: flex; align-items: center; justify-content: center; font-size: 18px;">초</div><div style="flex: 1; height: 30px; border: 2px solid #e0a35c; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #e0a35c;">중</div><div style="flex: 1; height: 30px; border: 2px solid #6b665e; display: flex; align-items: center; justify-content: center; font-size: 18px;">상</div></div>
+    <div style="display: flex; flex-direction: column; gap: 4px;"><div style="font-size: 18px;">강도</div><div style="height: 3px; background: #4a4640; position: relative;"><div style="position: absolute; left: 60%; top: -5px; width: 13px; height: 13px; border-radius: 50%; background: #e0a35c;"></div></div></div>
+    <div style="display: flex; flex-direction: column; gap: 4px;"><div style="font-size: 18px;">밝기</div><div style="height: 3px; background: #4a4640; position: relative;"><div style="position: absolute; left: 45%; top: -5px; width: 13px; height: 13px; border-radius: 50%; background: #e0a35c;"></div></div></div>
+    <div style="display: flex; gap: 6px; font-size: 18px;"><div style="padding: 2px 10px; border: 2px solid #e0a35c; color: #e0a35c;">컬러</div><div style="padding: 2px 10px; border: 2px solid #6b665e;">흑백</div></div>
+    <div style="display: flex; align-items: center; gap: 10px;"><svg width="56" height="56" viewBox="0 0 56 56" fill="none" stroke="#9a948a" stroke-width="2"><circle cx="28" cy="28" r="24"></circle><circle cx="28" cy="28" r="8"></circle><circle cx="12" cy="12" r="4" fill="#e0a35c" stroke="none"></circle></svg><div style="font-size: 18px;">빛 방향</div></div>
+  </div>
+
+  <!-- 하단 툴바 -->
+  <div style="position: absolute; left: 50%; bottom: 44px; margin-left: -200px; width: 400px; height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border: 2px solid #6b665e; border-radius: 999px; background: rgba(28,27,25,0.92);">
+    <div style="font-size: 18px; color: #9a948a;">API 키 연결됨</div>
+    <div style="font-size: 18px; color: #9a948a;">이력 이전 · 다음</div>
+    <div style="height: 34px; padding: 0 18px; display: flex; align-items: center; border-radius: 999px; background: #e0a35c; color: #1c1b19; font-size: 20px;">생성</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
