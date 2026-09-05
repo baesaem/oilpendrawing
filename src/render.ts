@@ -371,9 +371,9 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
       break;
   }
 
-  // 3) 윤곽선: Sobel → 임계값 → 선 굵기만큼 팽창
-  const edgeSrc = boxBlur(lum, w, h, 1);
-  const { mag } = sobel(edgeSrc, w, h);
+  // 3) 윤곽선: 색 그라디언트 → 임계값 → 선 굵기만큼 팽창
+  //    밝기만 보면 밝기가 비슷한 색 경계(녹색 잎 / 갈색 벽, 연한 컵 / 벽)가 사라지므로 세 채널을 함께 봅니다.
+  const mag = colorEdgeMag(img, w, h);
   const th = 0.30 - 0.20 * clamp(p.edgeDensity, 0, 100) / 100;
   const edge = new Float32Array(N);
   for (let i = 0; i < N; i++) {
@@ -412,6 +412,23 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     out[o + 3] = 255;
   }
   return { width: w, height: h, data: out };
+}
+
+/**
+ * 색 그라디언트 크기 (Di Zenzo 방식의 단순형). 세 채널의 Sobel 을 제곱합해 밝기가 같아도 색이 다른 경계를 잡습니다.
+ * 회색 경계에서는 밝기 Sobel 과 같은 크기가 되도록 √3 으로 나눠, 기존 임계값(edgeDensity)을 그대로 씁니다.
+ */
+function colorEdgeMag(img: RawImage, w: number, h: number): Float32Array {
+  const N = w * h;
+  const out = new Float32Array(N);
+  const ch = new Float32Array(N);
+  for (let k = 0; k < 3; k++) {
+    for (let i = 0, j = 0; i < img.data.length; i += 4, j++) ch[j] = img.data[i + k] / 255;
+    const { gx, gy } = sobel(boxBlur(ch, w, h, 1), w, h);
+    for (let i = 0; i < N; i++) out[i] += gx[i] * gx[i] + gy[i] * gy[i];
+  }
+  for (let i = 0; i < N; i++) out[i] = Math.sqrt(out[i] / 3);
+  return out;
 }
 
 /** 분리형 최대값 필터 (선 굵히기) */

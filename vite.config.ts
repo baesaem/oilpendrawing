@@ -21,11 +21,12 @@ function redirectPagesBase(): Plugin {
   };
 }
 
-export default defineConfig(({ command }) => ({
+export default defineConfig(({ command, isPreview }) => ({
   plugins: [react(), redirectPagesBase()],
   // 개발 중에는 루트(/)에서 서비스하고, 배포 빌드만 GitHub Pages 하위 경로(/oilpendrawing/)를 씁니다.
   // 다른 곳에 배포하면 VITE_BASE=/ 로 덮어쓰세요.
-  base: command === 'serve' ? '/' : (process.env.VITE_BASE ?? PAGES_BASE),
+  // vite preview 도 command 가 'serve' 이므로 isPreview 로 구분해야 dist 의 /oilpendrawing/ 경로와 맞는다
+  base: command === 'serve' && !isPreview ? '/' : (process.env.VITE_BASE ?? PAGES_BASE),
   server: {
     host: true,        // localhost, 127.0.0.1, 같은 네트워크의 태블릿에서도 접속 가능
     port: 5173,
