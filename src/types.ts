@@ -77,13 +77,13 @@ export interface PaintProfile {
  * 가는 검정 펜, 면의 방향을 따르는 획, 나뭇잎은 고리 선 뭉치, 하늘·하이라이트는 흰 종이, 가장자리는 미완성.
  */
 export const RICHEON_PAINT: PaintProfile = {
-  brush: 'pen', passes: 4, brushSize: 45, detail: 80, accuracy: 65, strokeLength: 55, featureFollow: 85, baseAngle: 55, randomness: 30,
-  lineWidth: 1.2, ink: 80, paperKeep: 58, edges: 70, vignette: 40, paperColor: '#f6f3ec', inkColor: '#17171a',
+  brush: 'pen', passes: 4, brushSize: 45, detail: 75, accuracy: 60, strokeLength: 60, featureFollow: 85, baseAngle: 55, randomness: 30,
+  lineWidth: 1.4, ink: 88, paperKeep: 66, edges: 80, vignette: 40, paperColor: '#f6f3ec', inkColor: '#17171a',
 };
 /** 세밀 펜화: 아주 가늘고 고른 선으로 끝까지 완성, 수평 하늘 해칭, 먹 그림자 */
 export const FINE_PAINT: PaintProfile = {
-  brush: 'pen', passes: 6, brushSize: 35, detail: 100, accuracy: 90, strokeLength: 50, featureFollow: 80, baseAngle: 0, randomness: 20,
-  lineWidth: 1, ink: 88, paperKeep: 40, edges: 90, vignette: 0, paperColor: '#f7f5f0', inkColor: '#111114',
+  brush: 'pen', passes: 6, brushSize: 40, detail: 100, accuracy: 85, strokeLength: 80, featureFollow: 90, baseAngle: 0, randomness: 8,
+  lineWidth: 1, ink: 92, paperKeep: 52, edges: 90, vignette: 0, paperColor: '#f7f5f0', inkColor: '#111114',
 };
 /** 클래식: 굵은 펜의 한 방향 해칭 */
 export const CLASSIC_PAINT: PaintProfile = {

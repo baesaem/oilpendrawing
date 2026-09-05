@@ -610,7 +610,8 @@ function sweep(c: Ctx, ref: Float32Array, R: number, sw: Sweep, T: number, L: nu
     }
     if (sw.kind === 'scribble') { scribbleStroke(c, ref, x0, y0, len * 1.6); continue; }
     // pen 붓: 잔결(나뭇잎)은 획 대신 고리 선
-    if (c.p.brush === 'pen' && !sw.rot && c.texture[i0] > 0.45 && c.field.aniso[i0] < 0.45 && rng() < c.texture[i0] * 0.8) { loopStroke(c, ref, x0, y0, R); continue; }
+    // 무작위성이 낮은(정돈된 손) 설정은 고리 대신 짧은 잎 획으로 잔결을 낸다 (세밀 펜화)
+    if (c.p.brush === 'pen' && !sw.rot && c.rnd >= 0.25 && c.texture[i0] > 0.45 && c.field.aniso[i0] < 0.45 && rng() < c.texture[i0] * 0.8) { loopStroke(c, ref, x0, y0, R); continue; }
     let Lc = Math.min(len, Math.min(w, h) * 0.14);
     // 방향이 없는 평탄한 곳(하늘·벽)은 길게. 잔결 영역은 짧게 (긴 줄이 생기면 풀밭처럼 보인다)
     if (c.field.coh[i0] < 0.15 && c.field.man[i0] < 0.1 && c.texture[i0] < 0.3) Lc *= 1.7;
@@ -793,6 +794,11 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     const d = (white - L) / white;
     target[i] = (0.06 + 0.84 * Math.pow(d, 1.1)) * (1 - texture[i] * 0.22);
   }
+  // 잔결 영역(나뭇잎)은 지역 대비를 키운다: 잎 무리의 밝은 덩어리와 그늘 덩어리가 갈라져야 나무로 읽힌다 (참고 펜화의 잎 무리)
+  {
+    const local = boxBlur(target, w, h, Math.max(4, Math.round(minSide / 70)));
+    for (let i = 0; i < N; i++) if (texture[i] > 0.3) target[i] = clamp(target[i] + (target[i] - local[i]) * 0.9 * texture[i], 0, 1);
+  }
 
   const paper = paperFor(opts.color, p);
   const cv = new Canvas(w, h, paper);
@@ -859,7 +865,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     // 먹 채움: 잉크 농도가 높은 붓은 가장 깊은 그림자를 검게 (처마 밑, 열린 문). 잔결 영역은 제외.
     if (p.ink >= 85 && p.brush !== 'stipple') {
       const deep = boxBlur(Float32Array.from(target, (d) => (d > 0.86 ? 1 : 0)), w, h, 1);
-      for (let i = 0; i < N; i++) if (deep[i] > 0.6 && texture[i] < 0.4) cv.fill(i, 0.8 * deep[i], colorAt(i));
+      for (let i = 0; i < N; i++) if (deep[i] > 0.6 && texture[i] < 0.75) cv.fill(i, 0.8 * deep[i] * (1 - texture[i] * 0.4), colorAt(i));
     }
   }
 
