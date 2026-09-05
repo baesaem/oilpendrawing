@@ -209,7 +209,7 @@ function manualField(guides: DirectionGuide[], radiusPct: number, w: number, h: 
 }
 
 /** aniso: 넓은 범위(반경 28)의 방향 확실성 — 잔결이라도 물결처럼 한 방향으로 흐르면 높다 (잎 뭉치는 낮다) */
-interface Field { tx: Float32Array; ty: Float32Array; coh: Float32Array; man: Float32Array; aniso: Float32Array }
+interface Field { tx: Float32Array; ty: Float32Array; coh: Float32Array; man: Float32Array; aniso: Float32Array; raw: Float32Array }
 
 /**
  * 면의 방향장 (DAP 의 Feature Follow): 세 채널 구조 텐서로 각 화소 주변의 지배적 경계 방향을 구한다.
@@ -222,13 +222,14 @@ function orientationField(grads: Array<{ gx: Float32Array; gy: Float32Array }>, 
   for (const { gx, gy } of grads) for (let i = 0; i < N; i++) { jxx[i] += gx[i] * gx[i]; jyy[i] += gy[i] * gy[i]; jxy[i] += gx[i] * gy[i]; }
   const fine = [boxBlur(jxx, w, h, 7), boxBlur(jyy, w, h, 7), boxBlur(jxy, w, h, 7)];
   const coarse = [boxBlur(jxx, w, h, 28), boxBlur(jyy, w, h, 28), boxBlur(jxy, w, h, 28)];
-  const tx = new Float32Array(N), ty = new Float32Array(N), coh = new Float32Array(N), man = new Float32Array(N), aniso = new Float32Array(N);
+  const tx = new Float32Array(N), ty = new Float32Array(N), coh = new Float32Array(N), man = new Float32Array(N), aniso = new Float32Array(N), raw = new Float32Array(N);
   for (let i = 0; i < N; i++) {
     const ca = coarse[0][i] - coarse[1][i], cb = 2 * coarse[2][i], ce = coarse[0][i] + coarse[1][i];
     const cc = ce > 0.004 ? Math.sqrt(ca * ca + cb * cb) / (ce + 1e-4) : 0;
     aniso[i] = cc;
     let a = fine[0][i] - fine[1][i], b = 2 * fine[2][i], e = fine[0][i] + fine[1][i];
     let c = e > 0.02 ? Math.sqrt(a * a + b * b) / (e + 1e-4) : 0;
+    raw[i] = c; // 잔결 억제 전의 지역 확실성 (잎 뭉치 안의 짧은 획 방향에 씀)
     if (c < 0.2) { a = ca; b = cb; c = cc * 0.9; }
     let th = 0.5 * Math.atan2(b, a) + Math.PI / 2; // 그래디언트에 수직 = 경계를 따라가는 방향
     // 잔결이라도 물결·풀처럼 넓게 한 방향으로 흐르면(aniso) 방향을 살리고, 잎 뭉치처럼 방향이 없으면 기준 각도로 돌아간다
@@ -244,7 +245,7 @@ function orientationField(grads: Array<{ gx: Float32Array; gy: Float32Array }>, 
     tx[i] = Math.cos(th); ty[i] = Math.sin(th);
     coh[i] = c;
   }
-  return { tx, ty, coh, man, aniso };
+  return { tx, ty, coh, man, aniso, raw };
 }
 
 /** 1차원 부드러운 난수 (-1~1): 가장자리 흐림의 불규칙한 경계에 씀 */
@@ -308,7 +309,8 @@ class Canvas {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy) / r;
       if (d >= 1) continue;
-      const c = d < 0.6 ? 1 : 1 - (d - 0.6) / 0.4;
+      const q = 1 - d * d;
+      const c = q * q; // 젖은 붓: 가운데 진하고 가장자리로 부드럽게 번진다
       const i = y * w + x;
       if (sw[i] === 0) this.touched.push(i);
       if (c > sw[i]) sw[i] = c;
@@ -377,8 +379,12 @@ interface Ctx {
 function dirAt(c: Ctx, i: number, rot: number): [number, number] {
   const wf = Math.max(c.ff * c.field.coh[i], c.field.man[i]);
   let th: number;
-  // 잔결 영역의 지역 방향은 소음이라 더 확실할 때만 따른다 (아니면 획이 벌레처럼 꿈틀거린다)
-  if (wf < 0.12 + 0.5 * c.texture[i]) th = c.base;
+  const tex = c.texture[i];
+  if (tex > 0.5 && c.field.man[i] < 0.1) {
+    // 잔결(잎 뭉치): 짧은 획이 잎 무리의 지역 방향을 따르면 잎 질감이 된다. 방향이 없으면 기준 각도 주변에서 흩어진다
+    const r = c.field.raw[i];
+    th = r > 0.35 ? Math.atan2(c.field.ty[i], c.field.tx[i]) : c.base + (c.rng() - 0.5) * 1.2;
+  } else if (wf < 0.12) th = c.base;
   else {
     const a2 = 2 * Math.atan2(c.field.ty[i], c.field.tx[i]), b2 = 2 * c.base;
     th = 0.5 * Math.atan2(wf * Math.sin(a2) + (1 - wf) * Math.sin(b2), wf * Math.cos(a2) + (1 - wf) * Math.cos(b2));
@@ -417,7 +423,7 @@ function penStroke(c: Ctx, ref: Float32Array, x0: number, y0: number, L: number,
       cv.dot(x - dy * wob, y + dx * wob, r * (0.65 + 0.35 * taper) * pressure, 0.75 + 0.25 * taper);
       // 방향장을 조금씩 따라감 (부호는 이전 방향과 맞춤)
       const wf = Math.max(c.ff * c.field.coh[i], c.field.man[i]);
-      if (wf > 0.12 + 0.5 * c.texture[i]) {
+      if (wf > 0.12 && c.texture[i] < 0.5) {
         let [fx, fy] = dirAt(c, i, rot);
         if (fx * dx + fy * dy < 0) { fx = -fx; fy = -fy; }
         const k = 0.12 + 0.2 * wf;
@@ -451,7 +457,7 @@ function loopStroke(c: Ctx, ref: Float32Array, x0: number, y0: number, R: number
     if (ref[i] < 0.02) continue;
     cv.dot(px, py, lw * 0.45, 0.9);
   }
-  cv.end(alphaFor(c, D0) * 0.8, c.colorAt(i0));
+  cv.end(alphaFor(c, D0) * 0.6, c.colorAt(i0));
 }
 
 /** 스크리블: 굽은 정도가 무작위인 고리 선이 목표 안에서만 맴돈다 */
@@ -483,7 +489,6 @@ function scribbleStroke(c: Ctx, ref: Float32Array, x0: number, y0: number, L: nu
  */
 function edgePass(c: Ctx, mag: Float32Array, mass: { mag: Float32Array; gx: Float32Array; gy: Float32Array }, chroma: Float32Array, th: number, widthMul: number, alphaMul: number) {
   const { cv, w, h, N, rng, lw, texture, field } = c;
-  const massMag = mass.mag;
   // 경계 접선: 잔결 영역에서는 지역 방향장이 소음이므로 뭉갠 밝기의 그라디언트에 수직인 방향을 쓴다
   const tangent = (i: number): [number, number] => {
     if (texture[i] < 0.4) return [field.tx[i], field.ty[i]];
@@ -498,7 +503,7 @@ function edgePass(c: Ctx, mag: Float32Array, mass: { mag: Float32Array; gx: Floa
   const maxLen = Math.min(w, h) * 0.35;
   const r = (lw * widthMul) / 2;
   // 잔결(나뭇잎)에서는 센 경계만 남기고, 대신 뭉갠 밝기의 경계(잎 뭉치의 덩어리 윤곽)를 살린다 — 리천 드로잉의 뭉게구름 같은 나무 윤곽
-  const strength = (i: number) => Math.max(mag[i] / (1 + 4 * texture[i]), massMag[i] * texture[i] * 1.6, chroma[i] * 1.4);
+  const strength = (i: number) => Math.max(mag[i] / (1 + 2.2 * texture[i]), chroma[i] * 1.3 / (1 + 1.2 * texture[i]));
   const mark = (x: number, y: number) => {
     const m = Math.max(1, Math.round(g * 0.5));
     for (let yy = Math.max(0, y - m); yy <= Math.min(h - 1, y + m); yy++) for (let xx = Math.max(0, x - m); xx <= Math.min(w - 1, x + m); xx++) done[yy * w + xx] = sid;
@@ -604,11 +609,11 @@ function sweep(c: Ctx, ref: Float32Array, R: number, sw: Sweep, T: number, L: nu
     }
     if (sw.kind === 'scribble') { scribbleStroke(c, ref, x0, y0, len * 1.6); continue; }
     // pen 붓: 잔결(나뭇잎)은 획 대신 고리 선
-    if (c.p.brush === 'pen' && !sw.rot && c.texture[i0] > 0.45 && c.field.aniso[i0] < 0.45 && rng() < c.texture[i0] + 0.2) { loopStroke(c, ref, x0, y0, R); continue; }
-    let Lc = len;
+    if (c.p.brush === 'pen' && !sw.rot && c.texture[i0] > 0.45 && c.field.aniso[i0] < 0.45 && rng() < c.texture[i0] * 0.8) { loopStroke(c, ref, x0, y0, R); continue; }
+    let Lc = Math.min(len, Math.min(w, h) * 0.14);
     // 방향이 없는 평탄한 곳(하늘·벽)은 길게. 잔결 영역은 짧게 (긴 줄이 생기면 풀밭처럼 보인다)
     if (c.field.coh[i0] < 0.15 && c.field.man[i0] < 0.1 && c.texture[i0] < 0.3) Lc *= 1.7;
-    else if (c.texture[i0] > 0.5) Lc *= 0.6;
+    else if (c.texture[i0] > 0.5) Lc = Math.min(Lc * 0.35, lw * 14);
     penStroke(c, ref, x0, y0, Lc, sw.rot ?? 0);
   }
 }
@@ -671,7 +676,7 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, onTick?: (f
       }
       x += dx * step; y += dy * step;
     }
-    cv.end(0.3 + 0.12 * (1 - c.rnd) + rng() * 0.12 * c.rnd, col, false);
+    cv.end(0.42 + 0.1 * (1 - c.rnd) + rng() * 0.15 * c.rnd, col, false);
   }
 }
 
@@ -704,6 +709,21 @@ function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, 
     want[o] = paper[0] * (1 - op * (1 - tr)); want[o + 1] = paper[1] * (1 - op * (1 - tg)); want[o + 2] = paper[2] * (1 - op * (1 - tb));
   }
   return want;
+}
+
+/** 젖은 담채가 마르면서 경계에 안료가 고이는 효과: 캔버스 밝기의 그라디언트가 큰 곳을 조금 어둡게 */
+function pigmentEdges(cv: Canvas, amount: number) {
+  const { w, h } = cv;
+  const N = w * h;
+  const lum = new Float32Array(N);
+  for (let i = 0; i < N; i++) lum[i] = (0.299 * cv.rgb[i * 3] + 0.587 * cv.rgb[i * 3 + 1] + 0.114 * cv.rgb[i * 3 + 2]) / 255;
+  const { mag } = sobel(boxBlur(lum, w, h, 1), w, h);
+  for (let i = 0; i < N; i++) {
+    const k = clamp(mag[i] * 2.5, 0, 1) * amount * (1 - lum[i] * 0.5);
+    if (k <= 0.005) continue;
+    const o = i * 3;
+    cv.rgb[o] *= 1 - k; cv.rgb[o + 1] *= 1 - k; cv.rgb[o + 2] *= 1 - k;
+  }
 }
 
 /** 가장자리를 미완성처럼 흐림: 불규칙한 경계 밖으로 갈수록 종이로 되돌린다 */
@@ -767,7 +787,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     const L = smooth[i];
     if (L >= white) continue;
     const d = (white - L) / white;
-    target[i] = (0.07 + 0.75 * Math.pow(d, 1.35)) * (1 - texture[i] * 0.5);
+    target[i] = (0.06 + 0.84 * Math.pow(d, 1.1)) * (1 - texture[i] * 0.22);
   }
 
   const paper = paperFor(opts.color, p);
@@ -812,10 +832,14 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
       washSweep(c, want, R, 4 + 10 * (1 - acc), (f) => report(k, f));
       report(k, 1, true);
     }
-    // 펜: 가장 어두운 곳에만 성긴 획
-    const ref = boxBlur(target, w, h, 1);
-    const R = sizes[passes - 1];
-    sweep(c, ref, R, { rot: 0, minRef: 0.5, gMul: 1.6 }, T + 0.05, R * 3);
+    // 물감이 마르며 가장자리에 고이는 안료: 캔버스 밝기의 경계를 조금 어둡게
+    pigmentEdges(cv, 0.22);
+    // 펜: 잉크 농도가 있을 때만 가장 어두운 곳에 성긴 획 (순수 수채는 ink 0)
+    if (p.ink >= 30) {
+      const ref = boxBlur(target, w, h, 1);
+      const R = sizes[passes - 1];
+      sweep(c, ref, R, { rot: 0, minRef: 0.6, gMul: 1.8 }, T + 0.08, R * 3);
+    }
   } else {
     const sweeps = sweepsFor(p);
     for (let k = 0; k < passes; k++) {
@@ -835,7 +859,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   // 3) 윤곽선: 색 경계를 따라가는 획
   const edges = clamp(p.edges, 0, 100);
   if (edges > 0) {
-    const th = (0.30 - 0.20 * edges / 100) * (p.brush === 'wash' ? 1.15 : 1);
+    const th = (0.30 - 0.20 * edges / 100) * (p.brush === 'wash' ? 1.5 : 1);
     const widthMul = p.brush === 'contour' ? 1.15 : 1;
     const mass = sobel(boxBlur(lum, w, h, Math.max(3, Math.round(minSide / 60))), w, h);
     edgePass(c, mag, mass, chromaEdgeMag(img, w, h), th, widthMul, p.brush === 'contour' ? 1 : 0.9);

@@ -109,7 +109,7 @@ export const PAINT_FOR_STYLE: Record<PenStyle, PaintProfile> = {
   ghibli: { ...CLASSIC_PAINT, passes: 3, brushSize: 55, detail: 60, accuracy: 50, strokeLength: 65, featureFollow: 60, baseAngle: 30, randomness: 20, lineWidth: 1.4, ink: 70, paperKeep: 60, edges: 65 },
   webtoon: { ...CLASSIC_PAINT, brush: 'contour', passes: 3, brushSize: 50, detail: 65, accuracy: 55, strokeLength: 60, featureFollow: 60, baseAngle: 45, randomness: 10, lineWidth: 1.8, ink: 90, paperKeep: 62, edges: 95 },
   manga: { ...CLASSIC_PAINT, passes: 4, brushSize: 40, detail: 90, accuracy: 70, strokeLength: 60, featureFollow: 20, baseAngle: 45, randomness: 5, lineWidth: 1, ink: 90, paperKeep: 55, edges: 85 },
-  watercolor: { ...RICHEON_PAINT, brush: 'wash', passes: 3, brushSize: 60, detail: 60, accuracy: 60, strokeLength: 60, featureFollow: 70, baseAngle: 40, randomness: 35, ink: 75, paperKeep: 55, edges: 55, vignette: 0 },
+  watercolor: { ...RICHEON_PAINT, brush: 'wash', passes: 4, brushSize: 75, detail: 70, accuracy: 65, strokeLength: 50, featureFollow: 70, baseAngle: 40, randomness: 35, ink: 45, paperKeep: 60, edges: 35, vignette: 25 },
 };
 
 /** 숙련도별로 화풍 설정을 단순화한다 (견본이 없을 때 출발점). 초급은 층·세밀함을 줄이고 굵은 펜으로 */
