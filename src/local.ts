@@ -3,7 +3,7 @@
  * Blob → ImageData 변환은 여기서(DOM 필요), 계산은 render.worker.ts 에서.
  */
 import { blobToImage } from './image';
-import { renderDrawing, type RawImage, type RenderOpts } from './render';
+import { renderDrawing, type ProgressInfo, type RawImage, type RenderOpts } from './render';
 import type { WorkerRequest, WorkerResponse } from './render.worker';
 import { analyzeSample, type SampleAnalysis } from './sampleStyle';
 
@@ -30,7 +30,9 @@ function encode(raw: RawImage): Promise<Blob> {
   return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('이미지 인코딩 실패'))), 'image/png'));
 }
 
-/** 워커 없이 화면 스레드에서 같은 계산을 한다 (워커가 뜨지 않는 환경의 대비책. 그리는 동안 화면이 잠깐 멈춘다) */
+export type ProgressHandler = (image: RawImage, info: ProgressInfo) => void;
+
+/** 워커 없이 화면 스레드에서 같은 계산을 한다 (워커가 뜨지 않는 환경의 대비책. 그리는 동안 화면이 멈추므로 중간 그림은 내보내지 않는다) */
 function runInline(req: WorkerRequest): WorkerResponse {
   if (req.type === 'render') return { type: 'render', image: renderDrawing(req.image, req.opts) };
   return { type: 'analyze', result: analyzeSample(req.image) };
@@ -43,7 +45,7 @@ let workerBroken = false;
  * 워커 스크립트를 못 불러오거나(옛 개발 서버에 새 코드가 섞인 경우, 모듈 워커 미지원 브라우저 등) 워커가 죽으면
  * 한 번 알린 뒤 화면 스레드로 대신 계산합니다. 그래서 "드로잉 만들기"는 어떤 환경에서도 결과를 냅니다.
  */
-function runWorker(req: WorkerRequest, transfer: Transferable[], signal?: AbortSignal): Promise<WorkerResponse> {
+function runWorker(req: WorkerRequest, transfer: Transferable[], signal?: AbortSignal, onProgress?: ProgressHandler): Promise<WorkerResponse> {
   if (workerBroken || typeof Worker === 'undefined') {
     return new Promise((res, rej) => {
       if (signal?.aborted) return rej(new DOMException('중단', 'AbortError'));
@@ -68,6 +70,7 @@ function runWorker(req: WorkerRequest, transfer: Transferable[], signal?: AbortS
     if (signal?.aborted) return onAbort();
     signal?.addEventListener('abort', onAbort);
     worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+      if (e.data.type === 'progress') { onProgress?.(e.data.image, e.data.info); return; }
       done();
       if (e.data.type === 'error') rej(new Error(e.data.message));
       else res(e.data);
@@ -83,10 +86,10 @@ function runWorker(req: WorkerRequest, transfer: Transferable[], signal?: AbortS
   });
 }
 
-/** 사진 → 로컬 드로잉 PNG */
-export async function renderLocalDrawing(photo: Blob, opts: RenderOpts, signal?: AbortSignal): Promise<Blob> {
+/** 사진 → 로컬 드로잉 PNG. onProgress 를 주면 그려지는 도중의 그림을 받는다 (워커가 있을 때만) */
+export async function renderLocalDrawing(photo: Blob, opts: Omit<RenderOpts, 'onProgress'>, signal?: AbortSignal, onProgress?: ProgressHandler): Promise<Blob> {
   const image = await decode(photo, 1100);
-  const r = await runWorker({ type: 'render', image, opts }, [image.data.buffer as ArrayBuffer], signal);
+  const r = await runWorker({ type: 'render', image, opts, progress: !!onProgress }, [image.data.buffer as ArrayBuffer], signal, onProgress);
   if (r.type !== 'render') throw new Error('예상치 못한 응답');
   return encode(r.image);
 }

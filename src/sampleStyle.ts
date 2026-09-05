@@ -1,13 +1,13 @@
 /**
  * 견본 드로잉 분석 (AI 없음, 순수 계산, 워커에서 실행).
- * 견본에서 종이·잉크색, 톤 단계, 여백, 선 굵기, 해칭 각도·간격, 손떨림을 재어 StrokeProfile 로 돌려줍니다.
+ * 견본에서 종이·잉크색, 톤 단계, 여백, 선 굵기, 해칭 각도·간격, 손떨림을 재어 그리기 설정(PaintProfile)으로 옮겨 돌려줍니다.
  * 측정은 근사치이므로 UI 슬라이더의 초기값으로만 쓰고, 사용자가 눈으로 보며 고칩니다.
  */
 import { boxBlur, luminance01, mulberry32, rgbToHex, sobel, type RawImage } from './render';
-import { DEFAULT_STROKES, type FillMode, type StrokeProfile } from './types';
+import { DEFAULT_PAINT, type BrushKind, type PaintProfile } from './types';
 
 export interface SampleAnalysis {
-  profile: StrokeProfile;
+  profile: PaintProfile;
   /** 사용자에게 보여 줄 한 줄 요약 */
   summary: string;
   /** 선을 거의 찾지 못한 경우 등 */
@@ -60,7 +60,7 @@ export function analyzeSample(img: RawImage): SampleAnalysis {
   for (let i = 0; i < N; i++) if (flat[i] < thr) { mask[i] = 1; inkCount++; }
   const inkFrac = inkCount / N;
   if (inkFrac < 0.004) {
-    return { profile: { ...DEFAULT_STROKES }, summary: '선을 찾지 못했습니다', warning: '견본에서 선을 거의 찾지 못했습니다. 더 또렷한 스캔이나 사진을 써 보세요.' };
+    return { profile: { ...DEFAULT_PAINT }, summary: '선을 찾지 못했습니다', warning: '견본에서 선을 거의 찾지 못했습니다. 더 또렷한 스캔이나 사진을 써 보세요.' };
   }
 
   // 3) 종이색·잉크색 (원본 색으로)
@@ -71,8 +71,8 @@ export function analyzeSample(img: RawImage): SampleAnalysis {
     if (lum[i] >= pHi) { pr += data[o]; pg += data[o + 1]; pb += data[o + 2]; pn++; }
     else if (lum[i] <= pLo) { ir += data[o]; ig += data[o + 1]; ib += data[o + 2]; inn++; }
   }
-  const paperColor = pn ? rgbToHex(pr / pn, pg / pn, pb / pn) : DEFAULT_STROKES.paperColor;
-  const inkColor = inn ? rgbToHex(ir / inn, ig / inn, ib / inn) : DEFAULT_STROKES.inkColor;
+  const paperColor = pn ? rgbToHex(pr / pn, pg / pn, pb / pn) : DEFAULT_PAINT.paperColor;
+  const inkColor = inn ? rgbToHex(ir / inn, ig / inn, ib / inn) : DEFAULT_PAINT.inkColor;
 
   // 4) 블록 단위 잉크 밀도 → 여백 비율, 톤 단계 수, 해칭 영역
   const B = 16;
@@ -174,19 +174,24 @@ export function analyzeSample(img: RawImage): SampleAnalysis {
   const hatchSpacing = clamp(Math.round(median(spacings, 7)), 3, 24);
   const runLen = median(runs, 10);
 
-  // 8) 채우기 방식 추정
-  let fill: FillMode = 'hatch';
-  if (runLen <= 4 && runs.length > 20) fill = 'stipple';
-  else if (concentration < 0.22 && total > 0) fill = 'scribble';
-  else if (hasSecond) fill = 'cross';
-  else if (drawn && bins[0] / drawn > 0.75 && tones <= 3) fill = 'contour';
+  // 8) 붓 추정
+  let brush: BrushKind = 'hatch';
+  if (runLen <= 4 && runs.length > 20) brush = 'stipple';
+  else if (concentration < 0.22 && total > 0) brush = 'scribble';
+  else if (hasSecond) brush = 'cross';
+  else if (drawn && bins[0] / drawn > 0.75 && tones <= 3) brush = 'contour';
 
-  const profile: StrokeProfile = {
-    fill, tones, paperKeep, lineWidth, edgeDensity: DEFAULT_STROKES.edgeDensity, hatchAngle, hatchSpacing, jitter, paperColor, inkColor,
-    vignette: DEFAULT_STROKES.vignette,
+  // 9) 그리기 설정으로: 톤 단계 → 층 수, 해칭 간격 → 세밀함(간격이 좁을수록 작은 획), 토막 길이 → 획 길이,
+  //    방향 집중도 → 무작위성. 형태 따라가기·정밀도는 견본 한 장으로 재기 어려워 기본값을 둔다.
+  const detail = clamp(Math.round(100 - ((hatchSpacing - 3) / 21) * 80), 20, 100);
+  const strokeLength = clamp(Math.round((runLen / 60) * 100), 20, 90);
+  const profile: PaintProfile = {
+    ...DEFAULT_PAINT,
+    brush, passes: tones, detail, strokeLength, baseAngle: hatchAngle, randomness: jitter, lineWidth, paperKeep, paperColor, inkColor,
+    featureFollow: brush === 'hatch' || brush === 'cross' ? 40 : DEFAULT_PAINT.featureFollow,
   };
-  const summary = `${FILL_TEXT[fill]} · ${tones}단계 · 선 ${lineWidth}px · 간격 ${hatchSpacing}px · ${hatchAngle}°`;
+  const summary = `${BRUSH_TEXT[brush]} · ${tones}층 · 선 ${lineWidth}px · 간격 ${hatchSpacing}px · ${hatchAngle}°`;
   return { profile, summary };
 }
 
-const FILL_TEXT: Record<FillMode, string> = { sketch: '어반 스케치', hatch: '한 방향 해칭', cross: '교차 해칭', contour: '윤곽선 위주', scribble: '스크리블', stipple: '점묘', wash: '펜 선 + 담채' };
+const BRUSH_TEXT: Record<BrushKind, string> = { pen: '펜 획', hatch: '한 방향 해칭', cross: '교차 해칭', contour: '윤곽선 위주', scribble: '스크리블', stipple: '점묘', wash: '펜 선 + 담채' };

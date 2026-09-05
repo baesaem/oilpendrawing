@@ -1,7 +1,8 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { useObjectUrl } from '../hooks';
 import type { PlacedStamp, StampItem } from '../stamps';
 import type { DirectionGuide } from '../types';
+import type { ProgressInfo, RawImage } from '../render';
 
 export type ViewMode = 'compare' | 'result' | 'original';
 
@@ -22,6 +23,22 @@ interface Props {
   onStampDrop?: () => void;
   /** 사진 위에 해칭 방향 지시선을 그리는 층 */
   direction?: DirectionProps;
+  /** 로컬 엔진이 그리는 도중의 그림 (DAP 처럼 층이 쌓이는 과정을 보여 준다) */
+  progress?: PaintProgress | null;
+}
+
+export interface PaintProgress { image: RawImage; info: ProgressInfo }
+
+/** 그려지는 과정: 워커가 보낸 중간 그림을 캔버스에 바로 찍는다 (Blob 인코딩 없이) */
+function LiveCanvas({ image }: { image: RawImage }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    if (c.width !== image.width || c.height !== image.height) { c.width = image.width; c.height = image.height; }
+    c.getContext('2d')?.putImageData(new ImageData(image.data as Uint8ClampedArray<ArrayBuffer>, image.width, image.height), 0, 0);
+  }, [image]);
+  return <canvas ref={ref} className="paint-canvas" aria-label="그리는 중인 드로잉" />;
 }
 
 export interface DirectionProps {
@@ -126,7 +143,7 @@ function StampLayer({ stamps, onMove, onDrop }: { stamps: Array<{ placed: Placed
   );
 }
 
-export function Stage({ original, result, view, busy, toneFilter, wide, guide, live, stamps, onStampMove, onStampDrop, direction }: Props) {
+export function Stage({ original, result, view, busy, toneFilter, wide, guide, live, stamps, onStampMove, onStampDrop, direction, progress }: Props) {
   const oUrl = useObjectUrl(original);
   const rUrl = useObjectUrl(result);
   const [split, setSplit] = useState(55);
@@ -160,7 +177,14 @@ export function Stage({ original, result, view, busy, toneFilter, wide, guide, l
               />
             </>
           )}
-          {busy && (
+          {busy && progress && <LiveCanvas image={progress.image} />}
+          {busy && progress && (
+            <div className="paint-progress" role="status" aria-live="polite">
+              <div className="paint-progress-bar"><i style={{ width: `${Math.round(progress.info.frac * 100)}%` }} /></div>
+              <span>{progress.info.pass + 1}/{progress.info.passes} 층 · {Math.round(progress.info.frac * 100)}% · 획 {progress.info.strokes.toLocaleString()}개</span>
+            </div>
+          )}
+          {busy && !progress && (
             <div className="busy" role="status">
               <div className="spinner" />
               <div>{busy}</div>

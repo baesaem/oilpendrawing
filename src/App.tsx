@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiKeyDialog } from './components/ApiKeyDialog';
 import { PanelIcon } from './components/Icons';
 import { InputPanel } from './components/InputPanel';
-import { Stage, type ViewMode } from './components/Stage';
+import { Stage, type PaintProgress, type ViewMode } from './components/Stage';
 import { StylePanel } from './components/StylePanel';
-import { StrokePanel } from './components/StrokePanel';
+import { PaintPanel } from './components/PaintPanel';
 import { StampPanel } from './components/StampPanel';
 import { Toolbar, type Mode } from './components/Toolbar';
 import { GuideView, type GridSize } from './components/GuideView';
@@ -21,8 +21,8 @@ import { EDITS_INPUT, generateDrawing } from './providers';
 import { listDrawings, loadSettings, putDrawing, saveSettings } from './storage';
 import { IS_PREVIEW, PREVIEW_NOTE } from './env';
 import {
-  DEFAULT_PARAMS, FILL_FOR_STYLE, FINE_STROKES, LEVEL_LABEL, PROVIDER_LABEL, RICHEON_STROKES, blendStrokes, mergeParams, strokesForLevel,
-  type DirectionGuide, type Drawing, type DrawingParams, type Settings, type StrokeProfile,
+  DEFAULT_PARAMS, LEVEL_LABEL, PAINT_FOR_STYLE, PROVIDER_LABEL, blendPaint, mergeParams, paintForLevel,
+  type DirectionGuide, type Drawing, type DrawingParams, type PaintProfile, type Settings,
 } from './types';
 
 interface UiError { message: string; hint?: string }
@@ -36,24 +36,15 @@ export function App() {
   const [keysOpen, setKeysOpen] = useState(false);
 
   const [params, setParams] = useState<DrawingParams>(DEFAULT_PARAMS);
-  const patchParams = useCallback((p: Partial<DrawingParams>) => setParams((prev) => {
-    const next = { ...prev, ...p };
-    // 화풍을 고르면 로컬 선·톤도 같이 맞춥니다: 작가 스타일은 프리셋 전체, 나머지는 채우기 방식만
-    if (p.style === 'richeon') next.strokes = { ...RICHEON_STROKES };
-    else if (p.style === 'fineink') next.strokes = { ...FINE_STROKES };
-    else {
-      const fill = p.style ? FILL_FOR_STYLE[p.style] : undefined;
-      if (fill) next.strokes = { ...next.strokes, fill };
-    }
-    return next;
-  }), []);
-  const patchStrokes = useCallback((p: Partial<StrokeProfile>) => setParams((prev) => ({ ...prev, strokes: { ...prev.strokes, ...p } })), []);
+  // 화풍(프리셋)·숙련도·견본이 바뀌면 아래 효과가 그리기 설정을 다시 채운다
+  const patchParams = useCallback((p: Partial<DrawingParams>) => setParams((prev) => ({ ...prev, ...p })), []);
+  const patchPaint = useCallback((p: Partial<PaintProfile>) => setParams((prev) => ({ ...prev, paint: { ...prev.paint, ...p } })), []);
 
   const [input, setInput] = useState<File | null>(null);
   const [inputIsGray, setInputIsGray] = useState<boolean | null>(null);
   const [reference, setReference] = useState<File | null>(null);
-  /** 견본에서 읽은 선·톤 (반영도로 기본값과 섞어 씀) */
-  const [measured, setMeasured] = useState<StrokeProfile | null>(null);
+  /** 견본에서 읽은 그리기 설정 (반영도로 프리셋과 섞어 씀) */
+  const [measured, setMeasured] = useState<PaintProfile | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisState>({ busy: false, summary: null });
 
   /** 등록한 낙관·사인과 배치 (이 브라우저에 저장) */
@@ -63,9 +54,9 @@ export function App() {
   /** 즐겨찾기 프리셋 (이 브라우저에 저장) */
   const [presets, setPresets] = useState<UserPreset[]>(() => loadPresets());
   useEffect(() => { savePresets(presets); }, [presets]);
-  const savePreset = (name: string) => setPresets((ps) => [{ id: newPresetId(), name, strokes: { ...params.strokes }, createdAt: Date.now() }, ...ps].slice(0, PRESET_LIMIT));
+  const savePreset = (name: string) => setPresets((ps) => [{ id: newPresetId(), name, paint: { ...params.paint }, createdAt: Date.now() }, ...ps].slice(0, PRESET_LIMIT));
   const deletePreset = (id: string) => setPresets((ps) => ps.filter((p) => p.id !== id));
-  const applyPreset = (p: UserPreset) => patchStrokes({ ...p.strokes });
+  const applyPreset = (p: UserPreset) => patchPaint({ ...p.paint });
 
   /** 해칭 방향 지시선 그리기 모드 */
   const [directionEditing, setDirectionEditing] = useState(false);
@@ -75,6 +66,8 @@ export function App() {
   const [history, setHistory] = useState<Drawing[]>([]);
   const [view, setView] = useState<ViewMode>('original');
   const [busy, setBusy] = useState<string | null>(null);
+  /** 로컬 엔진이 그리는 도중의 그림 */
+  const [progress, setProgress] = useState<PaintProgress | null>(null);
   const [live, setLive] = useState(false);
   const [error, setError] = useState<UiError | null>(null);
   const [panelsHidden, setPanelsHidden] = useState(false);
@@ -85,7 +78,7 @@ export function App() {
   const [showProcess, setShowProcess] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  /** 이력에서 불러올 때는 그 레코드의 선·톤을 유지해야 하므로 자동 재설정을 한 번 건너뜁니다 */
+  /** 이력에서 불러올 때는 그 레코드의 그리기 설정을 유지해야 하므로 자동 재설정을 한 번 건너뜁니다 */
   const keepStrokesRef = useRef(false);
 
   useEffect(() => { listDrawings().then(setHistory); }, []);
@@ -123,15 +116,18 @@ export function App() {
     return () => { alive = false; ac.abort(); };
   }, [reference]);
 
-  // 숙련도·견본·반영도가 바뀌면 선·톤 슬라이더를 다시 채웁니다.
+  // 화풍 프리셋·숙련도·견본·반영도가 바뀌면 그리기 설정을 다시 채웁니다: 화풍 프리셋을 숙련도로 단순화한 뒤 견본 측정값과 섞는다.
+  const paintFor = (p: DrawingParams) => {
+    const base = paintForLevel(p.level, PAINT_FOR_STYLE[p.style]);
+    return measured ? blendPaint(base, measured, p.referenceWeight) : base;
+  };
   useEffect(() => {
     if (keepStrokesRef.current) { keepStrokesRef.current = false; return; }
-    setParams((p) => ({ ...p, strokes: measured ? blendStrokes(strokesForLevel(p.level), measured, p.referenceWeight) : strokesForLevel(p.level) }));
-  }, [measured, params.level, params.referenceWeight]);
+    setParams((p) => ({ ...p, paint: paintFor(p) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measured, params.level, params.referenceWeight, params.style]);
 
-  const resetStrokes = () => {
-    setParams((p) => ({ ...p, strokes: measured ? blendStrokes(strokesForLevel(p.level), measured, p.referenceWeight) : strokesForLevel(p.level) }));
-  };
+  const resetPaint = () => setParams((p) => ({ ...p, paint: paintFor(p) }));
 
   // 스페이스: 결과 ↔ 원본 전환, H: 패널 숨기기
   useEffect(() => {
@@ -167,6 +163,7 @@ export function App() {
   };
   const finish = () => {
     setBusy(null);
+    setProgress(null);
     abortRef.current = null;
     // 포커스가 생성 버튼에 남아 있으면 스페이스바가 화면 전환 대신 재생성을 일으키므로 해제합니다.
     (document.activeElement as HTMLElement | null)?.blur?.();
@@ -197,7 +194,10 @@ export function App() {
       const gray = params.grayscaleInput && !inputIsGray;
       const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: gray, relight: params.lightAuto ? undefined : params.light });
       const preparedRef = reference ? await prepareInput(reference, { maxSide: 1024, grayscale: false }) : undefined;
-      const result = await renderLocalDrawing(preparedInput, { strokes: params.strokes, color: params.color, guides: params.guides, guideRadius: params.guideRadius }, ac.signal);
+      const result = await renderLocalDrawing(
+        preparedInput, { paint: params.paint, color: params.color, guides: params.guides, guideRadius: params.guideRadius }, ac.signal,
+        (image, info) => setProgress({ image, info }),
+      );
       await commit({ id: newId(), createdAt: Date.now(), input: preparedInput, reference: preparedRef, result, params: { ...params }, engine: 'local' });
     } catch (e) { fail(e); } finally { finish(); }
   };
@@ -246,13 +246,13 @@ export function App() {
     } catch (e) { fail(e); } finally { finish(); }
   };
 
-  // 로컬 결과가 떠 있을 때 선·톤이나 색을 바꾸면 잠시 뒤 자동으로 다시 그립니다.
+  // 로컬 결과가 떠 있을 때 그리기 설정이나 색을 바꾸면 잠시 뒤 자동으로 다시 그립니다.
   const liveRef = useRef(0);
   useEffect(() => {
     if (!current || current.engine !== 'local' || busy) return;
     const lightChanged = current.params.lightAuto !== params.lightAuto || (!params.lightAuto && current.params.light !== params.light);
     const guidesChanged = JSON.stringify(current.params.guides ?? []) !== JSON.stringify(params.guides) || (current.params.guideRadius ?? 18) !== params.guideRadius;
-    const same = current.params.color === params.color && JSON.stringify(current.params.strokes) === JSON.stringify(params.strokes) && !lightChanged && !guidesChanged;
+    const same = current.params.color === params.color && JSON.stringify(current.params.paint) === JSON.stringify(params.paint) && !lightChanged && !guidesChanged;
     if (same) return;
     // 빛 방향을 바꾸려면 원본 사진을 다시 조명해야 하는데, 이력에서 불러온 경우엔 원본 파일이 없습니다
     if (lightChanged && !input) return;
@@ -264,17 +264,17 @@ export function App() {
         const photo = lightChanged && input
           ? await prepareInput(input, { maxSide: 1536, grayscale: params.grayscaleInput && !inputIsGray, relight: params.lightAuto ? undefined : params.light })
           : current.input;
-        const base = await renderLocalDrawing(photo, { strokes: params.strokes, color: params.color, guides: params.guides, guideRadius: params.guideRadius }, ac.signal);
+        const base = await renderLocalDrawing(photo, { paint: params.paint, color: params.color, guides: params.guides, guideRadius: params.guideRadius }, ac.signal);
         if (id !== liveRef.current) return;
         const result = await compositeStamps(base, stamps.placed, stamps.items);
-        const updated: Drawing = { ...current, input: photo, base, result, params: { ...current.params, strokes: params.strokes, color: params.color, light: params.light, lightAuto: params.lightAuto, guides: params.guides, guideRadius: params.guideRadius } };
+        const updated: Drawing = { ...current, input: photo, base, result, params: { ...current.params, paint: params.paint, color: params.color, light: params.light, lightAuto: params.lightAuto, guides: params.guides, guideRadius: params.guideRadius } };
         setCurrent(updated);
         setHistory((h) => h.map((d) => (d.id === updated.id ? updated : d)));
         void putDrawing(updated);
       } catch { /* 중단·오류는 조용히 */ } finally { if (id === liveRef.current) setLive(false); }
     }, 350);
     return () => { window.clearTimeout(timer); ac.abort(); };
-  }, [params.strokes, params.color, params.light, params.lightAuto, params.grayscaleInput, params.guides, params.guideRadius, inputIsGray, input, current, busy, stamps]);
+  }, [params.paint, params.color, params.light, params.lightAuto, params.grayscaleInput, params.guides, params.guideRadius, inputIsGray, input, current, busy, stamps]);
 
   // 낙관·사인 배치가 바뀌면 (끌어 놓기 끝, 크기 조절, 추가·제거) 결과에 다시 구워 넣습니다.
   const bakeRef = useRef(0);
@@ -372,7 +372,7 @@ export function App() {
       {IS_PREVIEW && <div className="preview-banner" title={PREVIEW_NOTE}>미리보기 모드 · AI 생성·저장은 배포판에서 동작합니다</div>}
 
       <Stage
-        original={stageOriginal} result={current ? current.base ?? current.result : null} view={view} busy={busy} live={live} toneFilter={filter} wide={panelsHidden}
+        original={stageOriginal} result={current ? current.base ?? current.result : null} view={view} busy={busy} live={live} toneFilter={filter} wide={panelsHidden} progress={progress}
         stamps={current ? placedWithItems : []} onStampMove={moveStamp} onStampDrop={() => { void rebake(); }}
         direction={{
           guides: params.guides, editing: directionEditing, radius: params.guideRadius,
@@ -403,8 +403,8 @@ export function App() {
 
       <aside className={`panel panel-right ${panelsHidden ? 'panel-hidden' : ''}`} aria-label="표현 설정">
         <StylePanel params={params} onParams={patchParams}>
-          <StrokePanel
-            strokes={params.strokes} onChange={patchStrokes} fromSample={!!measured} onReset={resetStrokes}
+          <PaintPanel
+            paint={params.paint} onChange={patchPaint} fromSample={!!measured} onReset={resetPaint}
             presets={presets} onSavePreset={savePreset} onDeletePreset={deletePreset} onApplyPreset={applyPreset}
           />
         </StylePanel>
@@ -438,7 +438,7 @@ export function App() {
         history={history} currentId={current?.id ?? null} onSelect={selectHistory}
         canDraw={!!input && !busy} onDraw={drawLocal}
         canAi={!!input && keyOk && !busy} onAi={drawAi}
-        busy={!!busy} onCancel={cancel} onDownload={download}
+        busy={!!busy} progress={progress ? progress.info.frac : null} onCancel={cancel} onDownload={download}
         onFullscreen={() => setFullscreen(true)}
         directionEditing={directionEditing} guideCount={params.guides.length} onToggleDirection={toggleDirection}
       />

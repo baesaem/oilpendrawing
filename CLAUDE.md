@@ -45,56 +45,77 @@ UI 문구는 모두 한국어이고, 코드 주석도 한국어로 쓴다.
 ### API 비용이 드는 곳과 안 드는 곳
 
 기본 경로는 전부 브라우저 계산이다. 가이드 1~3단계는 `guide.ts` 의 `edgeMap`, `valueMap`,
-"드로잉 만들기"는 `render.ts` 의 `renderDrawing`, 견본 분석은 `sampleStyle.ts` 의 `analyzeSample`.
+"그리기 시작"은 `render.ts` 의 `renderDrawing`, 견본 분석은 `sampleStyle.ts` 의 `analyzeSample`.
 뒤의 둘은 순수 함수(DOM 없음)라 `render.worker.ts` 에서 돌고, `local.ts` 가 Blob ↔ ImageData 변환과
 워커 호출을 맡는다. 워커 스크립트를 못 불러오거나 워커가 죽으면(`onerror`) 콘솔에 위치를 찍고 `workerBroken` 을 세워
-그 뒤로는 화면 스레드에서 같은 함수를 직접 돈다 — 그래서 "드로잉 만들기"는 어떤 환경에서도 결과를 낸다. API 를 쓰는 건 "AI로 그리기"와 "과정 그림 만들기" 두 가지뿐이고 둘 다 키가 있어야 켜진다.
+그 뒤로는 화면 스레드에서 같은 함수를 직접 돈다 — 그래서 "그리기 시작"은 어떤 환경에서도 결과를 낸다. API 를 쓰는 건 "AI로 그리기"와 "과정 그림 만들기" 두 가지뿐이고 둘 다 키가 있어야 켜진다.
 이 경계를 흐리지 않는다.
 
-### 로컬 렌더러와 견본 분석
+### 로컬 엔진 (Dynamic Auto-Painter 방식)
 
-`StrokeProfile`(`types.ts`)이 렌더러의 전부다: 채우기 방식, 톤 단계, 여백, 선 굵기, 윤곽선 밀도,
-해칭 각도·간격, 손떨림, 가장자리 여백(vignette), 종이·잉크색. 렌더는 밝기 → 톤 단계 →
-단계별 해칭 층(`hatchLayer`, 토막·각도·필압이 난수로 흔들리되 seed 고정) → 색 그라디언트 윤곽선(세 채널 Sobel 제곱합, 밝기가 같은 색 경계도 잡음) 팽창 →
-가장자리 흐림 → 종이색 위 합성 순서다.
+`render.ts` 하나가 엔진이고 `PaintProfile`(`types.ts`)이 엔진이 보는 값의 전부다: 붓(`brush`), 층 수, 획 크기, 세밀함, 정밀도,
+획 길이, 형태 따라가기, 기준 각도, 무작위성, 선 굵기, 잉크 농도, 여백, 윤곽선, 가장자리 여백, 종이·잉크색.
+DAP(Hertzmann 의 "여러 크기의 굽은 획" 페인팅)를 펜에 맞게 구현한 것이라 흐름이 DAP 와 같다:
 
-채우기 `sketch`(어반 스케치)가 기본이다. `orientationField` 가 구조 텐서로 면의 방향장을 만들고
-`sketchLayer` 가 그 방향으로 짧은 획을 잇는다(방향이 없는 하늘은 `hatchAngle` 의 긴 사선). `textureMask` 로
-잡은 잔결 영역(나뭇잎)은 획 대신 고리 선으로 채운다. 짝수 층은 방향을 90도 돌려 그림자에 교차 해칭이 생기고,
-톤이 5단계 이상이면 가장 어두운 단계를 먹으로 채운다.
+1. **목표** — 밝기에서 어둡기 지도 `target` 을 만든다. `paperKeep` 위는 종이(0), 나머지는 감마를 두어 사진보다 옅게, 잔결 영역은 더 옅게.
+2. **층(pass)** — `passSizes` 가 획 크기를 `brushSize`(첫 층)에서 `detail`(마지막 층)까지 등비로 줄인다. 층마다 목표를 획 크기의 절반만큼
+   뭉갠 참조 `ref` 를 보고(큰 획은 큰 형태만), `sweep` 이 캔버스를 격자(`max(선굵기×2.2, R×0.3)`)로 나눠 **아직 목표보다 밝은 칸**만
+   골라(칸 평균 오차 > `T`, `T` 는 정밀도에서) 가장 차이가 큰 자리에 획을 놓는다. 칸 순서는 무작위.
+3. **획** — `penStroke` 는 씨앗에서 양쪽으로 뻗으며 `dirAt`(형태 따라가기 × 방향장 확실성으로 기준 각도와 두 배 각 혼합)을 조금씩 따라
+   굽고, 목표가 `tol` 만큼 밝아지는 곳(다른 면)이나 캔버스가 이미 충분히 어두운 곳에서 멈춘다 — Hertzmann 의 정지 조건.
+   붓별 훑기 구성은 `sweepsFor`: pen 은 [기본, 그림자에만 90°], hatch 는 [기본, 반 칸 어긋난 기본], cross 는 [0°, 90°, 그림자에 45°],
+   contour 는 깊은 그림자만 성글게, scribble 은 `scribbleStroke`(곡률 무작위 고리), stipple 은 부족한 만큼 점을 흩뿌림.
+   pen 붓은 잔결(`texture` > 0.6)에서 획 대신 `loopStroke`(나뭇잎 고리선). 잉크 농도 85 이상이면 가장 깊은 그림자를 먹으로 채운다.
+4. **윤곽** — `edgePass` 가 색 경계(세 채널 Sobel 제곱합)가 센 자리에서 출발해 방향장 접선을 따라 양쪽으로 긋고, 지나간 자리는
+   획 번호로 표시해 같은 경계를 두 번 긋지 않는다 (자기 자국에 막히지 않도록 번호를 비교한다). 잔결 영역은 0.85 만큼 누른다.
+5. **담채**(`brush: 'wash'`) 는 DAP 그대로다: `washTarget`(사진 색을 뭉개고 물감처럼 띄워 종이에 곱한 목표 색)과 캔버스의 RGB 차이가
+   큰 칸에만 붓 크기 R 의 붓 자국(`Canvas.dab`)을 방향장을 따라 얹고, 다른 면으로 넘어가면 멈춘다. 그 위에 펜은 깊은 그림자와 윤곽만.
+6. `applyVignette` 로 가장자리 미완성 처리 뒤 `Canvas.toImage` 로 종이 결을 섞어 내보낸다.
 
-채우기 `wash`(수채 담채, 화풍 `watercolor`)는 잉크를 최소로 쓴다: 가장 어두운 단계에만 성긴 해칭, 윤곽선은 임계값을 올려 아낀다.
-톤은 `washPaint` 가 맡는다 — DAP 방식으로 **넓은 붓부터 좁은 붓 순서로, 캔버스 색이 목표 색과 다른 곳에만** 붓 자국(`Paint.dab`)을
-방향장을 따라 얹는다. 목표 색은 사진 색을 크게 뭉개고 물감처럼 띄운 뒤 톤 단계만큼의 진하기로 종이에 곱한 것이고, 종이 단계(0)는
-종이 그대로다. 다른 면(목표 색이 크게 다른 곳)으로 넘어가면 붓을 멈춘다. 흑백이면 먹 담채, 세피아면 세피아 담채. 담채 위의 펜 선은 잉크색이다.
+`Canvas` 는 색 버퍼 + 어둡기 누적 버퍼다. 획 하나는 `dot()`/`dab()` 들을 모아 `end(alpha, col)` 에서 한 번에 얹는다 — 한 획이 같은 화소를
+두 번 칠하지 않도록 화소별 최대 덮임만 남기고, 획끼리는 screen 방식으로 진해진다. 컬러 모드의 획 색은 사진 색을 잉크색과 섞어 누른 것.
 
-### Dynamic Auto-Painter 에서 가져온 원리 (그리고 가져오지 않은 것)
+**진행 표시**: `renderDrawing` 의 `onProgress` 가 층이 끝날 때와 도중 0.2초마다 중간 그림을 내보낸다. 워커는 이를 `progress` 메시지로
+보내고(`render.worker.ts`), `local.ts` 가 콜백으로 넘기고, `App` 이 `progress` 상태로 들고 `Stage` 의 `LiveCanvas` 가 캔버스에 바로 찍는다
+(Blob 인코딩 없음). 툴바 "중단" 버튼에도 퍼센트가 뜬다. 화면 스레드 대체 경로에서는 중간 그림이 없다.
 
-DAP(Hertzmann 의 다중 크기 획 페인팅)의 원리 세 가지를 펜 해칭에 결합했다. 순수하게 "필요한 곳에만 짧은 획을 놓는" 방식으로
-펜 선을 그리면 규칙적 간격이 사라져 노이즈가 되므로(시험함), **획 자체는 일정 간격의 해칭선**을 유지하고 원리만 가져왔다.
+방향장 `orientationField` 는 세 채널 구조 텐서(반경 7, 없으면 28)로 면의 방향을 구하고, 잔결(`textureMap` = 색 경계 화소 밀도)에서는
+확실성을 눌러 기준 각도로 돌아가게 한다. 지시선(`manualField`)이 가까우면 그 방향으로 끌어당기고 `man` 가중치를 함께 내보내
+형태 따라가기 값과 무관하게 먹게 한다.
 
-1. **정지 조건** — `layerMask(j)` 는 `tone >= j` 이면서 `ink.buf < cov` 인 자리만 참이다. 층이 겹쳐도 목표 덮임률(`cov`)에 닿은 자리엔
-   획이 더 놓이지 않는다. 옛 엔진이 나뭇잎을 검게 뭉갠 첫째 원인(층이 그대로 쌓임)을 이것이 막는다.
-2. **톤 곡선** — 펜 드로잉은 사진보다 밝다. `cov = 0.14 + 0.7·t^1.3` (t = 단계/층수, 잔결 영역은 0.22 옅게). 완전한 검정은 먹 채움만.
-3. **잔결 처리** — `textureMap` 은 색 경계 화소의 **밀도**다(밝기 표준편차로 재면 깨끗한 윤곽선까지 잔결로 잡힌다). 잔결이 높은 곳은
-   `orientationField` 의 coherence 를 눌러 기준 각도의 평행 해칭으로 통일하고(지역 방향은 소음), 윤곽선을 0.9 만큼 누르고, 먹 채움을 하지 않는다.
+순수 DAP 방식으로 "필요한 곳에만 짧은 획"을 놓으면 펜 선이 노이즈가 된 적이 있다(옛 엔진 시절 시험). 지금 엔진이 해칭으로 읽히는 이유는
+(1) 격자 간격이 선 굵기에 묶여 이웃 획이 일정 간격으로 놓이고, (2) 한 층 안에서 방향이 `dirAt` 으로 매끈하게 이어지고,
+(3) 획이 길고(획 크기 × 획 길이) 다른 면에서만 멈추기 때문이다. 이 셋을 흔들면 다시 노이즈가 된다.
 
-담채(`washPaint`)만은 DAP 처럼 붓 자국을 필요한 곳에 겹쳐 얹는 방식 그대로다.
+화풍(`PenStyle`) 16종마다 `PAINT_FOR_STYLE` 에 완전한 설정이 있다 (DAP 의 프리셋). 갤러리나 드롭다운에서 화풍을 고르면 `App` 의 효과가
+`paintForLevel(level, PAINT_FOR_STYLE[style])` 로 숙련도에 맞게 단순화(초급은 층·세밀함↓ 굵은 펜)해 `params.paint` 에 넣고,
+견본이 있으면 `blendPaint(base, measured, referenceWeight)` 로 섞는다. 이력에서 불러올 때만 `keepStrokesRef` 로 그 재설정을 한 번 건너뛴다.
+새 화풍을 추가할 때는 `PenStyle`, `PAINT_FOR_STYLE`, `STYLE_LABEL`·`STYLE_DESC`, `STYLE_TEXT`, `STYLE_TIP`, `public/presets/<style>.jpg` 를 함께 넣는다.
+옛 ID `parkyongsoon` 은 `mergeParams` 가 `fineink` 로 바꾸고, 옛 레코드의 `strokes`(StrokeProfile)는 `migrateStrokes` 가 `paint` 로 옮긴다.
+
+### 견본 분석
+
+`sampleStyle.ts` 의 `analyzeSample` 이 견본 드로잉을 재어 `PaintProfile` 로 돌려준다. 측정은 근사치이므로 **슬라이더가 항상 최종 권한**이다.
+측정 방법: 큰 블러로 나눠 조명 평탄화 → Otsu 로 잉크 마스크 → 16px 블록 밀도로 여백·톤 단계(→ 층 수)·해칭 영역 →
+침식 횟수로 선 굵기 → 그래디언트 방향 히스토그램으로 각도(→ 기준 각도)·집중도(→ 무작위성)·2차 봉우리(→ 교차 붓) →
+해칭에 수직인 선을 따라 잉크 시작 횟수로 간격(→ 세밀함), 잉크 위에서 출발해 선을 따라간 길이로 획 길이와 점묘 여부.
+형태 따라가기·정밀도는 견본 한 장으로 재기 어려워 기본값을 둔다.
+로컬 결과가 떠 있는 상태에서 그리기 설정이나 색을 바꾸면 350ms 뒤 자동으로 다시 그려 같은 이력 항목을 갱신한다.
 
 ### 해칭 방향 지시선 (DAP 의 수동 Feature Follow)
 
 `DrawingParams.guides`(`DirectionGuide[]`, 그림 상대 좌표 0~1)와 `guideRadius`(짧은 변의 %). 툴바 "방향 지시"를 켜면
 `Stage` 의 `DirectionLayer` 가 원본 위에서 포인터로 선을 받는다. 해칭선은 양쪽으로 뻗으므로 화살표는 없다.
-렌더러(`render.ts`)의 `manualField` 가 지시선을 4px 격자에서 거리 가중(가우시안, σ = radius·짧은 변·0.5)한 방향장으로 바꾸고,
+엔진(`render.ts`)의 `manualField` 가 지시선을 4px 격자에서 거리 가중(가우시안, σ = radius·짧은 변·0.5)한 방향장으로 바꾸고,
 `orientationField` 가 두 배 각 벡터로 자동 방향장과 섞는다 — 가까울수록 지시선을, 멀어질수록 자동 방향을 따르고
-`coh` 도 함께 끌어올려 평탄한 곳(하늘·벽)에서도 지시가 먹는다. 채우기가 `hatch`·`cross` 인데 지시선이 있으면
-긴 직선 대신 `sketchLayer`(guided-hatch/guided-cross) 로 그린다 — 직선은 방향장을 따를 수 없기 때문.
+`coh` 와 `man` 을 함께 끌어올려 평탄한 곳(하늘·벽)에서도, 형태 따라가기가 0 이어도 지시가 먹는다. 모든 붓의 획이 방향장을 따르므로
+붓에 따른 예외는 없다.
 지시선은 사진이 바뀌면 비워지고, 실시간 재렌더의 비교 대상에 포함되며, `Drawing.params` 에 저장돼 이력에서도 재현된다.
 
 ### 화풍 프리셋 갤러리 (DAP 의 프리셋 탭)
 
 `presetGallery.ts` + `public/presets/<style>.jpg`. `StylePanel` 맨 위 `.gallery` 격자가 화풍마다 예시 그림을 보여 주고,
-누르면 `onParams({ style })` 만 한다 — 화풍을 바꾸면 `App.patchParams` 가 프리셋 선·톤을 넣는 기존 경로 그대로다.
+누르면 `onParams({ style })` 만 한다 — 화풍이 바뀌면 `App` 의 효과가 `PAINT_FOR_STYLE` 의 완전한 그리기 설정을 넣는다 (위 로컬 엔진 절).
 예시 그림 16장은 같은 사진(컵과 배)을 이 앱의 로컬 렌더러로 화풍마다 그린 것(480px JPEG, 수채만 컬러)이라 화풍끼리
 차이가 비교된다. 새 화풍을 추가하면 같은 이름의 예시 그림도 넣는다. AI 로 그릴 때 견본도 로컬 결과도 없고
 `DrawingParams.aiRefFromPreset` 이 켜져 있으면(기본) `fetchPresetImage` 로 그 예시 그림을 두 번째 이미지로 보내고
@@ -102,9 +123,9 @@ DAP(Hertzmann 의 다중 크기 획 페인팅)의 원리 세 가지를 펜 해�
 
 ### 즐겨찾기 프리셋
 
-`presets.ts`. 현재 `StrokeProfile` 을 이름 붙여 localStorage `oilpen.presets.v1` 에 둔다(최대 24개). `StrokePanel` 이
-저장·적용·삭제 UI 를 갖고, 현재 값과 같은 프리셋(내장 3개 포함)을 `sameStrokes` 로 표시한다. 적용은 `patchStrokes` 로
-`strokes` 만 바꾸므로 화풍(`PenStyle`)은 그대로다.
+`presets.ts`. 현재 `PaintProfile` 을 이름 붙여 localStorage `oilpen.presets.v2` 에 둔다(최대 24개). v1(옛 선·톤 프로필)은 불러올 때
+`migrateStrokes` 로 옮긴다. `PaintPanel` 이 저장·적용·삭제 UI 를 갖고, 현재 값과 같은 프리셋(내장 3개 포함)을 `samePaint` 로 표시한다.
+적용은 `patchPaint` 로 `paint` 만 바꾸므로 화풍(`PenStyle`)은 그대로다.
 
 ### 외부 결과 불러오기
 
@@ -119,15 +140,6 @@ DAP 연동은 이 방식만 있다 (`docs/dap-workflow.md`). 실시간 재렌더
 localStorage `oilpen.stamps.v1` 에 둔다. 낙관 2개·사인 3개 한도. `Drawing.base` 가 찍기 전 결과이고 `result` 는 배치를
 구워 넣은 것이라, 전체화면·가이드·저장은 `result` 를 그대로 쓴다. `Stage` 는 끌기 중 부드럽게 보이도록 `base` 위에
 DOM 오버레이(`StampLayer`)로 그리고, 놓는 순간 `App.rebake` 가 `compositeStamps` 로 다시 굽는다.
-
-견본을 올리면 `analyzeSample` 이 프로필을 재고, `App` 이 `blendStrokes(strokesForLevel(level), measured, referenceWeight)` 로
-슬라이더를 채운다. 측정은 근사치이므로 **슬라이더가 항상 최종 권한**이다. 숙련도·견본·반영도가 바뀌면 슬라이더가
-다시 채워지고, 이력에서 불러올 때만 `keepStrokesRef` 로 그 재설정을 한 번 건너뛴다.
-로컬 결과가 떠 있는 상태에서 선·톤이나 색을 바꾸면 350ms 뒤 자동으로 다시 그려 같은 이력 항목을 갱신한다.
-
-측정 방법: 큰 블러로 나눠 조명 평탄화 → Otsu 로 잉크 마스크 → 16px 블록 밀도로 여백·톤 단계·해칭 영역 →
-침식 횟수로 선 굵기 → 그래디언트 방향 히스토그램으로 각도·집중도(손떨림)·2차 봉우리(교차) →
-해칭에 수직인 선을 따라 잉크 시작 횟수로 간격, 잉크 위에서 출발해 선을 따라간 길이로 점묘 여부.
 
 ### 제공사 (BYOK)
 
@@ -157,11 +169,11 @@ CORS 로 막을 때 코드 수정 없이 대응하기 위한 것이므로, 모�
 `prompt.ts` 의 `buildPrompt` 가 `DrawingParams` 를 문장들로 조립한다. 순서가 의미를 갖는다:
 
 ```
-기본 지시 → 화풍(STYLE_TEXT) → 선·톤(strokesText) → 화가(artistText) → 숙련도(LEVEL_TEXT)
+기본 지시 → 화풍(STYLE_TEXT) → 그리기 설정(paintText) → 화가(artistText) → 숙련도(LEVEL_TEXT)
 → 강도 → 색 → 빛 방향 → 톤 → 종이 질감 → (견본이 있으면) 견본 반영
 ```
 
-`strokesText` 는 로컬 렌더러의 `StrokeProfile` 을 문장으로 옮긴 것이라 두 경로가 같은 설정을 본다.
+`paintText` 는 로컬 엔진의 `PaintProfile` 을 문장으로 옮긴 것이라 두 경로가 같은 설정을 본다.
 `buildPrompt` 의 두 번째 인자 `RefKind` 가 두 번째 이미지의 정체다: `sample`(올린 견본), `local`(같은 사진의 로컬 결과,
 `DrawingParams.aiRefFromLocal` 이 켜져 있고 로컬 결과가 떠 있을 때 `App.drawAi` 가 `current.base` 를 보냄), `preset`(둘 다 없을 때
 고른 화풍의 갤러리 예시 그림). 우선순위는 local → sample → preset. 로컬을 보낼 때는
@@ -180,7 +192,7 @@ CORS 로 막을 때 코드 수정 없이 대응하기 위한 것이므로, 모�
   **서버로 보내지 않는다.** 요청은 브라우저에서 제공사로 직접 간다.
 - 이력: IndexedDB 에 최근 30개 (`Drawing` 레코드에 입력·견본·결과·과정 그림 Blob 포함).
 
-이력에서 불러온 `params` 는 `mergeParams` 로 기본값과 병합한다(`strokes` 는 한 단계 더 깊게) —
+이력에서 불러온 `params` 는 `mergeParams` 로 기본값과 병합한다(`paint` 는 화풍 프리셋 위에 덧씌우고, 옛 `strokes` 는 `migrateStrokes` 로 옮긴다) —
 필드를 새로 추가하면 옛 레코드에 그 값이 없기 때문이다. `Drawing.engine` 이 없으면 옛 AI 레코드다.
 
 ### 미리보기 모드

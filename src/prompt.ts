@@ -1,5 +1,5 @@
 import { ARTIST_BY_ID } from './artists';
-import type { DrawingParams, LightDir, PenStyle, StrokeProfile } from './types';
+import type { DrawingParams, LightDir, PaintProfile, PenStyle } from './types';
 
 const LEVEL_TEXT = {
   beginner:
@@ -81,23 +81,30 @@ function artistText(p: DrawingParams): string {
     'Keep it a hand-made pen drawing of the given photograph; borrow the stroke language, not the artist\'s subjects.';
 }
 
-/** 선·톤 패널 값을 문장으로. 로컬 렌더러와 AI 가 같은 설정을 보게 합니다 */
-export function strokesText(s: StrokeProfile): string {
+/** 그리기 설정을 문장으로. 로컬 엔진과 AI 가 같은 설정을 보게 합니다 */
+export function paintText(s: PaintProfile): string {
   const parts: string[] = [];
-  switch (s.fill) {
-    case 'sketch': parts.push('short strokes that follow each surface (vertical on walls, receding along the perspective on floors), foliage as small looping scribbles'); break;
-    case 'hatch': parts.push(`parallel hatching in one direction at roughly ${s.hatchAngle} degrees from horizontal`); break;
-    case 'cross': parts.push(`cross-hatching, first layer at roughly ${s.hatchAngle} degrees, darker areas with more crossing layers`); break;
-    case 'contour': parts.push('contour lines only, hatching reserved for the darkest areas'); break;
+  const angle = `${s.baseAngle} degrees from horizontal`;
+  const follow = s.featureFollow >= 60
+    ? 'strokes follow the form of each surface (vertical on walls, receding along the perspective on floors)'
+    : s.featureFollow >= 30 ? 'strokes mostly follow the form, falling back to one dominant direction on flat areas' : `strokes keep one dominant direction at roughly ${angle}`;
+  switch (s.brush) {
+    case 'pen': parts.push(`short pen strokes that ${follow.replace('strokes ', '')}, foliage as small looping scribbles, cross-hatching only in the shadows`); break;
+    case 'hatch': parts.push(`parallel hatching; ${follow}`); break;
+    case 'cross': parts.push(`cross-hatching, first layer at roughly ${angle}, darker areas with more crossing layers; ${follow}`); break;
+    case 'contour': parts.push('contour lines first, hatching reserved for the deepest shadows'); break;
     case 'scribble': parts.push('loose looping scribble strokes piled up for tone'); break;
     case 'stipple': parts.push('stippled dots instead of lines, density for tone'); break;
+    case 'wash': parts.push('ink outlines with transparent watercolor washes for tone, hatching only in the deepest shadows'); break;
   }
-  parts.push(`${s.tones} distinct tone steps including bare paper`);
+  parts.push(`${s.passes} layers of marks from large shapes down to ${s.detail >= 75 ? 'fine' : s.detail >= 45 ? 'medium' : 'coarse'} detail`);
+  parts.push(s.accuracy >= 75 ? 'values matched closely to the photograph' : s.accuracy >= 45 ? 'values simplified into a few clear steps' : 'only the main darks indicated, everything else left open');
   parts.push(s.paperKeep > 65 ? 'well over half of the paper left untouched' : s.paperKeep >= 40 ? 'about half of the paper left untouched' : 'most of the sheet toned, only the highlights left white');
   parts.push(s.lineWidth <= 1.3 ? 'a very fine 0.1-0.3 mm liner' : s.lineWidth <= 2.2 ? 'a fine 0.3-0.5 mm pen' : 'a bold 0.7-1 mm pen');
-  if (s.edgeDensity > 70) parts.push('every edge and detail outlined'); else if (s.edgeDensity < 40) parts.push('only the main outlines drawn');
-  if (s.fill !== 'contour') parts.push(s.hatchSpacing <= 4 ? 'strokes packed tightly' : s.hatchSpacing >= 9 ? 'open, widely spaced strokes' : 'medium stroke spacing');
-  parts.push(s.jitter < 25 ? 'steady, almost ruled lines' : s.jitter > 60 ? 'loose, wobbly hand lines' : 'natural, slightly irregular hand lines');
+  if (s.edges > 70) parts.push('every edge and detail outlined'); else if (s.edges < 40) parts.push('only the main outlines drawn');
+  if (s.ink >= 85) parts.push('the deepest shadows filled solid black');
+  parts.push(s.strokeLength >= 70 ? 'long confident strokes' : s.strokeLength <= 30 ? 'short stubby strokes' : 'medium-length strokes');
+  parts.push(s.randomness < 25 ? 'steady, almost ruled lines' : s.randomness > 60 ? 'loose, wobbly hand lines' : 'natural, slightly irregular hand lines');
   if (s.vignette > 20) parts.push('the drawing fades out unfinished toward the edges of the paper');
   return `Stroke and tone settings: ${parts.join('; ')}.`;
 }
@@ -139,7 +146,7 @@ export function buildPrompt(p: DrawingParams, ref: RefKind): string {
     'Redraw the provided photograph as a hand-made oil-based ballpoint pen drawing on paper.',
     'Keep the exact composition, proportions, perspective and every subject of the photo; change only the medium.',
     STYLE_TEXT[p.style],
-    strokesText(p.strokes),
+    paintText(p.paint),
     artistText(p),
     LEVEL_TEXT[p.level],
     `Stroke density and pressure: ${intensityText(p.intensity)}.`,
@@ -197,7 +204,7 @@ export function buildProcessPrompt(p: DrawingParams, hasFinal: boolean): string 
     'Every panel shows the whole subject in exactly the same composition and size; white paper background; ' +
       'strokes must look like real pen marks a person can make.',
     STYLE_TEXT[p.style],
-    strokesText(p.strokes),
+    paintText(p.paint),
     artistText(p),
     colorText(p),
     hasFinal ? 'The second image is the finished drawing: panel 4 must match it, and panels 1-3 are its earlier stages.' : '',

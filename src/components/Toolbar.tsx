@@ -25,6 +25,8 @@ interface Props {
   canAi: boolean;
   onAi: () => void;
   busy: boolean;
+  /** 로컬 엔진 진행률 0~1 (그리는 중일 때) */
+  progress?: number | null;
   onCancel: () => void;
   onDownload: () => void;
   onFullscreen: () => void;
@@ -90,10 +92,10 @@ export function Toolbar(p: Props) {
       <button className="btn btn-ghost btn-sm" onClick={p.onFullscreen} disabled={!p.hasPhoto} title="전체화면 (F)"><ExpandIcon /> 전체화면</button>
 
       {p.busy ? (
-        <button className="btn btn-generate" onClick={p.onCancel}><StopIcon /> 중단</button>
+        <button className="btn btn-generate" onClick={p.onCancel}><StopIcon /> 중단{p.progress != null && <span className="muted"> · {Math.round(p.progress * 100)}%</span>}</button>
       ) : (
         <>
-          <button className="btn btn-primary btn-generate" onClick={p.onDraw} disabled={!p.canDraw} title="브라우저에서 바로 그립니다 (API 비용 없음)"><PenIcon /> 드로잉 만들기</button>
+          <button className="btn btn-primary btn-generate" onClick={p.onDraw} disabled={!p.canDraw} title="브라우저에서 층을 쌓아 가며 그립니다 (API 비용 없음)"><PenIcon /> 그리기 시작</button>
           <button className="btn btn-generate btn-ai" onClick={p.onAi} disabled={!p.canAi} title={p.keyOk ? 'AI 제공사에 요청합니다 (API 비용)' : 'API 키를 연결하면 쓸 수 있습니다'}>AI로 그리기</button>
         </>
       )}
