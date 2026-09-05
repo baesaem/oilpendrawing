@@ -14,6 +14,15 @@ export type PenStyle =
 /** 결과를 만든 엔진: 브라우저 로컬 렌더러 또는 AI 제공사 */
 export type Engine = 'local' | 'ai';
 
+/**
+ * 사용자가 사진 위에 직접 그은 해칭 방향 지시선 (DAP 의 수동 Feature Follow 에 해당).
+ * 좌표는 그림 상대(0~1). 선에 가까운 곳의 해칭이 그 방향을 따르고, 멀어질수록 자동 방향장으로 돌아간다.
+ */
+export interface DirectionGuide {
+  id: string;
+  points: Array<[number, number]>;
+}
+
 /** 로컬 렌더러의 채우기 방식 */
 export type FillMode = 'sketch' | 'hatch' | 'cross' | 'contour' | 'scribble' | 'stipple';
 export const FILL_LABEL: Record<FillMode, string> = {
@@ -134,6 +143,10 @@ export interface DrawingParams {
   strokes: StrokeProfile;
   /** AI 로 그릴 때 로컬 결과를 견본 이미지로 함께 보낼지 (같은 구도라 해칭 방향·톤 배치를 잘 따름) */
   aiRefFromLocal: boolean;
+  /** 사진 위에 직접 그은 해칭 방향 지시선. 사진이 바뀌면 비운다 */
+  guides: DirectionGuide[];
+  /** 지시선의 영향 범위 (짧은 변의 %) 5~50 */
+  guideRadius: number;
 }
 
 export const DEFAULT_PARAMS: DrawingParams = {
@@ -150,6 +163,8 @@ export const DEFAULT_PARAMS: DrawingParams = {
   grayscaleInput: false,
   strokes: DEFAULT_STROKES,
   aiRefFromLocal: true,
+  guides: [],
+  guideRadius: 18,
 };
 
 /** 이력에서 불러온 옛 레코드에 새 필드가 없을 수 있으므로 기본값과 병합합니다 */

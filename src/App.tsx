@@ -14,13 +14,14 @@ import type { GuideStep } from './tips';
 import { applyTone, downloadBlob, estimateLight, isGrayscale, prepareInput, toneFilter } from './image';
 import { analyzeSampleBlob, renderLocalDrawing } from './local';
 import { compositeStamps, defaultPlacement, loadStamps, saveStamps, type PlacedStamp, type StampItem, type StampState } from './stamps';
+import { loadPresets, newPresetId, savePresets, PRESET_LIMIT, type UserPreset } from './presets';
 import { buildProcessPrompt, buildPrompt } from './prompt';
 import { EDITS_INPUT, generateDrawing } from './providers';
 import { listDrawings, loadSettings, putDrawing, saveSettings } from './storage';
 import { IS_PREVIEW, PREVIEW_NOTE } from './env';
 import {
   DEFAULT_PARAMS, FILL_FOR_STYLE, FINE_STROKES, LEVEL_LABEL, PROVIDER_LABEL, RICHEON_STROKES, blendStrokes, mergeParams, strokesForLevel,
-  type Drawing, type DrawingParams, type Settings, type StrokeProfile,
+  type DirectionGuide, type Drawing, type DrawingParams, type Settings, type StrokeProfile,
 } from './types';
 
 interface UiError { message: string; hint?: string }
@@ -58,6 +59,17 @@ export function App() {
   const [stamps, setStamps] = useState<StampState>(() => loadStamps());
   useEffect(() => { saveStamps(stamps); }, [stamps]);
 
+  /** 즐겨찾기 프리셋 (이 브라우저에 저장) */
+  const [presets, setPresets] = useState<UserPreset[]>(() => loadPresets());
+  useEffect(() => { savePresets(presets); }, [presets]);
+  const savePreset = (name: string) => setPresets((ps) => [{ id: newPresetId(), name, strokes: { ...params.strokes }, createdAt: Date.now() }, ...ps].slice(0, PRESET_LIMIT));
+  const deletePreset = (id: string) => setPresets((ps) => ps.filter((p) => p.id !== id));
+  const applyPreset = (p: UserPreset) => patchStrokes({ ...p.strokes });
+
+  /** 해칭 방향 지시선 그리기 모드 */
+  const [directionEditing, setDirectionEditing] = useState(false);
+  const setGuides = useCallback((guides: DirectionGuide[]) => setParams((prev) => ({ ...prev, guides })), []);
+
   const [current, setCurrent] = useState<Drawing | null>(null);
   const [history, setHistory] = useState<Drawing[]>([]);
   const [view, setView] = useState<ViewMode>('original');
@@ -83,6 +95,8 @@ export function App() {
     setView('original');
     setStep('compose');
     setShowProcess(false);
+    setDirectionEditing(false);
+    setParams((p) => (p.guides.length ? { ...p, guides: [] } : p));
     if (!input) { setInputIsGray(null); setMode('draw'); return; }
     let alive = true;
     setInputIsGray(null);
@@ -133,6 +147,7 @@ export function App() {
         setFullscreen((f) => !f);
       } else if (e.key === 'Escape') {
         setFullscreen(false);
+        setDirectionEditing(false);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -181,7 +196,7 @@ export function App() {
       const gray = params.grayscaleInput && !inputIsGray;
       const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: gray, relight: params.lightAuto ? undefined : params.light });
       const preparedRef = reference ? await prepareInput(reference, { maxSide: 1024, grayscale: false }) : undefined;
-      const result = await renderLocalDrawing(preparedInput, { strokes: params.strokes, color: params.color }, ac.signal);
+      const result = await renderLocalDrawing(preparedInput, { strokes: params.strokes, color: params.color, guides: params.guides, guideRadius: params.guideRadius }, ac.signal);
       await commit({ id: newId(), createdAt: Date.now(), input: preparedInput, reference: preparedRef, result, params: { ...params }, engine: 'local' });
     } catch (e) { fail(e); } finally { finish(); }
   };
@@ -215,7 +230,8 @@ export function App() {
   useEffect(() => {
     if (!current || current.engine !== 'local' || busy) return;
     const lightChanged = current.params.lightAuto !== params.lightAuto || (!params.lightAuto && current.params.light !== params.light);
-    const same = current.params.color === params.color && JSON.stringify(current.params.strokes) === JSON.stringify(params.strokes) && !lightChanged;
+    const guidesChanged = JSON.stringify(current.params.guides ?? []) !== JSON.stringify(params.guides) || (current.params.guideRadius ?? 18) !== params.guideRadius;
+    const same = current.params.color === params.color && JSON.stringify(current.params.strokes) === JSON.stringify(params.strokes) && !lightChanged && !guidesChanged;
     if (same) return;
     // 빛 방향을 바꾸려면 원본 사진을 다시 조명해야 하는데, 이력에서 불러온 경우엔 원본 파일이 없습니다
     if (lightChanged && !input) return;
@@ -227,17 +243,17 @@ export function App() {
         const photo = lightChanged && input
           ? await prepareInput(input, { maxSide: 1536, grayscale: params.grayscaleInput && !inputIsGray, relight: params.lightAuto ? undefined : params.light })
           : current.input;
-        const base = await renderLocalDrawing(photo, { strokes: params.strokes, color: params.color }, ac.signal);
+        const base = await renderLocalDrawing(photo, { strokes: params.strokes, color: params.color, guides: params.guides, guideRadius: params.guideRadius }, ac.signal);
         if (id !== liveRef.current) return;
         const result = await compositeStamps(base, stamps.placed, stamps.items);
-        const updated: Drawing = { ...current, input: photo, base, result, params: { ...current.params, strokes: params.strokes, color: params.color, light: params.light, lightAuto: params.lightAuto } };
+        const updated: Drawing = { ...current, input: photo, base, result, params: { ...current.params, strokes: params.strokes, color: params.color, light: params.light, lightAuto: params.lightAuto, guides: params.guides, guideRadius: params.guideRadius } };
         setCurrent(updated);
         setHistory((h) => h.map((d) => (d.id === updated.id ? updated : d)));
         void putDrawing(updated);
       } catch { /* 중단·오류는 조용히 */ } finally { if (id === liveRef.current) setLive(false); }
     }, 350);
     return () => { window.clearTimeout(timer); ac.abort(); };
-  }, [params.strokes, params.color, params.light, params.lightAuto, params.grayscaleInput, inputIsGray, input, current, busy, stamps]);
+  }, [params.strokes, params.color, params.light, params.lightAuto, params.grayscaleInput, params.guides, params.guideRadius, inputIsGray, input, current, busy, stamps]);
 
   // 낙관·사인 배치가 바뀌면 (끌어 놓기 끝, 크기 조절, 추가·제거) 결과에 다시 구워 넣습니다.
   const bakeRef = useRef(0);
@@ -266,6 +282,13 @@ export function App() {
     .filter((x) => x.item);
 
   const cancel = () => abortRef.current?.abort();
+
+  const toggleDirection = () => {
+    setDirectionEditing((on) => {
+      if (!on) { setMode('draw'); setView('original'); }
+      return !on;
+    });
+  };
 
   /** 4단계 과정을 한 장으로 그려 달라고 요청 (API 1회) */
   const makeProcess = async () => {
@@ -330,6 +353,10 @@ export function App() {
       <Stage
         original={stageOriginal} result={current ? current.base ?? current.result : null} view={view} busy={busy} live={live} toneFilter={filter} wide={panelsHidden}
         stamps={current ? placedWithItems : []} onStampMove={moveStamp} onStampDrop={() => { void rebake(); }}
+        direction={{
+          guides: params.guides, editing: directionEditing, radius: params.guideRadius,
+          onChange: setGuides, onRadius: (guideRadius) => setParams((p) => ({ ...p, guideRadius })), onDone: () => setDirectionEditing(false),
+        }}
         guide={mode === 'guide' && stageOriginal ? (
           <GuideView
             photo={stageOriginal} result={current?.result ?? null} process={current?.process ?? null} params={params}
@@ -355,7 +382,10 @@ export function App() {
 
       <aside className={`panel panel-right ${panelsHidden ? 'panel-hidden' : ''}`} aria-label="표현 설정">
         <StylePanel params={params} onParams={patchParams}>
-          <StrokePanel strokes={params.strokes} onChange={patchStrokes} fromSample={!!measured} onReset={resetStrokes} />
+          <StrokePanel
+            strokes={params.strokes} onChange={patchStrokes} fromSample={!!measured} onReset={resetStrokes}
+            presets={presets} onSavePreset={savePreset} onDeletePreset={deletePreset} onApplyPreset={applyPreset}
+          />
         </StylePanel>
         <StampPanel
           items={stamps.items} placed={stamps.placed} hasResult={!!current}
@@ -381,7 +411,7 @@ export function App() {
       )}
 
       <Toolbar
-        mode={mode} onMode={setMode} hasPhoto={!!stageOriginal}
+        mode={mode} onMode={(m) => { setMode(m); if (m === 'guide') setDirectionEditing(false); }} hasPhoto={!!stageOriginal}
         providerLabel={providerLabel} keyOk={keyOk} onOpenKeys={() => setKeysOpen(true)}
         view={view} onView={setView} hasResult={!!current}
         history={history} currentId={current?.id ?? null} onSelect={selectHistory}
@@ -389,6 +419,7 @@ export function App() {
         canAi={!!input && keyOk && !busy} onAi={drawAi}
         busy={!!busy} onCancel={cancel} onDownload={download}
         onFullscreen={() => setFullscreen(true)}
+        directionEditing={directionEditing} guideCount={params.guides.length} onToggleDirection={toggleDirection}
       />
 
       {fullscreen && stageOriginal && (

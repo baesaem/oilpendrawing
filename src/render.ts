@@ -4,10 +4,17 @@
  *
  * 흐름: 밝기 → 톤 단계 나누기 → 단계별 해칭/점묘 → 윤곽선 → 종이색 위에 잉크색으로 합성
  */
-import type { ColorMode, StrokeProfile } from './types';
+import type { ColorMode, DirectionGuide, StrokeProfile } from './types';
 
 export interface RawImage { width: number; height: number; data: Uint8ClampedArray }
-export interface RenderOpts { strokes: StrokeProfile; color: ColorMode }
+export interface RenderOpts {
+  strokes: StrokeProfile;
+  color: ColorMode;
+  /** 사용자가 그은 해칭 방향 지시선 (그림 상대 좌표) */
+  guides?: DirectionGuide[];
+  /** 지시선 영향 범위, 짧은 변의 % */
+  guideRadius?: number;
+}
 
 /* ---------- 공용 수치 유틸 ---------- */
 
@@ -183,11 +190,60 @@ function smoothNoise1D(n: number, rng: () => number): Float32Array {
   return a;
 }
 
+
+interface ManualField { tx: Float32Array; ty: Float32Array; wgt: Float32Array }
+
+/**
+ * 사용자가 그은 방향 지시선 → 방향장. 각 화소에서 가까운 선분들의 방향을 거리 가중(가우시안)으로 평균한다.
+ * 방향은 부호가 없으므로(해칭선은 양쪽으로 뻗음) 각을 두 배로 해서 벡터 평균한다.
+ * 계산은 4px 격자에서 하고 그 값을 블록에 채운다 — 화소마다 모든 선분을 재는 비용을 1/16 로 줄인다.
+ */
+function manualField(guides: DirectionGuide[], radiusPct: number, w: number, h: number): ManualField | null {
+  const segs: Array<[number, number, number, number, number, number]> = [];
+  for (const g of guides) {
+    for (let i = 1; i < g.points.length; i++) {
+      const x1 = g.points[i - 1][0] * w, y1 = g.points[i - 1][1] * h, x2 = g.points[i][0] * w, y2 = g.points[i][1] * h;
+      const dx = x2 - x1, dy = y2 - y1;
+      if (Math.hypot(dx, dy) < 1) continue;
+      const th2 = 2 * Math.atan2(dy, dx);
+      segs.push([x1, y1, x2, y2, Math.cos(th2), Math.sin(th2)]);
+    }
+  }
+  if (!segs.length) return null;
+  const N = w * h;
+  const tx = new Float32Array(N), ty = new Float32Array(N), wgt = new Float32Array(N);
+  const sigma = Math.max(4, (clamp(radiusPct, 5, 50) / 100) * Math.min(w, h) * 0.5);
+  const inv = 1 / (2 * sigma * sigma);
+  const cutoff = 3 * sigma;
+  const step = 4;
+  for (let gy = 0; gy < h; gy += step) for (let gx = 0; gx < w; gx += step) {
+    const cx = gx + step / 2, cy = gy + step / 2;
+    let ax = 0, ay = 0, ws = 0;
+    for (const [x1, y1, x2, y2, c2, s2] of segs) {
+      // 점-선분 거리
+      const vx = x2 - x1, vy = y2 - y1;
+      const t = clamp(((cx - x1) * vx + (cy - y1) * vy) / (vx * vx + vy * vy), 0, 1);
+      const d = Math.hypot(cx - (x1 + vx * t), cy - (y1 + vy * t));
+      if (d > cutoff) continue;
+      const k = Math.exp(-d * d * inv);
+      ax += k * c2; ay += k * s2; ws += k;
+    }
+    if (ws < 0.005) continue;
+    const th = 0.5 * Math.atan2(ay, ax);
+    const cs = Math.cos(th), sn = Math.sin(th), m = Math.min(1, ws);
+    for (let y = gy; y < Math.min(h, gy + step); y++) for (let x = gx; x < Math.min(w, gx + step); x++) {
+      const i = y * w + x;
+      tx[i] = cs; ty[i] = sn; wgt[i] = m;
+    }
+  }
+  return { tx, ty, wgt };
+}
+
 /**
  * 면의 방향장: 구조 텐서로 각 픽셀 주변의 지배적인 에지 방향을 구합니다.
  * 벽에서는 세로, 바닥의 원근선에서는 그 방향 — 리천 드로잉의 "면을 따라가는 해칭"의 근거입니다.
  */
-function orientationField(lum: Float32Array, w: number, h: number) {
+function orientationField(lum: Float32Array, w: number, h: number, manual: ManualField | null = null) {
   const { gx, gy } = sobel(boxBlur(lum, w, h, 2), w, h);
   const N = w * h;
   const jxx = new Float32Array(N), jyy = new Float32Array(N), jxy = new Float32Array(N);
@@ -204,7 +260,15 @@ function orientationField(lum: Float32Array, w: number, h: number) {
       a = coarse[0][i] - coarse[1][i]; b = 2 * coarse[2][i]; e = coarse[0][i] + coarse[1][i];
       c = e > 0.004 ? Math.sqrt(a * a + b * b) / (e + 1e-4) * 0.9 : 0;
     }
-    const th = 0.5 * Math.atan2(b, a) + Math.PI / 2; // 그래디언트에 수직 = 에지를 따라가는 방향
+    let th = 0.5 * Math.atan2(b, a) + Math.PI / 2; // 그래디언트에 수직 = 에지를 따라가는 방향
+    // 사용자가 그은 지시선이 가까우면 그 방향으로 끌어당긴다 (가까울수록 강하게). 두 배 각 벡터로 섞어 부호 문제를 피한다.
+    if (manual && manual.wgt[i] > 0.01) {
+      const m = manual.wgt[i];
+      const a2 = 2 * th, b2 = 2 * Math.atan2(manual.ty[i], manual.tx[i]);
+      const cx = (1 - m) * c * Math.cos(a2) + m * Math.cos(b2), cy = (1 - m) * c * Math.sin(a2) + m * Math.sin(b2);
+      th = 0.5 * Math.atan2(cy, cx);
+      c = c + m * (1 - c);
+    }
     tx[i] = Math.cos(th); ty[i] = Math.sin(th);
     coh[i] = c; // 평탄한 곳(하늘)은 방향 없음
   }
@@ -338,9 +402,21 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   // 2) 채우기
   const CROSS = [0, 47, -38, 90, 22, 68];
   const PHASE = [0, 0.618, 0.236, 0.854, 0.472, 0.09];
-  switch (p.fill) {
+  const manual = opts.guides && opts.guides.length ? manualField(opts.guides, opts.guideRadius ?? 18, w, h) : null;
+  // 지시선이 있으면 한 방향·교차 해칭도 긴 직선 대신 방향장을 따르는 획으로 그려야 지시가 먹는다
+  const fill = manual && (p.fill === 'hatch' || p.fill === 'cross') ? (p.fill === 'hatch' ? 'guided-hatch' : 'guided-cross') : p.fill;
+  switch (fill) {
+    case 'guided-hatch':
+    case 'guided-cross': {
+      const field = orientationField(lum, w, h, manual);
+      const none = new Uint8Array(N);
+      for (let j = 1; j <= layers; j++) {
+        sketchLayer(ink, (i) => tone[i] >= j, field, none, angle, fill === 'guided-cross' && j % 2 === 0, spacing, width, PHASE[j - 1], p.jitter, rng);
+      }
+      break;
+    }
     case 'sketch': {
-      const field = orientationField(lum, w, h);
+      const field = orientationField(lum, w, h, manual);
       const foliage = textureMask(lum, w, h);
       for (let j = 1; j <= layers; j++) {
         sketchLayer(ink, (i) => tone[i] >= j, field, foliage, angle, j % 2 === 0, spacing, width, PHASE[j - 1], p.jitter, rng);

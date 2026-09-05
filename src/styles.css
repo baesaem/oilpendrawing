@@ -333,3 +333,32 @@ input[type=range]:focus-visible { outline: 1px solid var(--accent); outline-offs
   .toolbar { position: fixed; bottom: 12px; }
   .panel-toggle { display: none; }
 }
+
+/* ---------- 해칭 방향 지시선 ---------- */
+.dir-layer { position: absolute; inset: 0; pointer-events: none; }
+.dir-layer svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .55; }
+.dir-layer.editing { pointer-events: auto; cursor: crosshair; touch-action: none; }
+.dir-layer.editing svg { opacity: 1; }
+.dir-bar {
+  position: absolute; left: 12px; right: 12px; top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 12px; border-radius: 8px; border: 1px solid var(--accent); background: rgba(22,21,19,.92); backdrop-filter: blur(6px); cursor: default;
+}
+.dir-bar-text { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 220px; font-size: 12px; color: var(--muted); }
+.dir-bar-text b { color: var(--text); font-size: 13px; }
+.dir-radius { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.dir-radius input[type=range] { width: 110px; }
+.btn.on-accent { border-color: var(--accent); color: var(--text); background: rgba(217,162,95,.12); }
+.badge { display: inline-flex; min-width: 16px; height: 16px; padding: 0 4px; margin-left: 4px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 700; align-items: center; justify-content: center; }
+
+/* ---------- 즐겨찾기 프리셋 ---------- */
+.preset-save { display: flex; gap: 6px; align-items: center; }
+.preset-save .text-input { flex: 1; min-width: 0; height: 32px; }
+.preset-list { display: flex; flex-direction: column; gap: 4px; }
+.preset-item { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 6px; background: #1b1a18; }
+.preset-item.on { border-color: var(--accent); }
+.preset-apply { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; color: var(--text); font-size: 12px; text-align: left; }
+.preset-apply span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preset-apply svg { flex: none; color: var(--accent); }
+.preset-apply:hover { background: #23211e; }
+.preset-del { width: 30px; height: 32px; display: flex; align-items: center; justify-content: center; color: var(--faint); border-left: 1px solid var(--line); }
+.preset-del:hover { color: var(--danger); }

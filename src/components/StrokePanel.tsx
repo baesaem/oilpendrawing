@@ -1,4 +1,7 @@
+import { useState } from 'react';
+import { PRESET_LIMIT, sameStrokes, type UserPreset } from '../presets';
 import { CLASSIC_STROKES, FILL_LABEL, FINE_STROKES, RICHEON_STROKES, type FillMode, type StrokeProfile } from '../types';
+import { StarIcon, TrashIcon } from './Icons';
 
 interface Props {
   strokes: StrokeProfile;
@@ -6,6 +9,11 @@ interface Props {
   /** 견본 분석 결과가 반영된 상태인지 */
   fromSample: boolean;
   onReset: () => void;
+  /** 즐겨찾기 프리셋 (이 브라우저에 저장) */
+  presets: UserPreset[];
+  onSavePreset: (name: string) => void;
+  onDeletePreset: (id: string) => void;
+  onApplyPreset: (p: UserPreset) => void;
 }
 
 const FILLS: FillMode[] = ['sketch', 'hatch', 'cross', 'contour', 'scribble', 'stipple'];
@@ -22,7 +30,17 @@ function Range({ label, value, min, max, step = 1, unit = '', onChange }: {
 }
 
 /** 로컬 렌더러가 쓰는 선·톤 설정. 견본을 올리면 분석값으로 채워지고, 여기서 바로 고칠 수 있습니다. */
-export function StrokePanel({ strokes: s, onChange, fromSample, onReset }: Props) {
+export function StrokePanel({ strokes: s, onChange, fromSample, onReset, presets, onSavePreset, onDeletePreset, onApplyPreset }: Props) {
+  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState('');
+  const full = presets.length >= PRESET_LIMIT;
+  const submit = () => {
+    const n = name.trim();
+    if (!n) return;
+    onSavePreset(n);
+    setName('');
+    setSaving(false);
+  };
   return (
     <>
       <div className="panel-head">
@@ -36,10 +54,39 @@ export function StrokePanel({ strokes: s, onChange, fromSample, onReset }: Props
       <div className="field">
         <div className="field-row"><b>프리셋</b></div>
         <div className="chips">
-          <button onClick={() => onChange({ ...RICHEON_STROKES })} title="가는 펜, 면 방향 해칭, 나뭇잎 고리선, 가장자리 여백 (@richeons_drawing_journey)">리천 스타일</button>
-          <button onClick={() => onChange({ ...FINE_STROKES })} title="아주 가는 선, 끝까지 완성, 수평 하늘 해칭, 먹 그림자">세밀 펜화</button>
-          <button onClick={() => onChange({ ...CLASSIC_STROKES })} title="굵은 펜의 한 방향 해칭">클래식</button>
+          <button className={sameStrokes(s, RICHEON_STROKES) ? 'on' : ''} onClick={() => onChange({ ...RICHEON_STROKES })} title="가는 펜, 면 방향 해칭, 나뭇잎 고리선, 가장자리 여백 (@richeons_drawing_journey)">리천 스타일</button>
+          <button className={sameStrokes(s, FINE_STROKES) ? 'on' : ''} onClick={() => onChange({ ...FINE_STROKES })} title="아주 가는 선, 끝까지 완성, 수평 하늘 해칭, 먹 그림자">세밀 펜화</button>
+          <button className={sameStrokes(s, CLASSIC_STROKES) ? 'on' : ''} onClick={() => onChange({ ...CLASSIC_STROKES })} title="굵은 펜의 한 방향 해칭">클래식</button>
         </div>
+      </div>
+
+      <div className="field">
+        <div className="field-row">
+          <b>즐겨찾기 프리셋</b>
+          {!saving && <button className="link" onClick={() => setSaving(true)} disabled={full} title={full ? `최대 ${PRESET_LIMIT}개까지 저장됩니다` : '지금 슬라이더 값을 이름 붙여 저장합니다'}>현재 설정 저장</button>}
+        </div>
+        {saving && (
+          <div className="preset-save">
+            <input className="text-input" value={name} autoFocus placeholder="예: 벽돌 골목, 나무 많은 풍경" maxLength={24}
+              onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setSaving(false); }} aria-label="프리셋 이름" />
+            <button className="btn btn-sm btn-primary" onClick={submit} disabled={!name.trim()}>저장</button>
+            <button className="btn btn-sm btn-ghost" onClick={() => setSaving(false)}>취소</button>
+          </div>
+        )}
+        {presets.length === 0 && !saving ? (
+          <div className="small faint">마음에 드는 선·톤이 나오면 저장해 두고 다음 사진에 바로 적용하세요.</div>
+        ) : (
+          <div className="preset-list">
+            {presets.map((p) => (
+              <div key={p.id} className={`preset-item ${sameStrokes(s, p.strokes) ? 'on' : ''}`}>
+                <button className="preset-apply" onClick={() => onApplyPreset(p)} title={`${FILL_LABEL[p.strokes.fill]} · 톤 ${p.strokes.tones} · 굵기 ${p.strokes.lineWidth}px · 간격 ${p.strokes.hatchSpacing}px`}>
+                  <StarIcon width={13} height={13} /><span>{p.name}</span>
+                </button>
+                <button className="preset-del" onClick={() => onDeletePreset(p.id)} aria-label={`${p.name} 삭제`} title="삭제"><TrashIcon width={13} height={13} /></button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="field">

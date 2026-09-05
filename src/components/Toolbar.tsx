@@ -1,7 +1,7 @@
 import { useObjectUrl } from '../hooks';
 import type { Drawing } from '../types';
 import type { ViewMode } from './Stage';
-import { DownloadIcon, ExpandIcon, KeyIcon, PenIcon, StopIcon } from './Icons';
+import { DirectionIcon, DownloadIcon, ExpandIcon, KeyIcon, PenIcon, StopIcon } from './Icons';
 
 export type Mode = 'draw' | 'guide';
 
@@ -28,6 +28,10 @@ interface Props {
   onCancel: () => void;
   onDownload: () => void;
   onFullscreen: () => void;
+  /** 해칭 방향 지시선 그리기 모드 */
+  directionEditing: boolean;
+  guideCount: number;
+  onToggleDirection: () => void;
 }
 
 function Thumb({ d, on, onClick }: { d: Drawing; on: boolean; onClick: () => void }) {
@@ -65,6 +69,10 @@ export function Toolbar(p: Props) {
               </button>
             ))}
           </div>
+          <button className={`btn btn-ghost btn-sm ${p.directionEditing ? 'on-accent' : ''}`} disabled={!p.hasPhoto} onClick={p.onToggleDirection}
+            title="사진 위에 해칭 방향을 직접 그립니다. 그 근처의 해칭이 그 방향을 따릅니다" aria-pressed={p.directionEditing}>
+            <DirectionIcon /> 방향 지시{p.guideCount > 0 && <span className="badge">{p.guideCount}</span>}
+          </button>
         </>
       )}
 

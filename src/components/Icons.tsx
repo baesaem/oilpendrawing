@@ -41,3 +41,12 @@ export const ExpandIcon = (p: SVGProps<SVGSVGElement>) => (
 export const CompressIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M3 8V3h5M21 8V3h-5M3 16v5h5M21 16v5h-5" /><path d="M9 9L3 3M15 9l6-6M9 15l-6 6M15 15l6 6" /></svg>
 );
+export const DirectionIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M4 18c4-6 8-8 16-10" /><path d="M14 7l6 1-2 6" /><path d="M3 13c3-3 6-4 10-4" opacity=".55" /></svg>
+);
+export const StarIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" /></svg>
+);
+export const TrashIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 13h10l1-13" /></svg>
+);

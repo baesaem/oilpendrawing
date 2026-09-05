@@ -68,6 +68,22 @@ UI 문구는 모두 한국어이고, 코드 주석도 한국어로 쓴다.
 `strokesForLevel` 도 리천 프리셋을 단순화한 것이다. 새 작가를 추가할 때는 이 넷(프리셋, `PenStyle`,
 `STYLE_TEXT`, `STYLE_TIP`)을 함께 넣는다. 옛 ID `parkyongsoon` 은 `mergeParams` 가 `fineink` 로 바꾼다.
 
+### 해칭 방향 지시선 (DAP 의 수동 Feature Follow)
+
+`DrawingParams.guides`(`DirectionGuide[]`, 그림 상대 좌표 0~1)와 `guideRadius`(짧은 변의 %). 툴바 "방향 지시"를 켜면
+`Stage` 의 `DirectionLayer` 가 원본 위에서 포인터로 선을 받는다. 해칭선은 양쪽으로 뻗으므로 화살표는 없다.
+렌더러(`render.ts`)의 `manualField` 가 지시선을 4px 격자에서 거리 가중(가우시안, σ = radius·짧은 변·0.5)한 방향장으로 바꾸고,
+`orientationField` 가 두 배 각 벡터로 자동 방향장과 섞는다 — 가까울수록 지시선을, 멀어질수록 자동 방향을 따르고
+`coh` 도 함께 끌어올려 평탄한 곳(하늘·벽)에서도 지시가 먹는다. 채우기가 `hatch`·`cross` 인데 지시선이 있으면
+긴 직선 대신 `sketchLayer`(guided-hatch/guided-cross) 로 그린다 — 직선은 방향장을 따를 수 없기 때문.
+지시선은 사진이 바뀌면 비워지고, 실시간 재렌더의 비교 대상에 포함되며, `Drawing.params` 에 저장돼 이력에서도 재현된다.
+
+### 즐겨찾기 프리셋
+
+`presets.ts`. 현재 `StrokeProfile` 을 이름 붙여 localStorage `oilpen.presets.v1` 에 둔다(최대 24개). `StrokePanel` 이
+저장·적용·삭제 UI 를 갖고, 현재 값과 같은 프리셋(내장 3개 포함)을 `sameStrokes` 로 표시한다. 적용은 `patchStrokes` 로
+`strokes` 만 바꾸므로 화풍(`PenStyle`)은 그대로다.
+
 ### 낙관·사인
 
 `stamps.ts`. 등록 항목(`StampItem`, 투명 PNG data URL)과 배치(`PlacedStamp`, 그림에 대한 상대 좌표 0~1과 폭 비율)를

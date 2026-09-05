@@ -1,6 +1,7 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { useObjectUrl } from '../hooks';
 import type { PlacedStamp, StampItem } from '../stamps';
+import type { DirectionGuide } from '../types';
 
 export type ViewMode = 'compare' | 'result' | 'original';
 
@@ -19,6 +20,80 @@ interface Props {
   stamps?: Array<{ placed: PlacedStamp; item: StampItem }>;
   onStampMove?: (placedId: string, x: number, y: number) => void;
   onStampDrop?: () => void;
+  /** 사진 위에 해칭 방향 지시선을 그리는 층 */
+  direction?: DirectionProps;
+}
+
+export interface DirectionProps {
+  guides: DirectionGuide[];
+  editing: boolean;
+  radius: number;
+  onChange: (guides: DirectionGuide[]) => void;
+  onRadius: (r: number) => void;
+  onDone: () => void;
+}
+
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+const newGuideId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+
+/**
+ * 해칭 방향 지시선 층. 사진 위에 선을 그으면 그 근처의 해칭이 그 방향을 따릅니다 (DAP 의 수동 Feature Follow).
+ * 해칭선은 양쪽으로 뻗으므로 화살표 없이 선만 그립니다.
+ */
+function DirectionLayer({ d }: { d: DirectionProps }) {
+  const layer = useRef<HTMLDivElement>(null);
+  const drawing = useRef<Array<[number, number]> | null>(null);
+  const [draft, setDraft] = useState<Array<[number, number]> | null>(null);
+  const norm = (e: ReactPointerEvent<HTMLDivElement>): [number, number] => {
+    const r = layer.current!.getBoundingClientRect();
+    return [clamp01((e.clientX - r.left) / r.width), clamp01((e.clientY - r.top) / r.height)];
+  };
+  const down = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!d.editing) return;
+    drawing.current = [norm(e)];
+    setDraft(drawing.current);
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+    e.preventDefault();
+  };
+  const move = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!drawing.current) return;
+    const p = norm(e), last = drawing.current[drawing.current.length - 1];
+    if (Math.hypot(p[0] - last[0], p[1] - last[1]) < 0.006) return;
+    drawing.current = [...drawing.current, p];
+    setDraft(drawing.current);
+  };
+  const up = () => {
+    if (drawing.current && drawing.current.length >= 2) d.onChange([...d.guides, { id: newGuideId(), points: drawing.current }]);
+    drawing.current = null;
+    setDraft(null);
+  };
+  const all = draft ? [...d.guides, { id: 'draft', points: draft }] : d.guides;
+  return (
+    <div className={`dir-layer ${d.editing ? 'editing' : ''}`} ref={layer} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+      <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
+        {all.map((g) => (
+          <polyline key={g.id} points={g.points.map(([x, y]) => `${x * 1000},${y * 1000}`).join(' ')} fill="none"
+            stroke={g.id === 'draft' ? '#f0c27a' : '#d9a25f'} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        ))}
+      </svg>
+      {d.editing && (
+        <div className="dir-bar" onPointerDown={(e) => e.stopPropagation()}>
+          <div className="dir-bar-text">
+            <b>해칭 방향 지시</b>
+            <span>사진 위에 선을 그으면 그 근처의 해칭이 그 방향을 따릅니다. 벽은 세로, 바닥은 원근선처럼요.</span>
+          </div>
+          <label className="dir-radius" title="지시선이 영향을 주는 범위">
+            <span>영향 범위</span>
+            <input type="range" min={5} max={50} value={d.radius} onChange={(e) => d.onRadius(Number(e.target.value))} aria-label="지시선 영향 범위" />
+            <span className="muted">{d.radius}%</span>
+          </label>
+          <button className="btn btn-sm" onClick={() => d.onChange(d.guides.slice(0, -1))} disabled={!d.guides.length}>되돌리기</button>
+          <button className="btn btn-sm btn-danger" onClick={() => d.onChange([])} disabled={!d.guides.length}>모두 지우기</button>
+          <button className="btn btn-sm btn-primary" onClick={d.onDone}>완료</button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** 결과 이미지 위에 놓인 낙관·사인. 끌면 상대 좌표로 위치를 알립니다 */
@@ -51,7 +126,7 @@ function StampLayer({ stamps, onMove, onDrop }: { stamps: Array<{ placed: Placed
   );
 }
 
-export function Stage({ original, result, view, busy, toneFilter, wide, guide, live, stamps, onStampMove, onStampDrop }: Props) {
+export function Stage({ original, result, view, busy, toneFilter, wide, guide, live, stamps, onStampMove, onStampDrop, direction }: Props) {
   const oUrl = useObjectUrl(original);
   const rUrl = useObjectUrl(result);
   const [split, setSplit] = useState(55);
@@ -92,9 +167,10 @@ export function Stage({ original, result, view, busy, toneFilter, wide, guide, l
             </div>
           )}
           {!busy && live && <div className="live-tag" role="status"><div className="spinner" />다시 그리는 중</div>}
-          {stamps && stamps.length > 0 && view !== 'original' && onStampMove && onStampDrop && (
+          {stamps && stamps.length > 0 && view !== 'original' && onStampMove && onStampDrop && !direction?.editing && (
             <StampLayer stamps={stamps} onMove={onStampMove} onDrop={onStampDrop} />
           )}
+          {direction && (direction.editing || (direction.guides.length > 0 && view === 'original')) && <DirectionLayer d={direction} />}
         </div>
       )}
     </div>
