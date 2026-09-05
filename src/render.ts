@@ -302,7 +302,7 @@ class Canvas {
     }
   }
   /** 젖은 붓 자국: 가운데는 고르고 가장자리는 부드럽다 */
-  dab(cx: number, cy: number, r: number) {
+  dab(cx: number, cy: number, r: number, soft = true) {
     const x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(this.w - 1, Math.ceil(cx + r));
     const y0 = Math.max(0, Math.floor(cy - r)), y1 = Math.min(this.h - 1, Math.ceil(cy + r));
     const { sw, w } = this;
@@ -310,7 +310,8 @@ class Canvas {
       const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy) / r;
       if (d >= 1) continue;
       const q = 1 - d * d;
-      const c = q * q; // 젖은 붓: 가운데 진하고 가장자리로 부드럽게 번진다
+      // 젖은 붓(soft): 가운데 진하고 가장자리로 부드럽게 번진다. 마른 종이 위(wet-on-dry): 가장자리가 또렷한 채색 면
+      const c = soft ? q * q : (d < 0.8 ? 1 : (1 - d) / 0.2);
       const i = y * w + x;
       if (sw[i] === 0) this.touched.push(i);
       if (c > sw[i]) sw[i] = c;
@@ -636,7 +637,7 @@ function sweepsFor(p: PaintProfile): Sweep[] {
  * 수채 담채 층 (DAP 그대로): 붓 크기 R 의 붓 자국을, 캔버스 색이 목표 색과 다른 칸에만 방향장을 따라 얹는다.
  * 다른 면(목표 색이 크게 다른 곳)으로 넘어가면 멈춘다.
  */
-function washSweep(c: Ctx, want: Float32Array, R: number, T: number, onTick?: (frac: number) => void) {
+function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boolean, onTick?: (frac: number) => void) {
   const { w, h, cv, rng, field } = c;
   const g = Math.max(3, R * 0.55);
   const cols = Math.ceil(w / g), rows = Math.ceil(h / g);
@@ -666,7 +667,7 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, onTick?: (f
       if (xi < 0 || yi < 0 || xi >= w || yi >= h) break;
       const o = (yi * w + xi) * 3;
       if (Math.abs(want[o] - col[0]) + Math.abs(want[o + 1] - col[1]) + Math.abs(want[o + 2] - col[2]) > 60) break;
-      cv.dab(x, y, R / 2);
+      cv.dab(x, y, R / 2, soft);
       const i = yi * w + xi;
       if (field.coh[i] > 0.15 || field.man[i] > 0.1) {
         let [fx, fy] = dirAt(c, i, 0);
@@ -695,13 +696,13 @@ function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, 
     const L = softL[i];
     const o = i * 3;
     // 여백 문턱 위는 종이, 그 아래는 사진 색을 물감처럼 조금 띄우고 채도를 살려 종이에 곱한다. 문턱 근처는 부드럽게 이어진다
-    const op = clamp((white + 0.08 - L) / 0.16, 0, 1) * 0.9;
+    const op = clamp((white + 0.08 - L) / 0.16, 0, 1) * 0.95;
     if (op <= 0.01) { want[o] = paper[0]; want[o + 1] = paper[1]; want[o + 2] = paper[2]; continue; }
     let tr: number, tg: number, tb: number;
     if (mode === 'color') {
       const r = chans[0][i], g = chans[1][i], b = chans[2][i], m = (r + g + b) / 3;
-      const sat = 1.35; // 담채는 사진보다 맑고 선명하게
-      tr = clamp(m + (r - m) * sat, 0, 1) * 0.85 + 0.15; tg = clamp(m + (g - m) * sat, 0, 1) * 0.85 + 0.15; tb = clamp(m + (b - m) * sat, 0, 1) * 0.85 + 0.15;
+      const sat = 1.6; // 참고 수채화처럼 채도는 높이고, 어두운 곳은 어둡게 남긴다
+      tr = clamp(m + (r - m) * sat, 0, 1) * 0.92 + 0.08; tg = clamp(m + (g - m) * sat, 0, 1) * 0.92 + 0.08; tb = clamp(m + (b - m) * sat, 0, 1) * 0.92 + 0.08;
     } else {
       const g = L * 0.8 + 0.2;
       if (mode === 'sepia') { tr = g * 0.92 + 0.08; tg = g * 0.82 + 0.1; tb = g * 0.66 + 0.1; } else { tr = g; tg = g; tb = g; }
@@ -712,15 +713,18 @@ function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, 
 }
 
 /** 젖은 담채가 마르면서 경계에 안료가 고이는 효과: 캔버스 밝기의 그라디언트가 큰 곳을 조금 어둡게 */
-function pigmentEdges(cv: Canvas, amount: number) {
+function pigmentEdges(cv: Canvas, amount: number, rng: () => number) {
   const { w, h } = cv;
   const N = w * h;
   const lum = new Float32Array(N);
   for (let i = 0; i < N; i++) lum[i] = (0.299 * cv.rgb[i * 3] + 0.587 * cv.rgb[i * 3 + 1] + 0.114 * cv.rgb[i * 3 + 2]) / 255;
   const { mag } = sobel(boxBlur(lum, w, h, 1), w, h);
+  // 안료 입자감(granulation): 칠한 곳일수록 거친 무작위 얼룩
+  const grain = boxBlur(Float32Array.from({ length: N }, () => rng() - 0.5), w, h, 1);
   for (let i = 0; i < N; i++) {
-    const k = clamp(mag[i] * 2.5, 0, 1) * amount * (1 - lum[i] * 0.5);
-    if (k <= 0.005) continue;
+    const painted = clamp((0.97 - lum[i]) * 3, 0, 1);
+    const k = clamp(mag[i] * 2.5, 0, 1) * amount * (1 - lum[i] * 0.5) - grain[i] * 0.22 * painted;
+    if (Math.abs(k) <= 0.004) continue;
     const o = i * 3;
     cv.rgb[o] *= 1 - k; cv.rgb[o + 1] *= 1 - k; cv.rgb[o + 2] *= 1 - k;
   }
@@ -796,9 +800,11 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   if (opts.color === 'sepia') inkC = [74, 46, 28];
   // 컬러 펜: 사진 색을 잉크색과 섞어 어둡게 누른 색
   let colorAt: (i: number) => RGB = () => inkC;
-  if (opts.color === 'color' && p.brush !== 'wash') {
+  if (opts.color === 'color') {
     const soft = [0, 1, 2].map((k) => { const a = new Float32Array(N); for (let i = 0, q = 0; i < img.data.length; i += 4, q++) a[q] = img.data[i + k]; return boxBlur(a, w, h, 3); });
-    colorAt = (i) => [inkC[0] * 0.35 + soft[0][i] * 0.45, inkC[1] * 0.35 + soft[1][i] * 0.45, inkC[2] * 0.35 + soft[2][i] * 0.45];
+    // 펜: 사진 색을 잉크색과 섞어 누른 색. 담채 위의 어두운 붓: 그 자리 색을 더 진하게 (검정 펜이 아니라 짙은 물감)
+    const ki = p.brush === 'wash' ? 0.45 : 0.35, kc = p.brush === 'wash' ? 0.5 : 0.45;
+    colorAt = (i) => [inkC[0] * ki + soft[0][i] * kc, inkC[1] * ki + soft[1][i] * kc, inkC[2] * ki + soft[2][i] * kc];
   }
   const acc = clamp(p.accuracy, 0, 100) / 100;
   const c: Ctx = {
@@ -829,11 +835,12 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     const want = washTarget(img, lum, white, w, h, paper, opts.color);
     for (let k = 0; k < passes; k++) {
       const R = Math.max(4, sizes[k] * 1.3);
-      washSweep(c, want, R, 4 + 10 * (1 - acc), (f) => report(k, f));
+      // 앞 층은 젖은 붓으로 큰 색면을 번지게, 뒤 층은 마른 종이 위에 또렷한 면을 얹는다 (참고 수채화의 wet-on-dry 층)
+      washSweep(c, want, R, 4 + 10 * (1 - acc), k < passes - 2, (f) => report(k, f));
       report(k, 1, true);
     }
     // 물감이 마르며 가장자리에 고이는 안료: 캔버스 밝기의 경계를 조금 어둡게
-    pigmentEdges(cv, 0.22);
+    pigmentEdges(cv, 0.34, mulberry32(77));
     // 펜: 잉크 농도가 있을 때만 가장 어두운 곳에 성긴 획 (순수 수채는 ink 0)
     if (p.ink >= 30) {
       const ref = boxBlur(target, w, h, 1);
