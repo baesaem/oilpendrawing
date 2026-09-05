@@ -59,6 +59,10 @@ const STYLE_TEXT: Record<PenStyle, string> = {
   manga:
     'Style: Japanese manga ink page in pen: thin sharp linework, screentone-like regular dot and line patterns for mid-tones, ' +
     'bold spot blacks for emphasis, expressive line weight variation, black-and-white graphic clarity.',
+  watercolor:
+    'Style: urban-sketch pen and wash. Confident ink outlines drawn first, then loose, transparent watercolor washes in a few ' +
+    'flat value steps laid over them; highlights left as untouched white paper, washes bleeding softly past the lines, ' +
+    'darker pigment pooling at wash edges, visible paper texture and granulation, sparse hatching only in the deepest shadows.',
 };
 
 const LIGHT_TEXT: Record<LightDir, string> = {

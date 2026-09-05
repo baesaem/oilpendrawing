@@ -9,7 +9,7 @@ export type PenStyle =
   | 'richeon' | 'fineink'
   | 'hatching' | 'crosshatch' | 'contour' | 'scribble' | 'stipple'
   | 'engraving' | 'urban' | 'realistic' | 'comic' | 'architectural'
-  | 'ghibli' | 'webtoon' | 'manga';
+  | 'ghibli' | 'webtoon' | 'manga' | 'watercolor';
 
 /** 결과를 만든 엔진: 브라우저 로컬 렌더러 또는 AI 제공사 */
 export type Engine = 'local' | 'ai';
@@ -24,9 +24,10 @@ export interface DirectionGuide {
 }
 
 /** 로컬 렌더러의 채우기 방식 */
-export type FillMode = 'sketch' | 'hatch' | 'cross' | 'contour' | 'scribble' | 'stipple';
+export type FillMode = 'sketch' | 'hatch' | 'cross' | 'contour' | 'scribble' | 'stipple' | 'wash';
 export const FILL_LABEL: Record<FillMode, string> = {
   sketch: '어반 스케치 (면 방향 해칭 + 나뭇잎 고리선)', hatch: '한 방향 해칭', cross: '교차 해칭', contour: '윤곽선 위주', scribble: '스크리블', stipple: '점묘',
+  wash: '펜 선 + 수채 담채 (밝기를 몇 단계의 옅은 담채로, 어두운 곳만 성긴 해칭)',
 };
 
 /**
@@ -95,7 +96,7 @@ export function strokesForLevel(level: Level): StrokeProfile {
 export const FILL_FOR_STYLE: Partial<Record<PenStyle, FillMode>> = {
   richeon: 'sketch', fineink: 'sketch', urban: 'sketch',
   hatching: 'hatch', crosshatch: 'cross', contour: 'contour', scribble: 'scribble', stipple: 'stipple',
-  engraving: 'hatch', architectural: 'hatch', realistic: 'cross', comic: 'contour',
+  engraving: 'hatch', architectural: 'hatch', realistic: 'cross', comic: 'contour', watercolor: 'wash',
 };
 
 /** 기본값과 측정값을 반영도(0~100)로 섞습니다 */
@@ -241,7 +242,7 @@ export const LIGHT_DIRS: LightDir[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW
 
 export const PEN_STYLES: PenStyle[] = [
   'richeon', 'fineink', 'hatching', 'crosshatch', 'contour', 'scribble', 'stipple', 'engraving', 'urban', 'realistic', 'comic', 'architectural',
-  'ghibli', 'webtoon', 'manga',
+  'ghibli', 'webtoon', 'manga', 'watercolor',
 ];
 export const STYLE_LABEL: Record<PenStyle, string> = {
   richeon: '리천 스타일 (어반 펜 스케치)',
@@ -259,6 +260,7 @@ export const STYLE_LABEL: Record<PenStyle, string> = {
   ghibli: '지브리풍 애니메이션',
   webtoon: '웹툰',
   manga: '일본 만화(망가)',
+  watercolor: '수채 담채 (펜 + 수채)',
 };
 export const STYLE_DESC: Record<PenStyle, string> = {
   richeon: '가는 검정 펜으로 면의 방향을 따라 해칭(벽은 세로, 바닥은 원근 방향). 나뭇잎은 뭉게구름처럼 둘러 그리고 안을 고리 선으로 채웁니다. 하늘과 밝은 곳은 흰 종이로 비우고 가장자리는 미완성으로 둡니다. @richeons_drawing_journey',
@@ -276,4 +278,5 @@ export const STYLE_DESC: Record<PenStyle, string> = {
   ghibli: '손그림 애니메이션 배경화 느낌. 부드럽고 깨끗한 윤곽, 단순화한 형태, 셀 방식의 2~3단계 평면 명암, 따뜻하고 서정적인 분위기.',
   webtoon: '한국 웹툰의 깔끔한 디지털 선화. 굵기가 일정한 외곽선, 단순한 셀 셰이딩, 인물은 또렷하고 배경은 간략하게.',
   manga: '일본 만화 원고 느낌. 가늘고 날카로운 펜선, 스크린톤처럼 규칙적인 점·선 무늬로 명암, 강조 부분에 굵은 잉크.',
+  watercolor: '펜으로 윤곽을 그리고 물을 많이 섞은 수채를 몇 단계의 옅은 담채로 얹는 어반 스케치 방식. 밝은 곳은 종이를 남기고 담채 가장자리는 안료가 고여 살짝 짙어집니다. 흑백이면 먹 담채가 됩니다.',
 };

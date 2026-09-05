@@ -59,6 +59,7 @@ export const STYLE_TIP: Record<PenStyle, string> = {
   ghibli: '형태를 둥글고 단순하게 정리한 뒤, 그림자는 경계가 또렷한 덩어리 2~3개로만 나눕니다. 그림자 안은 같은 간격의 해칭으로 평평하게.',
   webtoon: '외곽선 굵기를 끝까지 일정하게 유지합니다. 그림자는 모양을 먼저 연하게 그린 뒤 그 안만 채우세요.',
   manga: '중간톤은 선 대신 규칙적인 점이나 사선 무늬로. 가장 강조할 곳 한두 군데만 검게 채웁니다.',
+  watercolor: '펜 선을 먼저 끝내고 완전히 말립니다. 물을 많이 섞은 색을 큰 붓으로 한 번에 얹고, 밝은 곳은 종이를 남기세요. 마르기 전에 덧칠하지 않고, 진한 곳은 마른 뒤 한 번 더 얹습니다.',
 };
 
 export function buildTip(step: GuideStep, level: Level, style: PenStyle, light: LightDir, artist: ArtistId = 'none'): string[] {

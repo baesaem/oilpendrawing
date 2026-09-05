@@ -16,7 +16,7 @@ interface Props {
   onApplyPreset: (p: UserPreset) => void;
 }
 
-const FILLS: FillMode[] = ['sketch', 'hatch', 'cross', 'contour', 'scribble', 'stipple'];
+const FILLS: FillMode[] = ['sketch', 'hatch', 'cross', 'contour', 'scribble', 'stipple', 'wash'];
 
 function Range({ label, value, min, max, step = 1, unit = '', onChange }: {
   label: string; value: number; min: number; max: number; step?: number; unit?: string; onChange: (v: number) => void;
@@ -91,7 +91,7 @@ export function StrokePanel({ strokes: s, onChange, fromSample, onReset, presets
 
       <div className="field">
         <div className="field-row"><b>채우기</b></div>
-        <div className="seg" style={{ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }} role="radiogroup" aria-label="채우기 방식">
+        <div className="seg" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }} role="radiogroup" aria-label="채우기 방식">
           {FILLS.map((f) => (
             <button key={f} className={s.fill === f ? 'on' : ''} role="radio" aria-checked={s.fill === f} onClick={() => onChange({ fill: f })} title={FILL_LABEL[f]} style={{ fontSize: 11 }}>
               {FILL_SHORT[f]}
@@ -109,7 +109,7 @@ export function StrokePanel({ strokes: s, onChange, fromSample, onReset, presets
       )}
       <Range label={s.fill === 'stipple' ? '점 간격' : '해칭 간격'} value={s.hatchSpacing} min={3} max={24} unit="px" onChange={(hatchSpacing) => onChange({ hatchSpacing })} />
       {s.fill !== 'stipple' && (
-        <Range label="손떨림" value={s.jitter} min={0} max={100} onChange={(jitter) => onChange({ jitter })} />
+        <Range label={s.fill === 'wash' ? '손떨림 · 담채 입자감' : '손떨림'} value={s.jitter} min={0} max={100} onChange={(jitter) => onChange({ jitter })} />
       )}
 
       <Range label="가장자리 여백" value={s.vignette} min={0} max={100} onChange={(vignette) => onChange({ vignette })} />
@@ -125,4 +125,4 @@ export function StrokePanel({ strokes: s, onChange, fromSample, onReset, presets
   );
 }
 
-const FILL_SHORT: Record<FillMode, string> = { sketch: '스케치', hatch: '해칭', cross: '교차', contour: '윤곽', scribble: '낙서', stipple: '점묘' };
+const FILL_SHORT: Record<FillMode, string> = { sketch: '스케치', hatch: '해칭', cross: '교차', contour: '윤곽', scribble: '낙서', stipple: '점묘', wash: '담채' };

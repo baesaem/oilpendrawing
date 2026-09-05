@@ -439,6 +439,10 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
       // 가장 어두운 곳만 성기게
       hatchLayer(ink, (i) => tone[i] >= layers, angle, spacing * 1.4, width, 0, p.jitter, rng);
       break;
+    case 'wash':
+      // 펜 선 + 담채: 가장 어두운 곳에만 성긴 해칭을 조금 넣고, 톤은 담채(washBase)가 맡는다
+      hatchLayer(ink, (i) => tone[i] >= layers, angle, spacing * 1.6, width * 0.9, 0, p.jitter, rng);
+      break;
     case 'scribble':
       for (let j = 1; j <= layers; j++) hatchLayer(ink, (i) => tone[i] >= j, angle + j * 37, spacing * 1.3, width * 0.9, PHASE[j - 1], Math.max(50, p.jitter), rng, true);
       break;
@@ -470,21 +474,24 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   // 5) 합성
   let paper = hexToRgb(p.paperColor), inkC = hexToRgb(p.inkColor);
   if (opts.color === 'sepia') { paper = [243, 231, 208]; inkC = [74, 46, 28]; }
+  const wash = p.fill === 'wash' ? washBase(img, lum, w, h, paper, opts.color, layers, white, clamp(p.jitter, 0, 100) / 100, mulberry32(777)) : null;
   const out = new Uint8ClampedArray(N * 4);
   const grain = mulberry32(99);
   for (let i = 0; i < N; i++) {
     const a = ink.buf[i];
     let r = inkC[0], g = inkC[1], b = inkC[2];
-    if (opts.color === 'color') {
+    // 담채 위의 펜 선은 늘 잉크색 (컬러라도 선까지 색을 입히지 않는다)
+    if (opts.color === 'color' && !wash) {
       // 컬러: 사진의 색을 어둡게 눌러 잉크색과 섞음
       const o = i * 4;
       r = r * 0.35 + img.data[o] * 0.45; g = g * 0.35 + img.data[o + 1] * 0.45; b = b * 0.35 + img.data[o + 2] * 0.45;
     }
     const gr = (grain() - 0.5) * 5;
     const o = i * 4;
-    out[o] = paper[0] * (1 - a) + r * a + gr;
-    out[o + 1] = paper[1] * (1 - a) + g * a + gr;
-    out[o + 2] = paper[2] * (1 - a) + b * a + gr;
+    const pr = wash ? wash[i * 3] : paper[0], pg = wash ? wash[i * 3 + 1] : paper[1], pb = wash ? wash[i * 3 + 2] : paper[2];
+    out[o] = pr * (1 - a) + r * a + gr;
+    out[o + 1] = pg * (1 - a) + g * a + gr;
+    out[o + 2] = pb * (1 - a) + b * a + gr;
     out[o + 3] = 255;
   }
   return { width: w, height: h, data: out };
@@ -504,6 +511,66 @@ function colorEdgeMag(img: RawImage, w: number, h: number): Float32Array {
     for (let i = 0; i < N; i++) out[i] += gx[i] * gx[i] + gy[i] * gy[i];
   }
   for (let i = 0; i < N; i++) out[i] = Math.sqrt(out[i] / 3);
+  return out;
+}
+
+/**
+ * 수채 담채 바탕: 사진의 색을 크게 뭉개고 밝기를 몇 단계로 눌러 평평한 담채로 만든 뒤 종이 위에 투명하게 얹는다.
+ * 밝은 곳은 종이를 그대로 남기고, 담채 단계가 바뀌는 경계는 안료가 고인 것처럼 살짝 짙게, 전체에 입자감을 넣는다.
+ * 흑백이면 먹 담채, 세피아면 세피아 담채가 된다. 반환은 잉크를 얹기 전의 바탕색(RGB 0~255).
+ */
+function washBase(img: RawImage, lum: Float32Array, w: number, h: number, paper: [number, number, number], mode: ColorMode,
+  layers: number, white: number, grainAmt: number, rng: () => number): Float32Array {
+  const N = w * h;
+  const R = Math.max(3, Math.round(Math.min(w, h) / 120));
+  // 색을 크게 뭉갠다 — 물이 번진 느낌
+  const ch: Float32Array[] = [0, 1, 2].map((k) => {
+    const a = new Float32Array(N);
+    for (let i = 0, j = 0; i < img.data.length; i += 4, j++) a[j] = img.data[i + k] / 255;
+    return boxBlur(a, w, h, R);
+  });
+  const soft = boxBlur(lum, w, h, R);
+  // 담채 단계 (0 = 종이)
+  const step = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const L = soft[i];
+    step[i] = L >= white ? 0 : clamp(1 + Math.floor(((white - L) / white) * layers), 1, layers);
+  }
+  // 단계 경계: 안료가 고이는 가장자리 짙어짐
+  const edgeMask = new Float32Array(N);
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x;
+    if (step[i] !== step[i - 1] || step[i] !== step[i - w]) edgeMask[i] = 1;
+  }
+  const pooled = boxBlur(edgeMask, w, h, 1);
+  // 입자감: 거친 난수를 살짝 뭉개서
+  const noise = new Float32Array(N);
+  for (let i = 0; i < N; i++) noise[i] = rng() * 2 - 1;
+  const grain = boxBlur(noise, w, h, 1);
+
+  const out = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    const k = step[i];
+    const o = i * 3;
+    if (k === 0) { out[o] = paper[0]; out[o + 1] = paper[1]; out[o + 2] = paper[2]; continue; }
+    // 담채 진하기: 어두운 단계일수록 짙게. 물감은 투명하므로 종이에 곱한다.
+    let op = 0.32 + 0.5 * (k / layers);
+    op *= 1 + pooled[i] * 0.35;                 // 경계에 고인 안료
+    op *= 1 + grain[i] * 0.10 * grainAmt;       // 입자감
+    op = clamp(op, 0, 0.92);
+    // 안료 색: 사진 색을 밝게 띄워 물감처럼. 흑백·세피아는 밝기만 쓴다.
+    let tr: number, tg: number, tb: number;
+    if (mode === 'color') {
+      tr = ch[0][i] * 0.7 + 0.3; tg = ch[1][i] * 0.7 + 0.3; tb = ch[2][i] * 0.7 + 0.3;
+    } else {
+      const g = soft[i] * 0.7 + 0.3;
+      if (mode === 'sepia') { tr = g * 0.92 + 0.08; tg = g * 0.82 + 0.10; tb = g * 0.66 + 0.10; }
+      else { tr = g; tg = g; tb = g; }
+    }
+    out[o] = paper[0] * (1 - op * (1 - tr));
+    out[o + 1] = paper[1] * (1 - op * (1 - tg));
+    out[o + 2] = paper[2] * (1 - op * (1 - tb));
+  }
   return out;
 }
 

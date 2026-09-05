@@ -189,4 +189,4 @@ export function analyzeSample(img: RawImage): SampleAnalysis {
   return { profile, summary };
 }
 
-const FILL_TEXT: Record<FillMode, string> = { sketch: '어반 스케치', hatch: '한 방향 해칭', cross: '교차 해칭', contour: '윤곽선 위주', scribble: '스크리블', stipple: '점묘' };
+const FILL_TEXT: Record<FillMode, string> = { sketch: '어반 스케치', hatch: '한 방향 해칭', cross: '교차 해칭', contour: '윤곽선 위주', scribble: '스크리블', stipple: '점묘', wash: '펜 선 + 담채' };
