@@ -131,8 +131,8 @@ function toneText(p: DrawingParams): string {
   return parts.length ? parts.join('; ') + '.' : '';
 }
 
-/** 두 번째 이미지의 정체: 없음 / 사용자가 올린 견본 / 같은 사진을 로컬 렌더러로 그린 결과 */
-export type RefKind = 'none' | 'sample' | 'local';
+/** 두 번째 이미지의 정체: 없음 / 사용자가 올린 견본 / 같은 사진을 로컬 렌더러로 그린 결과 / 다른 사진으로 그린 화풍 프리셋 예시 */
+export type RefKind = 'none' | 'sample' | 'local' | 'preset';
 
 export function buildPrompt(p: DrawingParams, ref: RefKind): string {
   const lines = [
@@ -166,6 +166,12 @@ export function buildPrompt(p: DrawingParams, ref: RefKind): string {
       'A second image is a rough pen-drawing rendering of the same photograph made with exactly the stroke settings above. ' +
         `Follow its hatching directions, tone placement and paper exposure ${strength}, but redraw every mark by hand: ` +
         'more skill, natural variation, and cleaner form than the rough version. Do not reproduce its mechanical regularity.',
+    );
+  } else if (ref === 'preset') {
+    lines.push(
+      'A second image is an example of the target pen style drawn from a different, unrelated photograph. ' +
+        `Copy only its technique ${strength}: line weight, how hatching follows form, tone steps, and how much paper is left white. ` +
+        'Ignore its subject and composition completely; the subject comes only from the photograph.',
     );
   }
   return lines.filter(Boolean).join('\n');

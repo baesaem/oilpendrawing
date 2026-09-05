@@ -95,6 +95,20 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
 }
 .chips button.on { border-color: var(--accent); color: var(--text); font-weight: 700; }
 .swatches { display: flex; gap: 2px; }
+
+/* 화풍 프리셋 갤러리: 예시 그림 썸네일 격자 */
+.gallery { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin-bottom: 6px; }
+.gallery button {
+  padding: 0; border-radius: 6px; border: 1px solid var(--line); background: #1b1a18; color: var(--muted);
+  display: flex; flex-direction: column; overflow: hidden; cursor: pointer;
+}
+.gallery button img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #f2ece0; }
+.gallery button span {
+  display: block; width: 100%; padding: 3px 2px; font-size: 10.5px; line-height: 1.2; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gallery button:hover { border-color: var(--line-strong); color: var(--text); }
+.gallery button.on { border-color: var(--accent); color: var(--text); font-weight: 700; box-shadow: 0 0 0 1px var(--accent); }
 .swatches i { width: 7px; height: 7px; border-radius: 50%; display: block; }
 
 input[type=range] {

@@ -145,6 +145,8 @@ export interface DrawingParams {
   strokes: StrokeProfile;
   /** AI 로 그릴 때 로컬 결과를 견본 이미지로 함께 보낼지 (같은 구도라 해칭 방향·톤 배치를 잘 따름) */
   aiRefFromLocal: boolean;
+  /** AI 로 그릴 때 견본도 로컬 결과도 없으면 고른 화풍의 프리셋 예시 그림을 견본으로 보낼지 */
+  aiRefFromPreset: boolean;
   /** 사진 위에 직접 그은 해칭 방향 지시선. 사진이 바뀌면 비운다 */
   guides: DirectionGuide[];
   /** 지시선의 영향 범위 (짧은 변의 %) 5~50 */
@@ -165,6 +167,7 @@ export const DEFAULT_PARAMS: DrawingParams = {
   grayscaleInput: false,
   strokes: DEFAULT_STROKES,
   aiRefFromLocal: true,
+  aiRefFromPreset: true,
   guides: [],
   guideRadius: 18,
 };

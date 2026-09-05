@@ -47,7 +47,8 @@ UI 문구는 모두 한국어이고, 코드 주석도 한국어로 쓴다.
 기본 경로는 전부 브라우저 계산이다. 가이드 1~3단계는 `guide.ts` 의 `edgeMap`, `valueMap`,
 "드로잉 만들기"는 `render.ts` 의 `renderDrawing`, 견본 분석은 `sampleStyle.ts` 의 `analyzeSample`.
 뒤의 둘은 순수 함수(DOM 없음)라 `render.worker.ts` 에서 돌고, `local.ts` 가 Blob ↔ ImageData 변환과
-워커 호출을 맡는다. API 를 쓰는 건 "AI로 그리기"와 "과정 그림 만들기" 두 가지뿐이고 둘 다 키가 있어야 켜진다.
+워커 호출을 맡는다. 워커 스크립트를 못 불러오거나 워커가 죽으면(`onerror`) 콘솔에 위치를 찍고 `workerBroken` 을 세워
+그 뒤로는 화면 스레드에서 같은 함수를 직접 돈다 — 그래서 "드로잉 만들기"는 어떤 환경에서도 결과를 낸다. API 를 쓰는 건 "AI로 그리기"와 "과정 그림 만들기" 두 가지뿐이고 둘 다 키가 있어야 켜진다.
 이 경계를 흐리지 않는다.
 
 ### 로컬 렌더러와 견본 분석
@@ -89,6 +90,15 @@ DAP(Hertzmann 의 다중 크기 획 페인팅)의 원리 세 가지를 펜 해�
 `coh` 도 함께 끌어올려 평탄한 곳(하늘·벽)에서도 지시가 먹는다. 채우기가 `hatch`·`cross` 인데 지시선이 있으면
 긴 직선 대신 `sketchLayer`(guided-hatch/guided-cross) 로 그린다 — 직선은 방향장을 따를 수 없기 때문.
 지시선은 사진이 바뀌면 비워지고, 실시간 재렌더의 비교 대상에 포함되며, `Drawing.params` 에 저장돼 이력에서도 재현된다.
+
+### 화풍 프리셋 갤러리 (DAP 의 프리셋 탭)
+
+`presetGallery.ts` + `public/presets/<style>.jpg`. `StylePanel` 맨 위 `.gallery` 격자가 화풍마다 예시 그림을 보여 주고,
+누르면 `onParams({ style })` 만 한다 — 화풍을 바꾸면 `App.patchParams` 가 프리셋 선·톤을 넣는 기존 경로 그대로다.
+예시 그림 16장은 같은 사진(컵과 배)을 이 앱의 로컬 렌더러로 화풍마다 그린 것(480px JPEG, 수채만 컬러)이라 화풍끼리
+차이가 비교된다. 새 화풍을 추가하면 같은 이름의 예시 그림도 넣는다. AI 로 그릴 때 견본도 로컬 결과도 없고
+`DrawingParams.aiRefFromPreset` 이 켜져 있으면(기본) `fetchPresetImage` 로 그 예시 그림을 두 번째 이미지로 보내고
+`RefKind` `preset` 으로 "다른 사진이니 기법만 따르라"고 지시한다. 못 가져오면(오프라인·미리보기) 견본 없이 그린다.
 
 ### 즐겨찾기 프리셋
 
@@ -152,11 +162,12 @@ CORS 로 막을 때 코드 수정 없이 대응하기 위한 것이므로, 모�
 ```
 
 `strokesText` 는 로컬 렌더러의 `StrokeProfile` 을 문장으로 옮긴 것이라 두 경로가 같은 설정을 본다.
-`buildPrompt` 의 두 번째 인자 `RefKind` 가 두 번째 이미지의 정체다: `sample`(올린 견본) 또는 `local`(같은 사진의 로컬 결과,
-`DrawingParams.aiRefFromLocal` 이 켜져 있고 로컬 결과가 떠 있을 때 `App.drawAi` 가 `current.base` 를 보냄). 로컬을 보낼 때는
-"손으로 다시 그리되 기계적 규칙성은 베끼지 말라"고 덧붙인다.
+`buildPrompt` 의 두 번째 인자 `RefKind` 가 두 번째 이미지의 정체다: `sample`(올린 견본), `local`(같은 사진의 로컬 결과,
+`DrawingParams.aiRefFromLocal` 이 켜져 있고 로컬 결과가 떠 있을 때 `App.drawAi` 가 `current.base` 를 보냄), `preset`(둘 다 없을 때
+고른 화풍의 갤러리 예시 그림). 우선순위는 local → sample → preset. 로컬을 보낼 때는
+"손으로 다시 그리되 기계적 규칙성은 베끼지 말라", 프리셋은 "다른 사진이니 주제는 무시하고 기법만 따르라"고 덧붙인다.
 
-화풍(`PenStyle`, 14종)은 기법이고, 화가(`ArtistId`, `artists.ts`, 10명)는 그 위에 얹는
+화풍(`PenStyle`, 16종)은 기법이고, 화가(`ArtistId`, `artists.ts`, 10명)는 그 위에 얹는
 해석이다. 둘은 곱해서 쓴다. 화가 목록은 **사후 60년 이상 지난 작가만** 넣는다 —
 저작권 문제와 이미지 생성 API 의 이름 거부를 함께 피하기 위해서다. 각 항목이 이름뿐 아니라
 선·명암 기법 서술(`prompt` 필드)을 갖는 이유도 모델이 이름을 몰라도 특징이 남게 하기 위함이다.

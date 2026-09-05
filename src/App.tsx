@@ -15,7 +15,8 @@ import { applyTone, downloadBlob, estimateLight, isGrayscale, prepareInput, tone
 import { analyzeSampleBlob, renderLocalDrawing } from './local';
 import { compositeStamps, defaultPlacement, loadStamps, saveStamps, type PlacedStamp, type StampItem, type StampState } from './stamps';
 import { loadPresets, newPresetId, savePresets, PRESET_LIMIT, type UserPreset } from './presets';
-import { buildProcessPrompt, buildPrompt } from './prompt';
+import { buildProcessPrompt, buildPrompt, type RefKind } from './prompt';
+import { fetchPresetImage } from './presetGallery';
 import { EDITS_INPUT, generateDrawing } from './providers';
 import { listDrawings, loadSettings, putDrawing, saveSettings } from './storage';
 import { IS_PREVIEW, PREVIEW_NOTE } from './env';
@@ -229,10 +230,14 @@ export function App() {
       const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: gray, relight: params.lightAuto ? undefined : params.light });
       // 로컬 결과가 있고 스위치가 켜져 있으면 그것을 견본으로 (같은 구도라 올린 견본보다 정확히 따름)
       const localRef = params.aiRefFromLocal && (current?.engine === 'local' || current?.engine === 'external') ? current.base ?? current.result : null;
+      // 둘 다 없으면 고른 화풍의 프리셋 예시 그림 (다른 사진이므로 기법만 따르라고 지시)
+      const presetRef = !localRef && !reference && params.aiRefFromPreset ? await fetchPresetImage(params.style) : null;
       const preparedRef = localRef
         ? await prepareInput(localRef, { maxSide: 1024, grayscale: false })
-        : reference ? await prepareInput(reference, { maxSide: 1024, grayscale: false }) : undefined;
-      const prompt = buildPrompt(params, localRef ? 'local' : preparedRef ? 'sample' : 'none');
+        : reference ? await prepareInput(reference, { maxSide: 1024, grayscale: false })
+        : presetRef ? await prepareInput(presetRef, { maxSide: 1024, grayscale: false }) : undefined;
+      const refKind: RefKind = localRef ? 'local' : reference ? 'sample' : preparedRef ? 'preset' : 'none';
+      const prompt = buildPrompt(params, refKind);
       const result = await generateDrawing(settings, { input: preparedInput, reference: preparedRef, prompt, signal: ac.signal, onStatus: setBusy });
       await commit({
         id: newId(), createdAt: Date.now(), input: preparedInput, reference: preparedRef, result, params: { ...params },

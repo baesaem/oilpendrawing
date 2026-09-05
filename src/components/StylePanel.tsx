@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { COLOR_LABEL, LEVEL_DESC, LEVEL_LABEL, PEN_STYLES, STYLE_DESC, STYLE_LABEL, type ColorMode, type DrawingParams, type Level, type PenStyle } from '../types';
 import { LightDial } from './LightDial';
 import { ARTISTS, ARTIST_BY_ID, type ArtistId } from '../artists';
+import { presetImageUrl, presetShortLabel } from '../presetGallery';
 
 const LEVELS: Level[] = ['beginner', 'intermediate', 'advanced'];
 const COLORS: Array<{ id: ColorMode; sw: string[] }> = [
@@ -31,7 +32,19 @@ export function StylePanel({ params, onParams, children }: Props) {
       <div className="panel-head"><h2>표현 설정</h2></div>
 
       <div className="field">
-        <div className="field-row"><b>화풍</b></div>
+        <div className="field-row"><b>화풍 프리셋</b><span className="muted small">예시 그림을 눌러 고르기</span></div>
+        {/* Dynamic Auto-Painter 의 프리셋 탭처럼: 같은 사진을 화풍마다 그린 예시를 보고 고른다 */}
+        <div className="gallery" role="radiogroup" aria-label="화풍 프리셋">
+          {PEN_STYLES.map((st) => (
+            <button
+              key={st} type="button" className={params.style === st ? 'on' : ''} role="radio" aria-checked={params.style === st}
+              title={STYLE_LABEL[st]} onClick={() => onParams({ style: st })}
+            >
+              <img src={presetImageUrl(st)} alt="" loading="lazy" draggable={false} />
+              <span>{presetShortLabel(st)}</span>
+            </button>
+          ))}
+        </div>
         <select className="text-input select" value={params.style} onChange={(e) => onParams({ style: e.target.value as PenStyle })} aria-label="화풍">
           {PEN_STYLES.map((st) => <option key={st} value={st}>{STYLE_LABEL[st]}</option>)}
         </select>
@@ -84,6 +97,16 @@ export function StylePanel({ params, onParams, children }: Props) {
             {ARTISTS.map((a) => <option key={a.id} value={a.id}>{a.id === 'none' ? '없음' : `${a.name} (${a.years})`}</option>)}
           </select>
           <div className="small muted">{ARTIST_BY_ID[params.artist].desc}</div>
+        </div>
+        <div className="field" style={{ marginTop: 10 }}>
+          <button
+            className="toggle" role="switch" aria-checked={params.aiRefFromPreset}
+            onClick={() => onParams({ aiRefFromPreset: !params.aiRefFromPreset })}
+            title="견본 이미지도 로컬 결과도 없을 때, 고른 화풍의 예시 그림을 견본으로 함께 보내 그 풍을 더 정확히 따르게 합니다"
+          >
+            <span>견본이 없으면 프리셋 예시 그림을 견본으로</span>
+            <span className={`switch ${params.aiRefFromPreset ? 'on' : ''}`} />
+          </button>
         </div>
         <div className="field" style={{ marginTop: 10 }}>
           <div className="field-row"><b>강도</b><span className="muted">{params.intensity} · {intensityHint(params.intensity)}</span></div>
