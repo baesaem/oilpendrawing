@@ -630,7 +630,7 @@ function sweepsFor(p: PaintProfile): Sweep[] {
     case 'contour': return [{ rot: 0, minRef: 0.6, gMul: 1.6 }];
     case 'scribble': return [{ kind: 'scribble' }, { kind: 'scribble', offset: 0.5 }];
     case 'stipple': return [{ kind: 'stipple' }];
-    case 'wash': return [];
+    case 'wash': case 'oil': case 'impasto': return [];
   }
 }
 
@@ -640,10 +640,13 @@ function sweepsFor(p: PaintProfile): Sweep[] {
  */
 function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boolean, onTick?: (frac: number) => void) {
   const { w, h, cv, rng, field } = c;
-  const g = Math.max(3, R * 0.55);
+  // 유화: 불투명한 얇고 짧은 붓 자국 (담채는 넓고 옅음). 임파스토: 길고 굽은 자국, 자국마다 색이 다르고 테두리는 어둡게·가운데는 밝게
+  const impasto = c.p.brush === 'impasto';
+  const oil = c.p.brush === 'oil' || impasto;
+  const g = Math.max(2, R * (impasto ? 0.5 : oil ? 0.4 : 0.55));
   const cols = Math.ceil(w / g), rows = Math.ceil(h / g);
   const order = shuffled(cols * rows, rng);
-  const step = R * 0.35, maxLen = R * (2.5 + 4 * clamp(c.p.strokeLength, 0, 100) / 100);
+  const step = R * (impasto ? 0.4 : oil ? 0.25 : 0.35), maxLen = R * ((oil ? 1.2 : 2.5) + (impasto ? 5 : oil ? 3 : 4) * clamp(c.p.strokeLength, 0, 100) / 100);
   const tickEvery = Math.max(1, Math.floor(order.length / 6));
   for (let q = 0; q < order.length; q++) {
     if (onTick && q % tickEvery === 0) onTick(q / order.length);
@@ -660,7 +663,12 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boole
     let x = cx + rng() * g, y = cy + rng() * g;
     const fi = (y | 0) * w + (x | 0);
     const io = fi * 3;
-    const col: RGB = [want[io], want[io + 1], want[io + 2]];
+    // 유화: 붓 자국마다 밝기가 조금씩 달라 붓결이 보인다 (임파스토 느낌)
+    const jit = oil ? 1 + (rng() - 0.5) * 0.16 : 1;
+    // 임파스토: 채널을 따로 흔들어 자국마다 색상이 조금씩 다르다 (노랑·주황·초록 줄무늬)
+    const hj = impasto ? 0.28 * c.rnd : 0;
+    const col: RGB = [want[io] * jit * (1 + (rng() - 0.5) * hj), want[io + 1] * jit * (1 + (rng() - 0.5) * hj), want[io + 2] * jit * (1 + (rng() - 0.5) * hj)];
+    const path: number[] = [];
     let [dx, dy] = dirAt(c, fi, 0);
     if (rng() < 0.5) { dx = -dx; dy = -dy; }
     for (let s = 0; s < maxLen; s += step) {
@@ -668,7 +676,7 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boole
       if (xi < 0 || yi < 0 || xi >= w || yi >= h) break;
       const o = (yi * w + xi) * 3;
       if (Math.abs(want[o] - col[0]) + Math.abs(want[o + 1] - col[1]) + Math.abs(want[o + 2] - col[2]) > 60) break;
-      cv.dab(x, y, R / 2, soft);
+      if (impasto) path.push(x, y); else cv.dab(x, y, oil ? R * 0.32 : R / 2, soft);
       const i = yi * w + xi;
       if (field.coh[i] > 0.15 || field.man[i] > 0.1) {
         let [fx, fy] = dirAt(c, i, 0);
@@ -678,12 +686,22 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boole
       }
       x += dx * step; y += dy * step;
     }
-    cv.end(0.42 + 0.1 * (1 - c.rnd) + rng() * 0.15 * c.rnd, col, false);
+    if (impasto) {
+      // 테두리(어둡고 넓게) → 몸통 → 가운데 능선(밝고 좁게): 두꺼운 물감이 빛을 받는 느낌
+      const rr = R * 0.3;
+      for (let q = 0; q < path.length; q += 2) cv.dab(path[q], path[q + 1], rr * 1.15, false);
+      cv.end(0.85, [col[0] * 0.72, col[1] * 0.72, col[2] * 0.72], false);
+      for (let q = 0; q < path.length; q += 2) cv.dab(path[q], path[q + 1], rr * 0.85, false);
+      cv.end(0.9, col, false);
+      // 능선은 자국이 어느 정도 굵을 때만 (가는 홈에서는 보이지 않고 시간만 든다)
+      if (rr >= 1.6) for (let q = 0; q < path.length; q += 4) cv.dab(path[q], path[q + 1], rr * 0.4, false);
+      cv.end(0.7, [Math.min(255, col[0] * 1.14 + 6), Math.min(255, col[1] * 1.14 + 6), Math.min(255, col[2] * 1.14 + 6)], false);
+    } else cv.end(oil ? 0.8 + rng() * 0.15 : 0.42 + 0.1 * (1 - c.rnd) + rng() * 0.15 * c.rnd, col, false);
   }
 }
 
 /** 담채의 목표 색: 사진 색을 크게 뭉개고 물감처럼 밝게 띄운 뒤 목표 어둡기만큼 종이에 곱한다 */
-function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, h: number, paper: RGB, mode: ColorMode): Float32Array {
+function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, h: number, paper: RGB, mode: ColorMode, oil = false): Float32Array {
   const N = w * h;
   const want = new Float32Array(N * 3);
   const R0 = Math.max(2, Math.round(Math.min(w, h) / 220));
@@ -697,17 +715,21 @@ function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, 
     const L = softL[i];
     const o = i * 3;
     // 여백 문턱 위는 종이, 그 아래는 사진 색을 물감처럼 조금 띄우고 채도를 살려 종이에 곱한다. 문턱 근처는 부드럽게 이어진다
-    const op = clamp((white + 0.08 - L) / 0.16, 0, 1) * 0.95;
+    const op = oil ? 1 : clamp((white + 0.08 - L) / 0.16, 0, 1) * 0.95;
     if (op <= 0.01) { want[o] = paper[0]; want[o + 1] = paper[1]; want[o + 2] = paper[2]; continue; }
     let tr: number, tg: number, tb: number;
     if (mode === 'color') {
       const r = chans[0][i], g = chans[1][i], b = chans[2][i], m = (r + g + b) / 3;
-      const sat = 1.6; // 참고 수채화처럼 채도는 높이고, 어두운 곳은 어둡게 남긴다
-      tr = clamp(m + (r - m) * sat, 0, 1) * 0.92 + 0.08; tg = clamp(m + (g - m) * sat, 0, 1) * 0.92 + 0.08; tb = clamp(m + (b - m) * sat, 0, 1) * 0.92 + 0.08;
+      const sat = oil ? 1.35 : 1.6; // 참고 수채화처럼 채도는 높이고, 어두운 곳은 어둡게 남긴다. 유화는 조금만
+      const lo = oil ? 0.03 : 0.08, hi = 1 - lo;
+      // 유화는 대비를 조금 키운다 (인상주의 유화의 밝은 빛)
+      const con = (v: number) => (oil ? clamp(0.5 + (v - 0.5) * 1.18 + 0.03, 0, 1) : v);
+      tr = con(clamp(m + (r - m) * sat, 0, 1)) * hi + lo; tg = con(clamp(m + (g - m) * sat, 0, 1)) * hi + lo; tb = con(clamp(m + (b - m) * sat, 0, 1)) * hi + lo;
     } else {
       const g = L * 0.8 + 0.2;
       if (mode === 'sepia') { tr = g * 0.92 + 0.08; tg = g * 0.82 + 0.1; tb = g * 0.66 + 0.1; } else { tr = g; tg = g; tb = g; }
     }
+    if (oil) { want[o] = tr * 255; want[o + 1] = tg * 255; want[o + 2] = tb * 255; continue; } // 불투명: 종이색과 무관
     want[o] = paper[0] * (1 - op * (1 - tr)); want[o + 1] = paper[1] * (1 - op * (1 - tg)); want[o + 2] = paper[2] * (1 - op * (1 - tb));
   }
   return want;
@@ -809,7 +831,8 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   if (opts.color === 'color') {
     const soft = [0, 1, 2].map((k) => { const a = new Float32Array(N); for (let i = 0, q = 0; i < img.data.length; i += 4, q++) a[q] = img.data[i + k]; return boxBlur(a, w, h, 3); });
     // 펜: 사진 색을 잉크색과 섞어 누른 색. 담채 위의 어두운 붓: 그 자리 색을 더 진하게 (검정 펜이 아니라 짙은 물감)
-    const ki = p.brush === 'wash' ? 0.45 : 0.35, kc = p.brush === 'wash' ? 0.5 : 0.45;
+    const painty = p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto';
+    const ki = painty ? 0.45 : 0.35, kc = painty ? 0.5 : 0.45;
     colorAt = (i) => [inkC[0] * ki + soft[0][i] * kc, inkC[1] * ki + soft[1][i] * kc, inkC[2] * ki + soft[2][i] * kc];
   }
   const acc = clamp(p.accuracy, 0, 100) / 100;
@@ -837,16 +860,18 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   };
 
   // 2) 층: 큰 획 → 작은 획. 층마다 목표를 획 크기만큼 뭉갠 참조를 본다 (큰 획은 큰 형태만).
-  if (p.brush === 'wash') {
-    const want = washTarget(img, lum, white, w, h, paper, opts.color);
+  if (p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto') {
+    const oil = p.brush !== 'wash';
+    const want = washTarget(img, lum, white, w, h, paper, opts.color, oil);
     for (let k = 0; k < passes; k++) {
       const R = Math.max(4, sizes[k] * 1.3);
       // 앞 층은 젖은 붓으로 큰 색면을 번지게, 뒤 층은 마른 종이 위에 또렷한 면을 얹는다 (참고 수채화의 wet-on-dry 층)
-      washSweep(c, want, R, 4 + 10 * (1 - acc), k < passes - 2, (f) => report(k, f));
+      // 임파스토는 테두리·능선 때문에 목표와 늘 조금 다르므로 문턱을 높여 같은 칸을 끝없이 덧칠하지 않게 한다
+      washSweep(c, want, R, (4 + 10 * (1 - acc)) * (p.brush === 'impasto' ? 2.4 : 1), !oil && k < passes - 2, (f) => report(k, f));
       report(k, 1, true);
     }
     // 물감이 마르며 가장자리에 고이는 안료: 캔버스 밝기의 경계를 조금 어둡게
-    pigmentEdges(cv, 0.34, mulberry32(77));
+    if (!oil) pigmentEdges(cv, 0.34, mulberry32(77));
     // 펜: 잉크 농도가 있을 때만 가장 어두운 곳에 성긴 획 (순수 수채는 ink 0)
     if (p.ink >= 30) {
       const ref = boxBlur(target, w, h, 1);
@@ -872,7 +897,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   // 3) 윤곽선: 색 경계를 따라가는 획
   const edges = clamp(p.edges, 0, 100);
   if (edges > 0) {
-    const th = (0.30 - 0.20 * edges / 100) * (p.brush === 'wash' ? 1.5 : 1);
+    const th = (0.30 - 0.20 * edges / 100) * (p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto' ? 1.5 : 1);
     const widthMul = p.brush === 'contour' ? 1.15 : 1;
     const mass = sobel(boxBlur(lum, w, h, Math.max(3, Math.round(minSide / 60))), w, h);
     edgePass(c, mag, mass, chromaEdgeMag(img, w, h), th, widthMul, p.brush === 'contour' ? 1 : 0.9);

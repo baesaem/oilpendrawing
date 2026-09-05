@@ -63,6 +63,17 @@ const STYLE_TEXT: Record<PenStyle, string> = {
     'Style: urban-sketch pen and wash. Confident ink outlines drawn first, then loose, transparent watercolor washes in a few ' +
     'flat value steps laid over them; highlights left as untouched white paper, washes bleeding softly past the lines, ' +
     'darker pigment pooling at wash edges, visible paper texture and granulation, sparse hatching only in the deepest shadows.',
+  oil:
+    'Style: impressionist oil painting instead of pen: short opaque brush strokes laid from large to small, colors clean and slightly ' +
+    'more saturated than the photo, strokes following the form of each surface, sunlit areas built with bright thick touches, no outlines, ' +
+    'no paper left bare, visible canvas and brush texture.',
+  vangogh:
+    'Style: post-impressionist oil painting in the manner of Van Gogh instead of pen: long curving thick impasto strokes that swirl ' +
+    'along the flow of every surface, each stroke a slightly different hue so yellows, oranges and greens stripe together, dark blue ' +
+    'contour strokes around the forms, saturated color, no bare canvas.',
+  carver:
+    'Style: carved relief look instead of pen: fine long grooves flowing along every surface as if cut into wood, each groove with a ' +
+    'dark edge and a light ridge so the picture reads as a shallow relief, nearly monochrome with a faint tint, high detail.',
 };
 
 const LIGHT_TEXT: Record<LightDir, string> = {
@@ -96,6 +107,8 @@ export function paintText(s: PaintProfile): string {
     case 'scribble': parts.push('loose looping scribble strokes piled up for tone'); break;
     case 'stipple': parts.push('stippled dots instead of lines, density for tone'); break;
     case 'wash': parts.push('ink outlines with transparent watercolor washes for tone, hatching only in the deepest shadows'); break;
+    case 'oil': parts.push('opaque impressionist oil brush strokes from large to small covering the whole canvas, no outlines'); break;
+    case 'impasto': parts.push('long curving impasto strokes following the flow of each surface, hue varying stroke to stroke, dark contour strokes'); break;
   }
   parts.push(`${s.passes} layers of marks from large shapes down to ${s.detail >= 75 ? 'fine' : s.detail >= 45 ? 'medium' : 'coarse'} detail`);
   parts.push(s.accuracy >= 75 ? 'values matched closely to the photograph' : s.accuracy >= 45 ? 'values simplified into a few clear steps' : 'only the main darks indicated, everything else left open');

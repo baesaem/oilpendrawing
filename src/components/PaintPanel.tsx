@@ -16,7 +16,7 @@ interface Props {
   onApplyPreset: (p: UserPreset) => void;
 }
 
-const BRUSHES: BrushKind[] = ['pen', 'hatch', 'cross', 'contour', 'scribble', 'stipple', 'wash'];
+const BRUSHES: BrushKind[] = ['pen', 'hatch', 'cross', 'contour', 'scribble', 'stipple', 'wash', 'oil', 'impasto'];
 
 function Range({ label, value, min, max, step = 1, unit = '', hint, onChange }: {
   label: string; value: number; min: number; max: number; step?: number; unit?: string; hint?: string; onChange: (v: number) => void;
@@ -53,7 +53,7 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
     setName('');
     setSaving(false);
   };
-  const isStipple = s.brush === 'stipple', isWash = s.brush === 'wash';
+  const isStipple = s.brush === 'stipple', isWash = s.brush === 'wash' || s.brush === 'oil' || s.brush === 'impasto';
   return (
     <>
       <div className="panel-head">
@@ -104,7 +104,7 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
 
       <div className="field">
         <div className="field-row"><b>붓</b><span className="muted small">{BRUSH_SHORT[s.brush]}</span></div>
-        <div className="seg" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }} role="radiogroup" aria-label="붓">
+        <div className="seg" style={{ gridTemplateColumns: 'repeat(9, minmax(0, 1fr))' }} role="radiogroup" aria-label="붓">
           {BRUSHES.map((b) => (
             <button key={b} className={s.brush === b ? 'on' : ''} role="radio" aria-checked={s.brush === b} onClick={() => onChange({ brush: b })} title={BRUSH_LABEL[b]} style={{ fontSize: 11 }}>
               {BRUSH_SHORT[b]}

@@ -9,7 +9,7 @@ export type PenStyle =
   | 'richeon' | 'fineink'
   | 'hatching' | 'crosshatch' | 'contour' | 'scribble' | 'stipple'
   | 'engraving' | 'urban' | 'realistic' | 'comic' | 'architectural'
-  | 'ghibli' | 'webtoon' | 'manga' | 'watercolor';
+  | 'ghibli' | 'webtoon' | 'manga' | 'watercolor' | 'oil' | 'vangogh' | 'carver';
 
 /** 결과를 만든 엔진: 브라우저 로컬 렌더러 또는 AI 제공사 */
 /** 결과를 만든 엔진: 브라우저 로컬 렌더러, AI 제공사, 또는 밖에서 만든 그림(Dynamic Auto-Painter 등)을 불러온 것 */
@@ -25,13 +25,15 @@ export interface DirectionGuide {
 }
 
 /** 로컬 엔진의 붓 (획의 모양) */
-export type BrushKind = 'pen' | 'hatch' | 'cross' | 'contour' | 'scribble' | 'stipple' | 'wash';
+export type BrushKind = 'pen' | 'hatch' | 'cross' | 'contour' | 'scribble' | 'stipple' | 'wash' | 'oil' | 'impasto';
 export const BRUSH_LABEL: Record<BrushKind, string> = {
   pen: '펜 획 (면을 따라 흐르는 짧은 획, 나뭇잎은 고리 선, 그림자는 교차)',
   hatch: '평행 해칭', cross: '교차 해칭', contour: '윤곽선 위주 (깊은 그림자만 해칭)', scribble: '스크리블 (고리 선)', stipple: '점묘',
   wash: '수채 담채 (붓 자국을 겹쳐 얹고 펜은 윤곽과 깊은 그림자만)',
+  oil: '유화 붓터치 (불투명한 짧은 붓 자국을 큰 것부터 작은 것까지 겹쳐 종이를 다 덮는다)',
+  impasto: '임파스토 (고흐풍: 길고 굽은 붓 자국, 자국마다 색이 조금씩 다르고 가장자리는 어둡게, 가운데는 밝게 도드라진다)',
 };
-export const BRUSH_SHORT: Record<BrushKind, string> = { pen: '펜 획', hatch: '해칭', cross: '교차', contour: '윤곽', scribble: '낙서', stipple: '점묘', wash: '담채' };
+export const BRUSH_SHORT: Record<BrushKind, string> = { pen: '펜 획', hatch: '해칭', cross: '교차', contour: '윤곽', scribble: '낙서', stipple: '점묘', wash: '담채', oil: '유화', impasto: '고흐' };
 
 /**
  * 그리기 설정 (Dynamic Auto-Painter 의 프리셋 파라미터에 해당). 로컬 엔진이 보는 값의 전부다.
@@ -110,6 +112,9 @@ export const PAINT_FOR_STYLE: Record<PenStyle, PaintProfile> = {
   webtoon: { ...CLASSIC_PAINT, brush: 'contour', passes: 3, brushSize: 50, detail: 65, accuracy: 55, strokeLength: 60, featureFollow: 60, baseAngle: 45, randomness: 10, lineWidth: 1.8, ink: 90, paperKeep: 62, edges: 95 },
   manga: { ...CLASSIC_PAINT, passes: 4, brushSize: 40, detail: 90, accuracy: 70, strokeLength: 60, featureFollow: 20, baseAngle: 45, randomness: 5, lineWidth: 1, ink: 90, paperKeep: 55, edges: 85 },
   watercolor: { ...RICHEON_PAINT, brush: 'wash', passes: 4, brushSize: 70, detail: 80, accuracy: 72, strokeLength: 50, featureFollow: 70, baseAngle: 40, randomness: 35, lineWidth: 1.6, ink: 60, paperKeep: 62, edges: 45, vignette: 15 },
+  oil: { ...RICHEON_PAINT, brush: 'oil', passes: 5, brushSize: 55, detail: 95, accuracy: 80, strokeLength: 40, featureFollow: 80, baseAngle: 0, randomness: 30, lineWidth: 1, ink: 0, paperKeep: 0, edges: 0, vignette: 0 },
+  vangogh: { ...RICHEON_PAINT, brush: 'impasto', passes: 4, brushSize: 50, detail: 85, accuracy: 75, strokeLength: 85, featureFollow: 100, baseAngle: 20, randomness: 45, lineWidth: 1.4, ink: 0, paperKeep: 0, edges: 55, vignette: 0 },
+  carver: { ...RICHEON_PAINT, brush: 'impasto', passes: 4, brushSize: 30, detail: 100, accuracy: 90, strokeLength: 100, featureFollow: 100, baseAngle: 0, randomness: 12, lineWidth: 1, ink: 0, paperKeep: 0, edges: 70, vignette: 0 },
 };
 
 /** 숙련도별로 화풍 설정을 단순화한다 (견본이 없을 때 출발점). 초급은 층·세밀함을 줄이고 굵은 펜으로 */
@@ -299,7 +304,7 @@ export const LIGHT_DIRS: LightDir[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW
 
 export const PEN_STYLES: PenStyle[] = [
   'richeon', 'fineink', 'hatching', 'crosshatch', 'contour', 'scribble', 'stipple', 'engraving', 'urban', 'realistic', 'comic', 'architectural',
-  'ghibli', 'webtoon', 'manga', 'watercolor',
+  'ghibli', 'webtoon', 'manga', 'watercolor', 'oil', 'vangogh', 'carver',
 ];
 export const STYLE_LABEL: Record<PenStyle, string> = {
   richeon: '리천 스타일 (어반 펜 스케치)',
@@ -318,6 +323,9 @@ export const STYLE_LABEL: Record<PenStyle, string> = {
   webtoon: '웹툰',
   manga: '일본 만화(망가)',
   watercolor: '수채 담채 (펜 + 수채)',
+  oil: '유화 붓터치 (인상주의)',
+  vangogh: '고흐풍 유화 (임파스토)',
+  carver: '조각·판각 느낌 (새긴 선)',
 };
 export const STYLE_DESC: Record<PenStyle, string> = {
   richeon: '가는 검정 펜으로 면의 방향을 따라 해칭(벽은 세로, 바닥은 원근 방향). 나뭇잎은 뭉게구름처럼 둘러 그리고 안을 고리 선으로 채웁니다. 하늘과 밝은 곳은 흰 종이로 비우고 가장자리는 미완성으로 둡니다. @richeons_drawing_journey',
@@ -336,4 +344,7 @@ export const STYLE_DESC: Record<PenStyle, string> = {
   webtoon: '한국 웹툰의 깔끔한 디지털 선화. 굵기가 일정한 외곽선, 단순한 셀 셰이딩, 인물은 또렷하고 배경은 간략하게.',
   manga: '일본 만화 원고 느낌. 가늘고 날카로운 펜선, 스크린톤처럼 규칙적인 점·선 무늬로 명암, 강조 부분에 굵은 잉크.',
   watercolor: '펜으로 윤곽을 그리고 물을 많이 섞은 수채를 몇 단계의 옅은 담채로 얹는 어반 스케치 방식. 밝은 곳은 종이를 남기고 담채 가장자리는 안료가 고여 살짝 짙어집니다. 흑백이면 먹 담채가 됩니다.',
+  oil: '불투명한 짧은 붓 자국을 큰 것부터 작은 것까지 겹쳐 종이를 다 덮는 인상주의 유화. 색은 사진보다 맑고 진하게, 붓은 면의 방향을 따르고, 빛 받는 곳은 밝은 붓 자국으로 살립니다. 컬러로 보는 것이 좋습니다.',
+  vangogh: '고흐의 후기 풍경화처럼 길고 굽은 두꺼운 붓 자국이 면의 흐름을 따라 소용돌이칩니다. 자국마다 색이 조금씩 달라 노랑·주황·초록이 줄무늬로 섞이고, 형태는 짙은 윤곽 붓으로 둘러 잡습니다. 컬러로 보는 것이 좋습니다.',
+  carver: '나무나 판에 새긴 것처럼 가늘고 긴 홈이 면의 흐름을 따라 흐르고, 홈마다 어두운 가장자리와 밝은 능선이 있어 얕은 부조처럼 보입니다. 세피아나 흑백으로 보면 판각 느낌이 가장 잘 납니다.',
 };
