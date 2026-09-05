@@ -15,10 +15,10 @@
  * 붓(brush) 이 획의 모양을 정한다: pen(면을 따르는 짧은 획·나뭇잎 고리선), hatch(평행), cross(교차), contour(윤곽 위주),
  * scribble(고리 선), stipple(점), wash(수채 담채 붓 자국 + 펜).
  */
-import type { ColorMode, DirectionGuide, PaintProfile } from './types';
+import type { ColorMode, DirectionGuide, PaintProfile, TipKind } from './types';
 
 export interface RawImage { width: number; height: number; data: Uint8ClampedArray }
-export interface ProgressInfo { pass: number; passes: number; frac: number; strokes: number }
+export interface ProgressInfo { pass: number; passes: number; frac: number; strokes: number; /** 지금 단계 이름 (밑칠·중간·세부·윤곽) */ label?: string }
 export interface RenderOpts {
   paint: PaintProfile;
   color: ColorMode;
@@ -268,6 +268,46 @@ function smoothNoise1D(n: number, rng: () => number): Float32Array {
   return a;
 }
 
+/* ---------- 브러시 팁 ---------- */
+
+/** 획 하나 동안 유지되는 팁 상태: 붓털 프로필(가로지름 방향 24점)과 젖은 붓의 가장자리 흔들림(각도 16점) */
+interface TipState { kind: TipKind; prof: Float32Array; wob: Float32Array }
+
+/** 획을 시작할 때 팁을 새로 만든다 — 붓털 배치와 번짐 모양이 획마다 다르다 */
+function makeTip(kind: TipKind, rng: () => number): TipState {
+  const prof = new Float32Array(24), wob = new Float32Array(16);
+  if (kind === 'bristle' || kind === 'chalk') {
+    // 붓털: chalk 는 털이 성글고 사이가 비고, bristle 은 촘촘하되 털마다 눌린 정도가 다르다
+    const hairs = kind === 'chalk' ? 6 : 11;
+    const amp: number[] = [];
+    for (let k = 0; k < hairs; k++) amp.push(kind === 'chalk' ? (rng() < 0.35 ? 0 : 0.5 + rng() * 0.5) : 0.55 + rng() * 0.45);
+    for (let i = 0; i < 24; i++) {
+      const t = ((i + 0.5) / 24) * hairs, k0 = Math.min(hairs - 1, Math.floor(t)), f = t - k0;
+      const a0 = amp[k0], a1 = amp[Math.min(hairs - 1, k0 + 1)];
+      const edge = Math.min(1, (Math.min(i, 23 - i) + 1) / 3); // 붓 가장자리 털은 옅다
+      prof[i] = (a0 * (1 - f) + a1 * f) * (kind === 'chalk' ? 1 : 0.7 + 0.3 * edge) * (kind === 'chalk' ? (f < 0.5 ? 1 : 0.6) : 1);
+    }
+  } else prof.fill(1);
+  // 젖은 붓: 반지름 흔들림 ±15%, 이웃 각도끼리 부드럽게
+  const raw = Array.from({ length: 16 }, () => (rng() - 0.5) * 0.3);
+  for (let i = 0; i < 16; i++) wob[i] = (raw[(i + 15) % 16] + raw[i] * 2 + raw[(i + 1) % 16]) / 4;
+  return { kind, prof, wob };
+}
+
+/** 팁 미리보기 (그리기 설정 패널의 브러시 선택기): 밝은 종이 위에 짙은 획 하나 */
+export function tipPreview(kind: TipKind, w = 96, h = 30): RawImage {
+  const cv = new Canvas(w, h, [246, 243, 236]);
+  const rng = mulberry32(5);
+  const tip = makeTip(kind, rng);
+  const r = h * 0.28;
+  for (let x = r * 1.2; x <= w - r * 1.2; x += kind === 'wet' ? r * 0.35 : r * 0.25) {
+    const y = h / 2 + Math.sin((x / w) * 3.1) * h * 0.08;
+    if (kind === 'round') cv.dab(x, y, r, true); else cv.dabTip(x, y, r, 1, 0, tip);
+  }
+  cv.end(kind === 'wet' ? 0.55 : 0.9, [40, 60, 110], false);
+  return cv.toImage(3);
+}
+
 /* ---------- 캔버스 ---------- */
 
 /**
@@ -312,6 +352,51 @@ class Canvas {
       const q = 1 - d * d;
       // 젖은 붓(soft): 가운데 진하고 가장자리로 부드럽게 번진다. 마른 종이 위(wet-on-dry): 가장자리가 또렷한 채색 면
       const c = soft ? q * q : (d < 0.8 ? 1 : (1 - d) / 0.2);
+      const i = y * w + x;
+      if (sw[i] === 0) this.touched.push(i);
+      if (c > sw[i]) sw[i] = c;
+    }
+  }
+  /**
+   * 브러시 팁 자국 (포토샵 브러시 팁에 해당). 획 방향 (dx,dy) 에 맞춰 돌려 찍는다.
+   * bristle·chalk: 획을 가로지르는 붓털 프로필(tip.prof) × 획 방향의 짧은 캡슐 — 연속해 찍으면 붓털 줄무늬가 이어진다.
+   * wet: 반지름이 각도에 따라 흔들리는(tip.wob) 둥근 자국, 가운데는 살짝 옅고 가장자리로 안료가 몰린다.
+   */
+  dabTip(cx: number, cy: number, r: number, dx: number, dy: number, tip: TipState) {
+    const { sw, w } = this;
+    if (tip.kind === 'wet') {
+      const R = r * 1.18;
+      const x0 = Math.max(0, Math.floor(cx - R)), x1 = Math.min(this.w - 1, Math.ceil(cx + R));
+      const y0 = Math.max(0, Math.floor(cy - R)), y1 = Math.min(this.h - 1, Math.ceil(cy + R));
+      const n = tip.wob.length;
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const px = x + 0.5 - cx, py = y + 0.5 - cy;
+        const ang = (Math.atan2(py, px) / 6.2832 + 0.5) * n;
+        const k0 = Math.floor(ang) % n, k1 = (k0 + 1) % n, f = ang - Math.floor(ang);
+        const rEff = r * (1 + tip.wob[k0] * (1 - f) + tip.wob[k1] * f);
+        const d = Math.hypot(px, py) / rEff;
+        if (d >= 1) continue;
+        const c = (d < 0.72 ? 0.86 + 0.14 * (d / 0.72) : (1 - d) / 0.28);
+        const i = y * w + x;
+        if (sw[i] === 0) this.touched.push(i);
+        if (c > sw[i]) sw[i] = c;
+      }
+      return;
+    }
+    // 납작한 붓: 폭 r(가로지름), 길이 r·0.7(획 방향)
+    const L = r * 0.7, ext = Math.max(r, L) + 1;
+    const x0 = Math.max(0, Math.floor(cx - ext)), x1 = Math.min(this.w - 1, Math.ceil(cx + ext));
+    const y0 = Math.max(0, Math.floor(cy - ext)), y1 = Math.min(this.h - 1, Math.ceil(cy + ext));
+    const n = tip.prof.length;
+    const chalk = tip.kind === 'chalk';
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const px = x + 0.5 - cx, py = y + 0.5 - cy;
+      const along = px * dx + py * dy, across = -px * dy + py * dx;
+      const u = across / r, v = along / L;
+      if (u <= -1 || u >= 1 || v * v >= 1) continue;
+      let c = tip.prof[Math.min(n - 1, Math.floor((u + 1) * 0.5 * n))] * Math.sqrt(1 - v * v);
+      if (chalk) { const hsh = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453; c *= 0.55 + 0.9 * (hsh - Math.floor(hsh)); }
+      if (c <= 0.01) continue;
       const i = y * w + x;
       if (sw[i] === 0) this.touched.push(i);
       if (c > sw[i]) sw[i] = c;
@@ -638,7 +723,10 @@ function sweepsFor(p: PaintProfile): Sweep[] {
  * 수채 담채 층 (DAP 그대로): 붓 크기 R 의 붓 자국을, 캔버스 색이 목표 색과 다른 칸에만 방향장을 따라 얹는다.
  * 다른 면(목표 색이 크게 다른 곳)으로 넘어가면 멈춘다.
  */
-function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boolean, onTick?: (frac: number) => void) {
+/** 담채·유화 훑기의 단계 옵션: 불투명도 배율, 획 길이 배율, 팁 강제 (밑칠은 젖은 큰 붓, 세부는 마른 작은 붓) */
+interface WashStage { alpha?: number; len?: number; tip?: TipKind }
+
+function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boolean, onTick?: (frac: number) => void, st: WashStage = {}) {
   const { w, h, cv, rng, field } = c;
   // 유화: 불투명한 얇고 짧은 붓 자국 (담채는 넓고 옅음). 임파스토: 길고 굽은 자국, 자국마다 색이 다르고 테두리는 어둡게·가운데는 밝게
   const impasto = c.p.brush === 'impasto';
@@ -646,7 +734,7 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boole
   const g = Math.max(2, R * (impasto ? 0.5 : oil ? 0.4 : 0.55));
   const cols = Math.ceil(w / g), rows = Math.ceil(h / g);
   const order = shuffled(cols * rows, rng);
-  const step = R * (impasto ? 0.4 : oil ? 0.25 : 0.35), maxLen = R * ((oil ? 1.2 : 2.5) + (impasto ? 5 : oil ? 3 : 4) * clamp(c.p.strokeLength, 0, 100) / 100);
+  const step = R * (impasto ? 0.4 : oil ? 0.25 : 0.35), maxLen = R * ((oil ? 1.2 : 2.5) + (impasto ? 5 : oil ? 3 : 4) * clamp(c.p.strokeLength, 0, 100) / 100) * (st.len ?? 1);
   const tickEvery = Math.max(1, Math.floor(order.length / 6));
   for (let q = 0; q < order.length; q++) {
     if (onTick && q % tickEvery === 0) onTick(q / order.length);
@@ -671,12 +759,16 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boole
     const path: number[] = [];
     let [dx, dy] = dirAt(c, fi, 0);
     if (rng() < 0.5) { dx = -dx; dy = -dy; }
+    // 브러시 팁: 획마다 붓털 배치가 새로 정해진다. 둥근 팁은 예전 원형 자국
+    const tipKind = st.tip ?? c.p.tip;
+    const tip = tipKind !== 'round' ? makeTip(tipKind, rng) : null;
     for (let s = 0; s < maxLen; s += step) {
       const xi = x | 0, yi = y | 0;
       if (xi < 0 || yi < 0 || xi >= w || yi >= h) break;
       const o = (yi * w + xi) * 3;
       if (Math.abs(want[o] - col[0]) + Math.abs(want[o + 1] - col[1]) + Math.abs(want[o + 2] - col[2]) > 60) break;
-      if (impasto) path.push(x, y); else cv.dab(x, y, oil ? R * 0.32 : R / 2, soft);
+      const rad = oil ? R * 0.32 : R / 2;
+      if (impasto) path.push(x, y, dx, dy); else if (tip) cv.dabTip(x, y, rad, dx, dy, tip); else cv.dab(x, y, rad, soft);
       const i = yi * w + xi;
       if (field.coh[i] > 0.15 || field.man[i] > 0.1) {
         let [fx, fy] = dirAt(c, i, 0);
@@ -689,14 +781,15 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boole
     if (impasto) {
       // 테두리(어둡고 넓게) → 몸통 → 가운데 능선(밝고 좁게): 두꺼운 물감이 빛을 받는 느낌
       const rr = R * 0.3;
-      for (let q = 0; q < path.length; q += 2) cv.dab(path[q], path[q + 1], rr * 1.15, false);
+      const stamp = (q: number, rad: number) => (tip ? cv.dabTip(path[q], path[q + 1], rad, path[q + 2], path[q + 3], tip) : cv.dab(path[q], path[q + 1], rad, false));
+      for (let q = 0; q < path.length; q += 4) stamp(q, rr * 1.15);
       cv.end(0.85, [col[0] * 0.72, col[1] * 0.72, col[2] * 0.72], false);
-      for (let q = 0; q < path.length; q += 2) cv.dab(path[q], path[q + 1], rr * 0.85, false);
+      for (let q = 0; q < path.length; q += 4) stamp(q, rr * 0.85);
       cv.end(0.9, col, false);
       // 능선은 자국이 어느 정도 굵을 때만 (가는 홈에서는 보이지 않고 시간만 든다)
-      if (rr >= 1.6) for (let q = 0; q < path.length; q += 4) cv.dab(path[q], path[q + 1], rr * 0.4, false);
+      if (rr >= 1.6) for (let q = 0; q < path.length; q += 8) stamp(q, rr * 0.4);
       cv.end(0.7, [Math.min(255, col[0] * 1.14 + 6), Math.min(255, col[1] * 1.14 + 6), Math.min(255, col[2] * 1.14 + 6)], false);
-    } else cv.end(oil ? 0.8 + rng() * 0.15 : 0.42 + 0.1 * (1 - c.rnd) + rng() * 0.15 * c.rnd, col, false);
+    } else cv.end(clamp((oil ? 0.8 + rng() * 0.15 : 0.42 + 0.1 * (1 - c.rnd) + rng() * 0.15 * c.rnd) * (st.alpha ?? 1), 0, 0.97), col, false);
   }
 }
 
@@ -733,6 +826,18 @@ function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, 
     want[o] = paper[0] * (1 - op * (1 - tr)); want[o + 1] = paper[1] * (1 - op * (1 - tg)); want[o + 2] = paper[2] * (1 - op * (1 - tb));
   }
   return want;
+}
+
+/** 캔버스를 조금 뭉갠다 (DAP 의 Reactor 'Shock Smooth': 젖은 밑칠끼리 번져 하나로 이어지는 느낌) */
+function smoothCanvas(cv: Canvas, r: number) {
+  const { w, h } = cv;
+  const N = w * h;
+  for (let k = 0; k < 3; k++) {
+    const ch = new Float32Array(N);
+    for (let i = 0; i < N; i++) ch[i] = cv.rgb[i * 3 + k];
+    const b = boxBlur(ch, w, h, r);
+    for (let i = 0; i < N; i++) cv.rgb[i * 3 + k] = ch[i] * 0.35 + b[i] * 0.65;
+  }
 }
 
 /** 젖은 담채가 마르면서 경계에 안료가 고이는 효과: 캔버스 밝기의 그라디언트가 큰 곳을 조금 어둡게 */
@@ -851,12 +956,13 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
 
   // 진행 알림 (0.2초 간격)
   let lastTick = 0;
+  let stageLabel = '';
   const report = (pass: number, frac: number, force = false) => {
     if (!opts.onProgress) return;
     const now = Date.now();
     if (!force && now - lastTick < 200) return;
     lastTick = now;
-    opts.onProgress(cv.toImage(), { pass, passes, frac: (pass + frac) / (passes + 0.6), strokes: cv.strokes });
+    opts.onProgress(cv.toImage(), { pass, passes, frac: (pass + frac) / (passes + 0.6), strokes: cv.strokes, label: stageLabel });
   };
 
   // 2) 층: 큰 획 → 작은 획. 층마다 목표를 획 크기만큼 뭉갠 참조를 본다 (큰 획은 큰 형태만).
@@ -865,9 +971,28 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     const want = washTarget(img, lum, white, w, h, paper, opts.color, oil);
     for (let k = 0; k < passes; k++) {
       const R = Math.max(4, sizes[k] * 1.3);
-      // 앞 층은 젖은 붓으로 큰 색면을 번지게, 뒤 층은 마른 종이 위에 또렷한 면을 얹는다 (참고 수채화의 wet-on-dry 층)
       // 임파스토는 테두리·능선 때문에 목표와 늘 조금 다르므로 문턱을 높여 같은 칸을 끝없이 덧칠하지 않게 한다
-      washSweep(c, want, R, (4 + 10 * (1 - acc)) * (p.brush === 'impasto' ? 2.4 : 1), !oil && k < passes - 2, (f) => report(k, f));
+      const Tk = (4 + 10 * (1 - acc)) * (p.brush === 'impasto' ? 2.4 : 1);
+      if (oil) {
+        stageLabel = k === 0 ? '밑칠 (큰 붓)' : k === passes - 1 ? '세부 (작은 붓)' : '중간 붓';
+        washSweep(c, want, R, Tk, false, (f) => report(k, f));
+      } else {
+        // DAP Watercolor Wet on Wet 의 순서(사용자 영상): 밑칠 — 크고 젖은 붓을 옅게 두 번(색이 겹쳐 번짐) → 중간 붓 →
+        // 매끄럽게(Reactor) → 마른 작은 붓으로 세부를 드러냄(Dry Reveal) → 가장 작은 붓
+        const stage = passes === 1 ? 1 : k / (passes - 1);
+        if (stage < 0.34) {
+          stageLabel = '밑칠 (큰 젖은 붓)';
+          washSweep(c, want, R, Tk, true, (f) => report(k, f * 0.5), { alpha: 0.7, len: 0.55, tip: 'wet' });
+          washSweep(c, want, R * 0.75, Tk, true, (f) => report(k, 0.5 + f * 0.5), { alpha: 0.8, len: 0.6, tip: 'wet' });
+        } else if (stage < 0.67) {
+          stageLabel = '중간 붓';
+          washSweep(c, want, R, Tk, true, (f) => report(k, f), { alpha: 0.95, len: 0.8 });
+          smoothCanvas(cv, 1); // Reactor: 젖은 밑칠이 서로 번져 매끄러워진다
+        } else {
+          stageLabel = k === passes - 1 ? '세부 (가장 작은 붓)' : '마른 붓으로 세부 드러내기';
+          washSweep(c, want, R, Tk, false, (f) => report(k, f), { alpha: 1.1, len: 1, tip: p.tip === 'wet' ? 'chalk' : p.tip });
+        }
+      }
       report(k, 1, true);
     }
     // 물감이 마르며 가장자리에 고이는 안료: 캔버스 밝기의 경계를 조금 어둡게
@@ -884,6 +1009,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
       const R = sizes[k];
       const ref = boxBlur(target, w, h, R * 0.5);
       const L = R * (1.5 + 5 * clamp(p.strokeLength, 0, 100) / 100);
+      stageLabel = k === 0 ? '큰 획 (큰 형태)' : k === passes - 1 ? '작은 획 (세부)' : '중간 획';
       for (let s = 0; s < sweeps.length; s++) sweep(c, ref, R, sweeps[s], T, L, (f) => report(k, (s + f) / sweeps.length));
       report(k, 1, true);
     }
@@ -900,6 +1026,8 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     const th = (0.30 - 0.20 * edges / 100) * (p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto' ? 1.5 : 1);
     const widthMul = p.brush === 'contour' ? 1.15 : 1;
     const mass = sobel(boxBlur(lum, w, h, Math.max(3, Math.round(minSide / 60))), w, h);
+    stageLabel = '윤곽선';
+    report(passes - 1, 1, true);
     edgePass(c, mag, mass, chromaEdgeMag(img, w, h), th, widthMul, p.brush === 'contour' ? 1 : 0.9);
   }
 

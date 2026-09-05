@@ -181,7 +181,7 @@ export function Stage({ original, result, view, busy, toneFilter, wide, guide, l
           {busy && progress && (
             <div className="paint-progress" role="status" aria-live="polite">
               <div className="paint-progress-bar"><i style={{ width: `${Math.round(progress.info.frac * 100)}%` }} /></div>
-              <span>{progress.info.pass + 1}/{progress.info.passes} 층 · {Math.round(progress.info.frac * 100)}% · 획 {progress.info.strokes.toLocaleString()}개</span>
+              <span>{progress.info.pass + 1}/{progress.info.passes} 층{progress.info.label ? ` · ${progress.info.label}` : ''} · {Math.round(progress.info.frac * 100)}% · 획 {progress.info.strokes.toLocaleString()}개</span>
             </div>
           )}
           {busy && !progress && (

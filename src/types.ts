@@ -35,6 +35,16 @@ export const BRUSH_LABEL: Record<BrushKind, string> = {
 };
 export const BRUSH_SHORT: Record<BrushKind, string> = { pen: '펜 획', hatch: '해칭', cross: '교차', contour: '윤곽', scribble: '낙서', stipple: '점묘', wash: '담채', oil: '유화', impasto: '고흐' };
 
+/** 브러시 팁 (포토샵 브러시 도구의 팁 모양에 해당). 담채·유화·임파스토 붓이 쓴다. 펜 붓은 늘 둥근 펜촉 */
+export type TipKind = 'round' | 'bristle' | 'wet' | 'chalk';
+export const TIP_LABEL: Record<TipKind, string> = {
+  round: '둥근 붓 (부드러운 원형 자국)',
+  bristle: '평붓 강모 (붓털 줄무늬가 보이는 납작한 자국)',
+  wet: '젖은 둥근 붓 (가장자리가 불규칙하게 번지는 수채 붓)',
+  chalk: '드라이 브러시 (털이 성글어 긁힌 듯 갈라지는 자국)',
+};
+export const TIP_SHORT: Record<TipKind, string> = { round: '둥근', bristle: '평붓', wet: '젖은', chalk: '드라이' };
+
 /**
  * 그리기 설정 (Dynamic Auto-Painter 의 프리셋 파라미터에 해당). 로컬 엔진이 보는 값의 전부다.
  * 층(pass)마다 획 크기를 brushSize 에서 detail 까지 줄여 가며, 캔버스가 목표보다 밝은 곳에만 획을 놓는다.
@@ -42,6 +52,8 @@ export const BRUSH_SHORT: Record<BrushKind, string> = { pen: '펜 획', hatch: '
  */
 export interface PaintProfile {
   brush: BrushKind;
+  /** 브러시 팁 모양 (담채·유화·임파스토에서만 의미) */
+  tip: TipKind;
   /** 층 수 1~6. 큰 획 층에서 작은 획 층으로 */
   passes: number;
   /** 첫 층의 획 크기 0~100 (큰 형태를 잡는 획의 길이·간격) */
@@ -79,17 +91,17 @@ export interface PaintProfile {
  * 가는 검정 펜, 면의 방향을 따르는 획, 나뭇잎은 고리 선 뭉치, 하늘·하이라이트는 흰 종이, 가장자리는 미완성.
  */
 export const RICHEON_PAINT: PaintProfile = {
-  brush: 'pen', passes: 4, brushSize: 45, detail: 75, accuracy: 60, strokeLength: 60, featureFollow: 85, baseAngle: 55, randomness: 30,
+  brush: 'pen', tip: 'round', passes: 4, brushSize: 45, detail: 75, accuracy: 60, strokeLength: 60, featureFollow: 85, baseAngle: 55, randomness: 30,
   lineWidth: 1.4, ink: 88, paperKeep: 66, edges: 80, vignette: 40, paperColor: '#f6f3ec', inkColor: '#17171a',
 };
 /** 세밀 펜화: 아주 가늘고 고른 선으로 끝까지 완성, 수평 하늘 해칭, 먹 그림자 */
 export const FINE_PAINT: PaintProfile = {
-  brush: 'pen', passes: 6, brushSize: 40, detail: 100, accuracy: 85, strokeLength: 80, featureFollow: 90, baseAngle: 0, randomness: 8,
+  brush: 'pen', tip: 'round', passes: 6, brushSize: 40, detail: 100, accuracy: 85, strokeLength: 80, featureFollow: 90, baseAngle: 0, randomness: 8,
   lineWidth: 1, ink: 92, paperKeep: 52, edges: 90, vignette: 0, paperColor: '#f7f5f0', inkColor: '#111114',
 };
 /** 클래식: 굵은 펜의 한 방향 해칭 */
 export const CLASSIC_PAINT: PaintProfile = {
-  brush: 'hatch', passes: 4, brushSize: 50, detail: 70, accuracy: 65, strokeLength: 70, featureFollow: 40, baseAngle: 35, randomness: 30,
+  brush: 'hatch', tip: 'round', passes: 4, brushSize: 50, detail: 70, accuracy: 65, strokeLength: 70, featureFollow: 40, baseAngle: 35, randomness: 30,
   lineWidth: 1.8, ink: 80, paperKeep: 55, edges: 50, vignette: 0, paperColor: '#f5f0e6', inkColor: '#221e1b',
 };
 export const DEFAULT_PAINT: PaintProfile = RICHEON_PAINT;
@@ -111,10 +123,10 @@ export const PAINT_FOR_STYLE: Record<PenStyle, PaintProfile> = {
   ghibli: { ...CLASSIC_PAINT, passes: 3, brushSize: 55, detail: 60, accuracy: 50, strokeLength: 65, featureFollow: 60, baseAngle: 30, randomness: 20, lineWidth: 1.4, ink: 70, paperKeep: 60, edges: 65 },
   webtoon: { ...CLASSIC_PAINT, brush: 'contour', passes: 3, brushSize: 50, detail: 65, accuracy: 55, strokeLength: 60, featureFollow: 60, baseAngle: 45, randomness: 10, lineWidth: 1.8, ink: 90, paperKeep: 62, edges: 95 },
   manga: { ...CLASSIC_PAINT, passes: 4, brushSize: 40, detail: 90, accuracy: 70, strokeLength: 60, featureFollow: 20, baseAngle: 45, randomness: 5, lineWidth: 1, ink: 90, paperKeep: 55, edges: 85 },
-  watercolor: { ...RICHEON_PAINT, brush: 'wash', passes: 4, brushSize: 70, detail: 80, accuracy: 72, strokeLength: 50, featureFollow: 70, baseAngle: 40, randomness: 35, lineWidth: 1.6, ink: 60, paperKeep: 62, edges: 45, vignette: 15 },
-  oil: { ...RICHEON_PAINT, brush: 'oil', passes: 5, brushSize: 55, detail: 95, accuracy: 80, strokeLength: 40, featureFollow: 80, baseAngle: 0, randomness: 30, lineWidth: 1, ink: 0, paperKeep: 0, edges: 0, vignette: 0 },
-  vangogh: { ...RICHEON_PAINT, brush: 'impasto', passes: 4, brushSize: 50, detail: 85, accuracy: 75, strokeLength: 85, featureFollow: 100, baseAngle: 20, randomness: 45, lineWidth: 1.4, ink: 0, paperKeep: 0, edges: 55, vignette: 0 },
-  carver: { ...RICHEON_PAINT, brush: 'impasto', passes: 4, brushSize: 30, detail: 100, accuracy: 90, strokeLength: 100, featureFollow: 100, baseAngle: 0, randomness: 12, lineWidth: 1, ink: 0, paperKeep: 0, edges: 70, vignette: 0 },
+  watercolor: { ...RICHEON_PAINT, brush: 'wash', tip: 'wet', passes: 4, brushSize: 70, detail: 80, accuracy: 72, strokeLength: 50, featureFollow: 70, baseAngle: 40, randomness: 35, lineWidth: 1.6, ink: 60, paperKeep: 62, edges: 45, vignette: 15 },
+  oil: { ...RICHEON_PAINT, brush: 'oil', tip: 'bristle', passes: 5, brushSize: 55, detail: 95, accuracy: 80, strokeLength: 40, featureFollow: 80, baseAngle: 0, randomness: 30, lineWidth: 1, ink: 0, paperKeep: 0, edges: 0, vignette: 0 },
+  vangogh: { ...RICHEON_PAINT, brush: 'impasto', tip: 'bristle', passes: 4, brushSize: 50, detail: 85, accuracy: 75, strokeLength: 85, featureFollow: 100, baseAngle: 20, randomness: 45, lineWidth: 1.4, ink: 0, paperKeep: 0, edges: 55, vignette: 0 },
+  carver: { ...RICHEON_PAINT, brush: 'impasto', tip: 'chalk', passes: 4, brushSize: 30, detail: 100, accuracy: 90, strokeLength: 100, featureFollow: 100, baseAngle: 0, randomness: 12, lineWidth: 1, ink: 0, paperKeep: 0, edges: 70, vignette: 0 },
 };
 
 /** 숙련도별로 화풍 설정을 단순화한다 (견본이 없을 때 출발점). 초급은 층·세밀함을 줄이고 굵은 펜으로 */
@@ -132,6 +144,7 @@ export function blendPaint(base: PaintProfile, m: PaintProfile, weight: number):
   const mix = (a: number, b: number) => Math.round(a + (b - a) * t);
   return {
     brush: t >= 0.5 ? m.brush : base.brush,
+    tip: t >= 0.5 ? m.tip : base.tip,
     passes: mix(base.passes, m.passes),
     brushSize: mix(base.brushSize, m.brushSize),
     detail: mix(base.detail, m.detail),

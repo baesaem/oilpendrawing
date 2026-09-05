@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { PRESET_LIMIT, samePaint, type UserPreset } from '../presets';
-import { BRUSH_LABEL, BRUSH_SHORT, CLASSIC_PAINT, FINE_PAINT, RICHEON_PAINT, type BrushKind, type PaintProfile } from '../types';
+import { BRUSH_LABEL, BRUSH_SHORT, CLASSIC_PAINT, FINE_PAINT, RICHEON_PAINT, TIP_LABEL, TIP_SHORT, type BrushKind, type PaintProfile, type TipKind } from '../types';
+import { tipPreview } from '../render';
 import { StarIcon, TrashIcon } from './Icons';
 
 interface Props {
@@ -17,6 +18,20 @@ interface Props {
 }
 
 const BRUSHES: BrushKind[] = ['pen', 'hatch', 'cross', 'contour', 'scribble', 'stipple', 'wash', 'oil', 'impasto'];
+const TIPS: TipKind[] = ['round', 'bristle', 'wet', 'chalk'];
+
+/** 브러시 팁 미리보기 (포토샵 브러시 선택기처럼 획 하나를 보여 준다). 엔진의 같은 팁 코드로 그린다 */
+function TipThumb({ kind }: { kind: TipKind }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const img = useMemo(() => tipPreview(kind), [kind]);
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    c.width = img.width; c.height = img.height;
+    c.getContext('2d')?.putImageData(new ImageData(img.data as Uint8ClampedArray<ArrayBuffer>, img.width, img.height), 0, 0);
+  }, [img]);
+  return <canvas ref={ref} className="tip-thumb" aria-hidden="true" />;
+}
 
 function Range({ label, value, min, max, step = 1, unit = '', hint, onChange }: {
   label: string; value: number; min: number; max: number; step?: number; unit?: string; hint?: string; onChange: (v: number) => void;
@@ -113,6 +128,21 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
         </div>
         <div className="small faint">{BRUSH_LABEL[s.brush]}</div>
       </div>
+
+      {isWash && (
+        <div className="field">
+          <div className="field-row"><b>브러시 팁</b><span className="muted small">{TIP_SHORT[s.tip]}</span></div>
+          <div className="tips" role="radiogroup" aria-label="브러시 팁">
+            {TIPS.map((t) => (
+              <button key={t} type="button" className={s.tip === t ? 'on' : ''} role="radio" aria-checked={s.tip === t} title={TIP_LABEL[t]} onClick={() => onChange({ tip: t })}>
+                <TipThumb kind={t} />
+                <span>{TIP_SHORT[t]}</span>
+              </button>
+            ))}
+          </div>
+          <div className="small faint">{TIP_LABEL[s.tip]}</div>
+        </div>
+      )}
 
       <Group title="획 — 큰 획에서 작은 획으로">
         <Range label="층 수" value={s.passes} min={1} max={6} hint="획 크기를 줄여 가며 몇 번 겹쳐 그릴지" onChange={(passes) => onChange({ passes })} />
