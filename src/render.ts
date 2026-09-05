@@ -1,8 +1,14 @@
 /**
- * 로컬 드로잉 렌더러 (AI 없음, 순수 계산).
- * DOM 을 쓰지 않으므로 Web Worker 에서 돌립니다. 입력·출력은 RawImage(RGBA 배열).
+ * 로컬 드로잉 렌더러 (AI 없음, 순수 계산). DOM 을 쓰지 않으므로 Web Worker 에서 돌립니다. 입력·출력은 RawImage(RGBA 배열).
  *
- * 흐름: 밝기 → 톤 단계 나누기 → 단계별 해칭/점묘 → 윤곽선 → 종이색 위에 잉크색으로 합성
+ * 흐름: 밝기 → 톤 단계 나누기 → 단계별 해칭 층 → 윤곽선 → 종이색 위에 잉크색으로 합성
+ *
+ * Dynamic Auto-Painter 계열(Hertzmann 의 다중 크기 획 페인팅)에서 가져온 원리 세 가지를 펜 해칭에 결합했다.
+ *  1) 캔버스가 목표 톤에 이미 닿은 자리에는 획을 놓지 않는다 → 층이 겹쳐도 잉크 과잉이 없다 (coverage 마스크).
+ *  2) 펜 드로잉은 사진보다 훨씬 밝다 → 단계값을 덮임률로 옮길 때 감마와 상한을 둔다.
+ *  3) 잔결이 많은 곳(나뭇잎·물결)의 지역 방향은 소음이다 → 기준 각도의 평행 해칭으로 통일하고 윤곽선을 누른다.
+ * 그러나 획 자체는 DAP 의 붓 자국이 아니라 일정한 간격의 펜 해칭선이다. 펜 드로잉의 가독성은 그 간격에서 나오기 때문이다.
+ * 수채 담채(fill 'wash')만은 DAP 처럼 넓은 붓 자국을 필요한 곳에 겹쳐 얹는다.
  */
 import type { ColorMode, DirectionGuide, StrokeProfile } from './types';
 
@@ -102,6 +108,28 @@ class Ink {
       if (cov <= 0) continue;
       const i = y * w + x;
       buf[i] = 1 - (1 - buf[i]) * (1 - cov);
+    }
+  }
+}
+
+/** 색 캔버스 (담채용). 부드러운 붓 자국을 alpha 로 섞는다 */
+class Paint {
+  buf: Float32Array;
+  constructor(public w: number, public h: number, paper: [number, number, number]) {
+    this.buf = new Float32Array(w * h * 3);
+    for (let i = 0; i < w * h; i++) { this.buf[i * 3] = paper[0]; this.buf[i * 3 + 1] = paper[1]; this.buf[i * 3 + 2] = paper[2]; }
+  }
+  dab(cx: number, cy: number, r: number, a: number, col: [number, number, number]) {
+    const x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(this.w - 1, Math.ceil(cx + r));
+    const y0 = Math.max(0, Math.floor(cy - r)), y1 = Math.min(this.h - 1, Math.ceil(cy + r));
+    const { buf, w } = this;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy) / r;
+      if (d >= 1) continue;
+      // 가운데는 고르고 가장자리는 부드럽게 (젖은 붓)
+      const k = a * (d < 0.6 ? 1 : 1 - (d - 0.6) / 0.4);
+      const o = (y * w + x) * 3;
+      buf[o] += (col[0] - buf[o]) * k; buf[o + 1] += (col[1] - buf[o + 1]) * k; buf[o + 2] += (col[2] - buf[o + 2]) * k;
     }
   }
 }
@@ -243,7 +271,7 @@ function manualField(guides: DirectionGuide[], radiusPct: number, w: number, h: 
  * 면의 방향장: 구조 텐서로 각 픽셀 주변의 지배적인 에지 방향을 구합니다.
  * 벽에서는 세로, 바닥의 원근선에서는 그 방향 — 리천 드로잉의 "면을 따라가는 해칭"의 근거입니다.
  */
-function orientationField(lum: Float32Array, w: number, h: number, manual: ManualField | null = null) {
+function orientationField(lum: Float32Array, w: number, h: number, manual: ManualField | null = null, texture: Float32Array | null = null) {
   const { gx, gy } = sobel(boxBlur(lum, w, h, 2), w, h);
   const N = w * h;
   const jxx = new Float32Array(N), jyy = new Float32Array(N), jxy = new Float32Array(N);
@@ -261,6 +289,8 @@ function orientationField(lum: Float32Array, w: number, h: number, manual: Manua
       c = e > 0.004 ? Math.sqrt(a * a + b * b) / (e + 1e-4) * 0.9 : 0;
     }
     let th = 0.5 * Math.atan2(b, a) + Math.PI / 2; // 그래디언트에 수직 = 에지를 따라가는 방향
+    // 잔결이 많은 곳(나뭇잎)의 지역 방향은 소음이다 — 버리고 기준 각도의 평행 해칭으로 질감을 낸다
+    if (texture) c *= 1 - texture[i] * 0.9;
     // 사용자가 그은 지시선이 가까우면 그 방향으로 끌어당긴다 (가까울수록 강하게). 두 배 각 벡터로 섞어 부호 문제를 피한다.
     if (manual && manual.wgt[i] > 0.01) {
       const m = manual.wgt[i];
@@ -287,6 +317,20 @@ function textureMask(lum: Float32Array, w: number, h: number): Uint8Array {
   const out = new Uint8Array(N);
   for (let i = 0; i < N; i++) out[i] = sm[i] > 0.45 ? 1 : 0;
   return out;
+}
+
+/**
+ * 잔결 정도 0..1: 주변에 경계 화소가 얼마나 빽빽한가. 나뭇잎·풀·물결은 높고, 컵 윤곽처럼 경계가 하나뿐인 곳은 낮다.
+ * (밝기 표준편차로 재면 깨끗한 윤곽선 자체가 잔결로 잡혀 윤곽이 약해진다.)
+ */
+function textureMap(edgeMag: Float32Array, w: number, h: number): Float32Array {
+  const N = w * h;
+  const bin = new Float32Array(N);
+  for (let i = 0; i < N; i++) bin[i] = edgeMag[i] > 0.16 ? 1 : 0;
+  const dens = boxBlur(bin, w, h, 6);
+  const out = new Float32Array(N);
+  for (let i = 0; i < N; i++) out[i] = clamp((dens[i] - 0.10) / 0.30, 0, 1);
+  return boxBlur(out, w, h, 4);
 }
 
 /**
@@ -393,8 +437,21 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     const L = smooth[i];
     tone[i] = L >= white ? 0 : clamp(1 + Math.floor(((white - L) / white) * layers), 1, layers);
   }
+  // 잔결 맵(색 경계 밀도)과 목표 덮임률. 펜 드로잉은 사진보다 밝으므로 단계값에 감마와 상한을 둔다.
+  // 잔결 영역은 한 단계 옅게 — 잎 사이로 종이가 비쳐야 잎으로 읽힌다.
+  const mag = colorEdgeMag(img, w, h);
+  const texture = textureMap(mag, w, h);
+  const cov = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const k = tone[i];
+    if (!k) continue;
+    const t = clamp(k / layers - texture[i] * 0.22, 0.08, 1);
+    cov[i] = 0.14 + 0.7 * Math.pow(t, 1.3);
+  }
 
   const ink = new Ink(w, h);
+  /** 층 j 의 마스크: 그 단계 이상이면서, 아직 목표 덮임률에 못 미친 자리만 (Hertzmann 의 정지 조건) */
+  const layerMask = (j: number) => (i: number) => tone[i] >= j && ink.buf[i] < cov[i];
   const width = clamp(p.lineWidth, 0.8, 8);
   const spacing = clamp(p.hatchSpacing, 2.5, 30);
   const angle = p.hatchAngle;
@@ -405,60 +462,63 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   const manual = opts.guides && opts.guides.length ? manualField(opts.guides, opts.guideRadius ?? 18, w, h) : null;
   // 지시선이 있으면 한 방향·교차 해칭도 긴 직선 대신 방향장을 따르는 획으로 그려야 지시가 먹는다
   const fill = manual && (p.fill === 'hatch' || p.fill === 'cross') ? (p.fill === 'hatch' ? 'guided-hatch' : 'guided-cross') : p.fill;
+  let paint: Paint | null = null;
   switch (fill) {
     case 'guided-hatch':
     case 'guided-cross': {
-      const field = orientationField(lum, w, h, manual);
+      const field = orientationField(lum, w, h, manual, texture);
       const none = new Uint8Array(N);
       for (let j = 1; j <= layers; j++) {
-        sketchLayer(ink, (i) => tone[i] >= j, field, none, angle, fill === 'guided-cross' && j % 2 === 0, spacing, width, PHASE[j - 1], p.jitter, rng);
+        sketchLayer(ink, layerMask(j), field, none, angle, fill === 'guided-cross' && j % 2 === 0, spacing, width, PHASE[j - 1], p.jitter, rng);
       }
       break;
     }
     case 'sketch': {
-      const field = orientationField(lum, w, h, manual);
+      const field = orientationField(lum, w, h, manual, texture);
       const foliage = textureMask(lum, w, h);
       for (let j = 1; j <= layers; j++) {
-        sketchLayer(ink, (i) => tone[i] >= j, field, foliage, angle, j % 2 === 0, spacing, width, PHASE[j - 1], p.jitter, rng);
+        sketchLayer(ink, layerMask(j), field, foliage, angle, j % 2 === 0, spacing, width, PHASE[j - 1], p.jitter, rng);
       }
-      // 톤이 5단계 이상이면 가장 어두운 단계는 먹으로 채워 대비를 줍니다 (처마 밑, 열린 문 안쪽)
+      // 톤이 5단계 이상이면 가장 어두운 단계는 먹으로 채워 대비를 줍니다 (처마 밑, 열린 문 안쪽). 잔결 영역은 제외.
       if (layers >= 4) {
         const dark = boxBlur(Float32Array.from(tone, (k) => (k >= layers ? 1 : 0)), w, h, 1);
-        // 잔결 영역(나뭇잎)은 고리 선 사이의 반짝임을 남겨야 하므로 먹을 넣지 않음
-        for (let i = 0; i < N; i++) if (dark[i] > 0.6 && !foliage[i]) ink.buf[i] = 1 - (1 - ink.buf[i]) * (1 - 0.8 * dark[i]);
+        for (let i = 0; i < N; i++) if (dark[i] > 0.6 && !foliage[i] && texture[i] < 0.4) ink.buf[i] = 1 - (1 - ink.buf[i]) * (1 - 0.8 * dark[i]);
       }
       break;
     }
     case 'hatch':
-      for (let j = 1; j <= layers; j++) hatchLayer(ink, (i) => tone[i] >= j, angle, spacing, width, PHASE[j - 1], p.jitter, rng);
+      for (let j = 1; j <= layers; j++) hatchLayer(ink, layerMask(j), angle, spacing, width, PHASE[j - 1], p.jitter, rng);
       break;
     case 'cross':
-      for (let j = 1; j <= layers; j++) hatchLayer(ink, (i) => tone[i] >= j, angle + CROSS[j - 1], spacing, width, 0, p.jitter, rng);
+      for (let j = 1; j <= layers; j++) hatchLayer(ink, layerMask(j), angle + CROSS[j - 1], spacing, width, 0, p.jitter, rng);
       break;
     case 'contour':
       // 가장 어두운 곳만 성기게
-      hatchLayer(ink, (i) => tone[i] >= layers, angle, spacing * 1.4, width, 0, p.jitter, rng);
-      break;
-    case 'wash':
-      // 펜 선 + 담채: 가장 어두운 곳에만 성긴 해칭을 조금 넣고, 톤은 담채(washBase)가 맡는다
-      hatchLayer(ink, (i) => tone[i] >= layers, angle, spacing * 1.6, width * 0.9, 0, p.jitter, rng);
+      hatchLayer(ink, layerMask(layers), angle, spacing * 1.4, width, 0, p.jitter, rng);
       break;
     case 'scribble':
-      for (let j = 1; j <= layers; j++) hatchLayer(ink, (i) => tone[i] >= j, angle + j * 37, spacing * 1.3, width * 0.9, PHASE[j - 1], Math.max(50, p.jitter), rng, true);
+      for (let j = 1; j <= layers; j++) hatchLayer(ink, layerMask(j), angle + j * 37, spacing * 1.3, width * 0.9, PHASE[j - 1], Math.max(50, p.jitter), rng, true);
       break;
     case 'stipple':
       stippleLayer(ink, tone, layers, spacing, width, rng);
       break;
+    case 'wash': {
+      // 펜 선 + 담채: 담채는 넓은 붓부터 좁은 붓 순서로 캔버스 색이 목표와 다른 곳에만 붓 자국을 얹는다 (DAP 방식).
+      paint = washPaint(img, lum, tone, layers, w, h, paperFor(opts.color, p), opts.color, angle, p.jitter, orientationField(lum, w, h, manual, texture), rng);
+      // 펜은 가장 어두운 곳에만 성긴 해칭
+      hatchLayer(ink, layerMask(layers), angle, spacing * 1.6, width * 0.9, 0, p.jitter, rng);
+      break;
+    }
   }
 
-  // 3) 윤곽선: 색 그라디언트 → 임계값 → 선 굵기만큼 팽창
-  //    밝기만 보면 밝기가 비슷한 색 경계(녹색 잎 / 갈색 벽, 연한 컵 / 벽)가 사라지므로 세 채널을 함께 봅니다.
-  const mag = colorEdgeMag(img, w, h);
-  const th = 0.30 - 0.20 * clamp(p.edgeDensity, 0, 100) / 100;
+  // 3) 윤곽선: 색 그라디언트 → 임계값 → 선 굵기만큼 팽창.
+  //    밝기만 보면 밝기가 비슷한 색 경계(녹색 잎 / 갈색 벽)가 사라지므로 세 채널을 함께 본다.
+  //    잔결 영역(나뭇잎)에서는 눌러서 잎 덩어리가 검게 뭉치지 않게 한다. 담채는 임계값을 올려 선을 아낀다.
+  const th = (0.30 - 0.20 * clamp(p.edgeDensity, 0, 100) / 100) * (p.fill === 'wash' ? 1.4 : 1);
   const edge = new Float32Array(N);
   for (let i = 0; i < N; i++) {
     const t = clamp((mag[i] - th * 0.6) / (th * 0.8), 0, 1);
-    edge[i] = t * t;
+    edge[i] = t * t * (1 - texture[i] * 0.9);
   }
   const rad = Math.max(0, Math.round((width - 1.5) / 2));
   const dil = rad > 0 ? dilate(edge, w, h, rad) : edge;
@@ -472,9 +532,10 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   applyVignette(ink.buf, w, h, clamp(p.vignette ?? 0, 0, 100), mulberry32(4242));
 
   // 5) 합성
-  let paper = hexToRgb(p.paperColor), inkC = hexToRgb(p.inkColor);
-  if (opts.color === 'sepia') { paper = [243, 231, 208]; inkC = [74, 46, 28]; }
-  const wash = p.fill === 'wash' ? washBase(img, lum, w, h, paper, opts.color, layers, white, clamp(p.jitter, 0, 100) / 100, mulberry32(777)) : null;
+  const paper = paperFor(opts.color, p);
+  let inkC = hexToRgb(p.inkColor);
+  if (opts.color === 'sepia') inkC = [74, 46, 28];
+  const wash = paint ? paint.buf : null;
   const out = new Uint8ClampedArray(N * 4);
   const grain = mulberry32(99);
   for (let i = 0; i < N; i++) {
@@ -514,64 +575,90 @@ function colorEdgeMag(img: RawImage, w: number, h: number): Float32Array {
   return out;
 }
 
-/**
- * 수채 담채 바탕: 사진의 색을 크게 뭉개고 밝기를 몇 단계로 눌러 평평한 담채로 만든 뒤 종이 위에 투명하게 얹는다.
- * 밝은 곳은 종이를 그대로 남기고, 담채 단계가 바뀌는 경계는 안료가 고인 것처럼 살짝 짙게, 전체에 입자감을 넣는다.
- * 흑백이면 먹 담채, 세피아면 세피아 담채가 된다. 반환은 잉크를 얹기 전의 바탕색(RGB 0~255).
- */
-function washBase(img: RawImage, lum: Float32Array, w: number, h: number, paper: [number, number, number], mode: ColorMode,
-  layers: number, white: number, grainAmt: number, rng: () => number): Float32Array {
-  const N = w * h;
-  const R = Math.max(3, Math.round(Math.min(w, h) / 120));
-  // 색을 크게 뭉갠다 — 물이 번진 느낌
-  const ch: Float32Array[] = [0, 1, 2].map((k) => {
-    const a = new Float32Array(N);
-    for (let i = 0, j = 0; i < img.data.length; i += 4, j++) a[j] = img.data[i + k] / 255;
-    return boxBlur(a, w, h, R);
-  });
-  const soft = boxBlur(lum, w, h, R);
-  // 담채 단계 (0 = 종이)
-  const step = new Float32Array(N);
-  for (let i = 0; i < N; i++) {
-    const L = soft[i];
-    step[i] = L >= white ? 0 : clamp(1 + Math.floor(((white - L) / white) * layers), 1, layers);
-  }
-  // 단계 경계: 안료가 고이는 가장자리 짙어짐
-  const edgeMask = new Float32Array(N);
-  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
-    const i = y * w + x;
-    if (step[i] !== step[i - 1] || step[i] !== step[i - w]) edgeMask[i] = 1;
-  }
-  const pooled = boxBlur(edgeMask, w, h, 1);
-  // 입자감: 거친 난수를 살짝 뭉개서
-  const noise = new Float32Array(N);
-  for (let i = 0; i < N; i++) noise[i] = rng() * 2 - 1;
-  const grain = boxBlur(noise, w, h, 1);
+/** 색 모드에 따른 종이색 */
+function paperFor(mode: ColorMode, p: StrokeProfile): [number, number, number] {
+  return mode === 'sepia' ? [243, 231, 208] : hexToRgb(p.paperColor);
+}
 
-  const out = new Float32Array(N * 3);
+/**
+ * 수채 담채 (DAP 방식): 넓은 붓부터 좁은 붓 순서로, 캔버스 색이 목표 색과 다른 곳에만 붓 자국을 얹는다.
+ * 목표 색은 사진 색을 크게 뭉개고 물감처럼 밝게 띄운 뒤 톤 단계만큼의 진하기로 종이에 곱한 것. 종이 단계(0)는 종이 그대로.
+ * 붓 자국은 형태의 방향을 따라 흐르고, 다른 면(목표 색이 크게 다른 곳)으로 넘어가면 멈춘다. 흑백이면 먹 담채.
+ */
+function washPaint(img: RawImage, lum: Float32Array, tone: Uint8Array, layers: number, w: number, h: number,
+  paper: [number, number, number], mode: ColorMode, angle: number, jitter: number, field: ReturnType<typeof orientationField>, rng: () => number): Paint {
+  const N = w * h;
+  const j = clamp(jitter, 0, 100) / 100;
+  const minSide = Math.min(w, h);
+  const paint = new Paint(w, h, paper);
+  const want = new Float32Array(N * 3);
+  const R0 = Math.max(3, Math.round(minSide / 110));
+  const chans: Float32Array[] = [0, 1, 2].map((k) => {
+    const a = new Float32Array(N);
+    for (let i = 0, q = 0; i < img.data.length; i += 4, q++) a[q] = img.data[i + k] / 255;
+    return boxBlur(a, w, h, R0);
+  });
+  const softL = boxBlur(lum, w, h, R0);
   for (let i = 0; i < N; i++) {
-    const k = step[i];
+    const k = tone[i];
     const o = i * 3;
-    if (k === 0) { out[o] = paper[0]; out[o + 1] = paper[1]; out[o + 2] = paper[2]; continue; }
-    // 담채 진하기: 어두운 단계일수록 짙게. 물감은 투명하므로 종이에 곱한다.
-    let op = 0.32 + 0.5 * (k / layers);
-    op *= 1 + pooled[i] * 0.35;                 // 경계에 고인 안료
-    op *= 1 + grain[i] * 0.10 * grainAmt;       // 입자감
-    op = clamp(op, 0, 0.92);
-    // 안료 색: 사진 색을 밝게 띄워 물감처럼. 흑백·세피아는 밝기만 쓴다.
+    if (!k) { want[o] = paper[0]; want[o + 1] = paper[1]; want[o + 2] = paper[2]; continue; }
+    const op = clamp(0.35 + 0.55 * (k / layers), 0, 0.92);
     let tr: number, tg: number, tb: number;
-    if (mode === 'color') {
-      tr = ch[0][i] * 0.7 + 0.3; tg = ch[1][i] * 0.7 + 0.3; tb = ch[2][i] * 0.7 + 0.3;
-    } else {
-      const g = soft[i] * 0.7 + 0.3;
-      if (mode === 'sepia') { tr = g * 0.92 + 0.08; tg = g * 0.82 + 0.10; tb = g * 0.66 + 0.10; }
-      else { tr = g; tg = g; tb = g; }
+    if (mode === 'color') { tr = chans[0][i] * 0.7 + 0.3; tg = chans[1][i] * 0.7 + 0.3; tb = chans[2][i] * 0.7 + 0.3; }
+    else {
+      const g = softL[i] * 0.7 + 0.3;
+      if (mode === 'sepia') { tr = g * 0.92 + 0.08; tg = g * 0.82 + 0.1; tb = g * 0.66 + 0.1; } else { tr = g; tg = g; tb = g; }
     }
-    out[o] = paper[0] * (1 - op * (1 - tr));
-    out[o + 1] = paper[1] * (1 - op * (1 - tg));
-    out[o + 2] = paper[2] * (1 - op * (1 - tb));
+    want[o] = paper[0] * (1 - op * (1 - tr)); want[o + 1] = paper[1] * (1 - op * (1 - tg)); want[o + 2] = paper[2] * (1 - op * (1 - tb));
   }
-  return out;
+  const brushes = [minSide / 16, minSide / 30, minSide / 55];
+  const th = (angle * Math.PI) / 180;
+  for (let k = 0; k < brushes.length; k++) {
+    const bw = brushes[k];
+    const grid = Math.max(3, bw * 0.55);
+    const cols = Math.ceil(w / grid), rows = Math.ceil(h / grid);
+    const order = new Uint32Array(cols * rows);
+    for (let i = 0; i < order.length; i++) order[i] = i;
+    for (let i = order.length - 1; i > 0; i--) { const q = Math.floor(rng() * (i + 1)); const t = order[i]; order[i] = order[q]; order[q] = t; }
+    const step = bw * 0.35, maxLen = bw * (5 - k);
+    for (let q = 0; q < order.length; q++) {
+      const cell = order[q];
+      const cx = (cell % cols) * grid, cy = Math.floor(cell / cols) * grid;
+      const x1 = Math.min(w, Math.ceil(cx + grid)), y1 = Math.min(h, Math.ceil(cy + grid));
+      let err = 0, n = 0;
+      for (let y = cy | 0; y < y1; y++) for (let x = cx | 0; x < x1; x++) {
+        const o = (y * w + x) * 3;
+        err += Math.abs(paint.buf[o] - want[o]) + Math.abs(paint.buf[o + 1] - want[o + 1]) + Math.abs(paint.buf[o + 2] - want[o + 2]);
+        n++;
+      }
+      if (!n || err / (n * 3) < 6) continue;
+      let x = cx + rng() * grid, y = cy + rng() * grid;
+      const io = ((y | 0) * w + (x | 0)) * 3;
+      const col: [number, number, number] = [want[io], want[io + 1], want[io + 2]];
+      const fi = (y | 0) * w + (x | 0);
+      let dx: number, dy: number;
+      if (field.coh[fi] > 0.15) { dx = field.tx[fi]; dy = field.ty[fi]; } else { const a = th + (rng() - 0.5) * 0.8; dx = Math.cos(a); dy = Math.sin(a); }
+      if (rng() < 0.5) { dx = -dx; dy = -dy; }
+      const alpha = 0.32 + 0.1 * (1 - j) + rng() * 0.12 * j;
+      for (let s = 0; s < maxLen; s += step) {
+        const xi = x | 0, yi = y | 0;
+        if (xi < 0 || yi < 0 || xi >= w || yi >= h) break;
+        const o = (yi * w + xi) * 3;
+        if (Math.abs(want[o] - col[0]) + Math.abs(want[o + 1] - col[1]) + Math.abs(want[o + 2] - col[2]) > 60) break;
+        paint.dab(x, y, bw / 2, alpha, col);
+        const i = yi * w + xi;
+        if (field.coh[i] > 0.15) {
+          let fx = field.tx[i], fy = field.ty[i];
+          if (fx * dx + fy * dy < 0) { fx = -fx; fy = -fy; }
+          dx = dx * 0.4 + fx * 0.6; dy = dy * 0.4 + fy * 0.6;
+          const nn = Math.hypot(dx, dy) || 1; dx /= nn; dy /= nn;
+        }
+        x += dx * step; y += dy * step;
+      }
+    }
+  }
+  return paint;
 }
 
 /** 분리형 최대값 필터 (선 굵히기) */

@@ -12,7 +12,8 @@ export type PenStyle =
   | 'ghibli' | 'webtoon' | 'manga' | 'watercolor';
 
 /** 결과를 만든 엔진: 브라우저 로컬 렌더러 또는 AI 제공사 */
-export type Engine = 'local' | 'ai';
+/** 결과를 만든 엔진: 브라우저 로컬 렌더러, AI 제공사, 또는 밖에서 만든 그림(Dynamic Auto-Painter 등)을 불러온 것 */
+export type Engine = 'local' | 'ai' | 'external';
 
 /**
  * 사용자가 사진 위에 직접 그은 해칭 방향 지시선 (DAP 의 수동 Feature Follow 에 해당).
