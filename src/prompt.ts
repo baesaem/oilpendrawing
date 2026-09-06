@@ -1,18 +1,6 @@
 import { ARTIST_BY_ID } from './artists';
 import type { DrawingParams, LightDir, PaintProfile, PenStyle } from './types';
 
-const LEVEL_TEXT = {
-  beginner:
-    'Beginner-level oil-based ballpoint pen drawing: bold confident outlines, large simplified shapes, ' +
-    'only one or two tone steps of single-direction hatching, no fine texture, minimal background. ' +
-    'Keep the total number of strokes low so a first-time student can reproduce it.',
-  intermediate:
-    'Intermediate-level oil pen drawing: clean contour lines plus interior form lines, three to four tone steps ' +
-    'built with single-direction hatching, main textures suggested, background lightly indicated.',
-  advanced:
-    'Advanced oil pen drawing: thin overlapping strokes with varied pressure, cross-hatching that builds smooth ' +
-    'mid-tones, careful reflected light and shadow edges, fine surface texture, fully rendered background.',
-};
 
 const STYLE_TEXT: Record<PenStyle, string> = {
   tonehatch:
@@ -166,7 +154,6 @@ export function buildPrompt(p: DrawingParams, ref: RefKind): string {
     STYLE_TEXT[p.style],
     paintText(p.paint),
     artistText(p),
-    LEVEL_TEXT[p.level],
     `Stroke density and pressure: ${intensityText(p.intensity)}.`,
     colorText(p),
     // 빛: 자동이면 사진의 명암을 그대로, 수동이면 사진이 이미 그 방향으로 다시 조명되어 있음
@@ -211,10 +198,9 @@ export const DESCRIBE_PROMPT =
 
 /** 4단계 과정을 한 장(2×2)으로 그려 달라는 지시문 */
 export function buildProcessPrompt(p: DrawingParams, hasFinal: boolean): string {
-  const level = p.level === 'beginner' ? 'complete beginner' : p.level === 'intermediate' ? 'intermediate' : 'advanced';
   return [
     'Create ONE image divided into a 2x2 grid of four equal panels with thin borders, numbered 1 to 4 in the top-left corner of each panel.',
-    `It teaches a ${level} student how to draw the provided photograph as an oil-based ballpoint pen drawing, step by step:`,
+    'It teaches a student how to draw the provided photograph as an oil-based ballpoint pen drawing, step by step:',
     '1) very light construction lines: simple boxes/ovals for the big shapes and a horizon or eye line, nothing else;',
     '2) clean contour lines of every subject, still no shading;',
     `3) first layer of hatching only in the shadow areas (light comes ${LIGHT_TEXT[p.light]}), mid-tones still open paper;`,

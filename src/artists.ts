@@ -21,7 +21,7 @@ export interface Artist {
 export const ARTISTS: Artist[] = [
   {
     id: 'none', name: '없음', years: '',
-    desc: '선택한 화풍과 숙련도만 반영합니다.', tip: '', prompt: '',
+    desc: '선택한 화풍만 반영합니다.', tip: '', prompt: '',
   },
   {
     id: 'vangogh', name: '빈센트 반 고흐', years: '1853–1890',

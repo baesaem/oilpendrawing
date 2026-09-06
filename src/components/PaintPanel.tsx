@@ -99,7 +99,7 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
     <>
       <div className="panel-head">
         <h2>그리기 설정</h2>
-        <button className="link" onClick={onReset} title="화풍·숙련도 기본값으로 되돌립니다">{fromSample ? '견본값 다시 반영' : '기본값'}</button>
+        <button className="link" onClick={onReset} title="화풍 기본값으로 되돌립니다">{fromSample ? '견본값 다시 반영' : '기본값'}</button>
       </div>
       <div className="small muted">
         {fromSample ? '견본에서 읽은 값입니다. 움직이면 결과가 바로 다시 그려집니다.' : '화풍을 고르면 채워집니다. 네 가지만 만져도 충분합니다.'}

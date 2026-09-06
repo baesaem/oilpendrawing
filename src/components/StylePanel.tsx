@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react';
-import { COLOR_LABEL, LEVEL_DESC, LEVEL_LABEL, PAINT_FOR_STYLE, PEN_STYLES, STYLE_DESC, STYLE_LABEL, type ColorMode, type DrawingParams, type Level, type PenStyle } from '../types';
+import { COLOR_LABEL, PAINT_FOR_STYLE, PEN_STYLES, STYLE_DESC, STYLE_LABEL, type ColorMode, type DrawingParams, type PenStyle } from '../types';
 import { LightDial } from './LightDial';
 import { ARTISTS, ARTIST_BY_ID, type ArtistId } from '../artists';
 import { presetImageUrl, presetShortLabel } from '../presetGallery';
 
-const LEVELS: Level[] = ['beginner', 'intermediate', 'advanced'];
 /** 화풍을 펜으로 그리는 것과 붓으로 그리는 것으로 나눈다 (그리기 설정 패널의 붓 구분과 같은 기준) */
 const isBrushStyle = (st: PenStyle) => ['wash', 'oil', 'impasto'].includes(PAINT_FOR_STYLE[st].brush);
 const PEN_ONLY = PEN_STYLES.filter((st) => !isBrushStyle(st));
@@ -55,18 +54,6 @@ export function StylePanel({ params, onParams, children }: Props) {
           </div>
         ))}
         <div className="small muted">{STYLE_DESC[params.style]}</div>
-      </div>
-
-      <div className="field">
-        <div className="field-row"><b>숙련도</b></div>
-        <div className="seg" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }} role="radiogroup" aria-label="숙련도">
-          {LEVELS.map((l) => (
-            <button key={l} className={params.level === l ? 'on' : ''} role="radio" aria-checked={params.level === l} onClick={() => onParams({ level: l })}>
-              {LEVEL_LABEL[l]}
-            </button>
-          ))}
-        </div>
-        <div className="small muted">{LEVEL_DESC[params.level]}</div>
       </div>
 
       <div className="field">

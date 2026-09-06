@@ -33,7 +33,7 @@ interface Props {
  */
 export function FullscreenView(p: Props) {
   const guide = useGuideImage({
-    photo: p.photo, result: p.result, process: p.process, showProcess: p.showProcess, step: p.step, level: p.params.level,
+    photo: p.photo, result: p.result, process: p.process, showProcess: p.showProcess, step: p.step,
   });
   const drawBlob = p.showResult && p.result ? p.result : p.photo;
   const shown = p.mode === 'guide' ? guide.blob : drawBlob;

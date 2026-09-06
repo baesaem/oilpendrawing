@@ -4,7 +4,6 @@
  *  - valueMap: 사진을 3~5단계 명암으로 단순화해 어디를 어둡게 칠할지 보여 줍니다.
  */
 import { blobToImage } from './image';
-import type { Level } from './types';
 
 const PAPER = [245, 240, 230] as const; // 종이색
 const INK = [34, 30, 27] as const;      // 잉크색
@@ -46,15 +45,15 @@ function blur3(src: Float32Array, w: number, h: number, passes = 1): Float32Arra
   return a;
 }
 
-/** 숙련도별 선 개수: 초급은 굵은 윤곽만, 상급은 세부선까지 */
-const EDGE_THRESHOLD: Record<Level, number> = { beginner: 70, intermediate: 45, advanced: 28 };
+/** 윤곽 문턱. 숙련도를 없앤 뒤로 한 값만 쓴다 (옛 중급 값) */
+const EDGE_THRESHOLD = 45;
 
-export async function edgeMap(blob: Blob, level: Level): Promise<Blob> {
+export async function edgeMap(blob: Blob): Promise<Blob> {
   const img = await blobToImage(blob);
   const { w, h } = fitSize(img.naturalWidth, img.naturalHeight, 900);
   const { c, ctx } = makeCanvas(w, h);
   ctx.drawImage(img, 0, 0, w, h);
-  const lum = blur3(luminance(ctx.getImageData(0, 0, w, h).data), w, h, level === 'beginner' ? 2 : 1);
+  const lum = blur3(luminance(ctx.getImageData(0, 0, w, h).data), w, h, 1);
 
   const mag = new Float32Array(w * h);
   let max = 0;
@@ -66,7 +65,7 @@ export async function edgeMap(blob: Blob, level: Level): Promise<Blob> {
     mag[i] = m;
     if (m > max) max = m;
   }
-  const th = EDGE_THRESHOLD[level];
+  const th = EDGE_THRESHOLD;
   const out = ctx.createImageData(w, h);
   for (let i = 0; i < w * h; i++) {
     // 임계값 이상은 잉크, 근처는 연한 선으로 부드럽게
@@ -81,10 +80,10 @@ export async function edgeMap(blob: Blob, level: Level): Promise<Blob> {
   return toBlob(c);
 }
 
-/** 숙련도별 명암 단계 수 */
-export const VALUE_LEVELS: Record<Level, number> = { beginner: 3, intermediate: 4, advanced: 5 };
+/** 명암 가이드의 단계 수. 숙련도를 없앤 뒤로 한 값만 쓴다 */
+export const VALUE_LEVELS = 4;
 
-export async function valueMap(blob: Blob, level: Level): Promise<Blob> {
+export async function valueMap(blob: Blob): Promise<Blob> {
   const img = await blobToImage(blob);
   const { w, h } = fitSize(img.naturalWidth, img.naturalHeight, 900);
   // 작은 크기로 그려 잔노이즈를 없앤 뒤 확대
@@ -96,7 +95,7 @@ export async function valueMap(blob: Blob, level: Level): Promise<Blob> {
   ctx.drawImage(s.c, 0, 0, w, h);
   const id = ctx.getImageData(0, 0, w, h);
   const lum = blur3(luminance(id.data), w, h, 3);
-  const n = VALUE_LEVELS[level];
+  const n = VALUE_LEVELS;
   for (let i = 0; i < w * h; i++) {
     const step = Math.round((lum[i] / 255) * (n - 1)) / (n - 1); // 0(어둠)~1(밝음)
     id.data[i * 4] = INK[0] + (PAPER[0] - INK[0]) * step;

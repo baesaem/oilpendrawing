@@ -1,4 +1,3 @@
-export type Level = 'beginner' | 'intermediate' | 'advanced';
 export type ColorMode = 'color' | 'mono' | 'sepia';
 /** 빛의 방향. 8방위에 정면광(front)·역광(back)을 더한 것. 자동(사진 그대로)은 DrawingParams.lightAuto 가 맡는다 */
 export type LightDir = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW' | 'front' | 'back';
@@ -164,15 +163,6 @@ export const PAINT_FOR_STYLE: Record<PenStyle, PaintProfile> = {
   carver: { ...RICHEON_PAINT, brush: 'impasto', tip: 'chalk', palette: 'mono', wet: 0, passes: 4, brushSize: 30, detail: 100, accuracy: 90, strokeLength: 100, featureFollow: 100, baseAngle: 0, randomness: 12, lineWidth: 1, ink: 0, paperKeep: 0, edges: 70, vignette: 0 },
 };
 
-/** 숙련도별로 화풍 설정을 단순화한다 (견본이 없을 때 출발점). 초급은 층·세밀함을 줄이고 굵은 펜으로 */
-export function paintForLevel(level: Level, base: PaintProfile): PaintProfile {
-  switch (level) {
-    case 'beginner': return { ...base, passes: Math.max(2, base.passes - 2), detail: Math.round(base.detail * 0.6), accuracy: Math.max(20, base.accuracy - 20), lineWidth: Math.min(6, base.lineWidth + 0.6), randomness: Math.min(100, base.randomness + 10), edges: Math.max(20, base.edges - 15) };
-    case 'intermediate': return { ...base, passes: Math.max(2, base.passes - 1), detail: Math.round(base.detail * 0.8), accuracy: Math.max(20, base.accuracy - 10), lineWidth: Math.min(6, base.lineWidth + 0.3) };
-    case 'advanced': return { ...base };
-  }
-}
-
 /** 기본값과 측정값을 반영도(0~100)로 섞습니다 */
 export function blendPaint(base: PaintProfile, m: PaintProfile, weight: number): PaintProfile {
   const t = Math.max(0, Math.min(1, weight / 100));
@@ -233,7 +223,6 @@ export interface DrawingParams {
   style: PenStyle;
   /** 접목할 유명 화가 화풍 */
   artist: ArtistId;
-  level: Level;
   /** 0~100 선 밀도·필압 */
   intensity: number;
   color: ColorMode;
@@ -263,7 +252,6 @@ export interface DrawingParams {
 export const DEFAULT_PARAMS: DrawingParams = {
   style: 'richeon',
   artist: 'none',
-  level: 'intermediate',
   intensity: 60,
   color: 'mono',
   light: 'NW',
@@ -291,6 +279,7 @@ export function mergeParams(p: Partial<DrawingParams> | undefined): DrawingParam
   if (fixed) paint.brush = fixed;
   const merged: DrawingParams = { ...DEFAULT_PARAMS, ...p, paint };
   delete (merged as unknown as { strokes?: unknown }).strokes;
+  delete (merged as unknown as { level?: unknown }).level; // 숙련도(초급·중급·상급)는 없앴다
   if (style) merged.style = style;
   return merged;
 }
@@ -347,12 +336,6 @@ export interface Drawing {
   prompt?: string;
 }
 
-export const LEVEL_LABEL: Record<Level, string> = { beginner: '초급', intermediate: '중급', advanced: '상급' };
-export const LEVEL_DESC: Record<Level, string> = {
-  beginner: '굵은 윤곽선과 큰 형태 위주. 한 방향 해칭 1~2단계, 질감은 생략합니다.',
-  intermediate: '윤곽과 내부 형태선. 한 방향 해칭으로 중간톤을 넣고 주요 질감만 살립니다.',
-  advanced: '얇고 겹치는 선, 교차 해칭으로 중간톤을 쌓고 반사광과 질감까지 세밀하게 표현합니다.',
-};
 export const COLOR_LABEL: Record<ColorMode, string> = { color: '컬러', mono: '흑백', sepia: '세피아' };
 export const LIGHT_LABEL: Record<LightDir, string> = {
   N: '위', NE: '우상단', E: '오른쪽', SE: '우하단', S: '아래', SW: '좌하단', W: '왼쪽', NW: '좌상단',

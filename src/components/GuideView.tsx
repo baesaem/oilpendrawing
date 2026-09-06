@@ -67,10 +67,10 @@ export function GuideView(p: Props) {
   }, []);
 
   const { blob: shown, working } = useGuideImage({
-    photo: p.photo, result: p.result, process: p.process, showProcess: p.showProcess, step: p.step, level: p.params.level,
+    photo: p.photo, result: p.result, process: p.process, showProcess: p.showProcess, step: p.step,
   });
   const url = useObjectUrl(shown);
-  const tips = buildTip(p.step, p.params.level, p.params.style, p.params.light, p.params.artist);
+  const tips = buildTip(p.step, p.params.style, p.params.light, p.params.artist);
   const stepMeta = GUIDE_STEPS.find((s) => s.id === p.step)!;
   const overlayOn = p.step !== 'final' || !p.showProcess;
 
@@ -110,7 +110,7 @@ export function GuideView(p: Props) {
 
       <div className="guide-tip">
         <div className="tip-head">
-          <b>{stepMeta.label} · {stepMeta.short}{p.step === 'value' ? ` (${VALUE_LEVELS[p.params.level]}단계)` : ''}</b>
+          <b>{stepMeta.label} · {stepMeta.short}{p.step === 'value' ? ` (${VALUE_LEVELS}단계)` : ''}</b>
           {p.step === 'final' && (
             <div className="guide-opts">
               {p.process && (

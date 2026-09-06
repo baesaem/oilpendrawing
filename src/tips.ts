@@ -1,5 +1,5 @@
 import { ARTIST_BY_ID } from './artists';
-import type { ArtistId, Level, LightDir, PenStyle } from './types';
+import type { ArtistId, LightDir, PenStyle } from './types';
 import { LIGHT_LABEL } from './types';
 
 export type GuideStep = 'compose' | 'shape' | 'value' | 'final';
@@ -24,24 +24,6 @@ const COMMON: Record<GuideStep, string> = {
     '과정 그림을 만들면 네 단계 순서를 한 장으로 볼 수 있습니다.',
 };
 
-const BY_LEVEL: Record<GuideStep, Partial<Record<Level, string>>> = {
-  compose: {
-    beginner: '3×3 격자로 시작하세요. 칸이 적을수록 헷갈리지 않습니다.',
-    advanced: '격자 없이 시선 높이와 기준선 하나만 그려 잡아 보는 연습도 좋습니다.',
-  },
-  shape: {
-    beginner: '피사체를 원·상자·원통 같은 단순 도형으로 바꿔 보고, 그 도형부터 그립니다.',
-    advanced: '겹치는 부분은 앞쪽 형태를 먼저, 뒤쪽은 끊어서 그립니다. 선의 강약으로 앞뒤를 구분하세요.',
-  },
-  value: {
-    beginner: '밝음·중간·어두움 3단계만 봅니다. 해칭은 한 방향으로만, 중간은 간격을 벌려서.',
-    intermediate: '4단계. 첫 해칭이 마르기 전에 겹치면 뭉치니 한 층씩 차례로 올립니다.',
-    advanced: '5단계. 두 번째 층은 30~45도 다른 각도로 겹쳐 중간톤을 부드럽게. 그림자 가장자리에 반사광을 살짝 남깁니다.',
-  },
-  final: {
-    beginner: '완성 참고와 똑같이 그릴 필요는 없습니다. 큰 명암 위치만 맞으면 그림이 읽힙니다.',
-  },
-};
 
 export const STYLE_TIP: Record<PenStyle, string> = {
   tonehatch: '연필로 밝기 5단계의 경계만 옅게 그린 뒤, 가장 밝은 칸은 비우고 둘째 칸부터 한 방향으로 일정 간격의 선을 긋습니다. 다음 단계로 갈수록 선 사이를 반씩 좁히고, 넷째·다섯째 단계는 45도 틀어 한 벌 더 얹습니다. 선 방향을 끝까지 바꾸지 않는 것이 요령입니다.',
@@ -66,10 +48,8 @@ export const STYLE_TIP: Record<PenStyle, string> = {
   carver: '펜으로 옮기려면 판화 밑그림처럼 생각하세요. 면마다 홈이 흐를 방향을 정하고 가늘고 긴 선을 나란히 새기듯 긋습니다. 형태 경계는 선의 방향을 바꿔 잡고, 밝은 곳은 선 사이를 넓게 둡니다.',
 };
 
-export function buildTip(step: GuideStep, level: Level, style: PenStyle, light: LightDir, artist: ArtistId = 'none'): string[] {
+export function buildTip(step: GuideStep, style: PenStyle, light: LightDir, artist: ArtistId = 'none'): string[] {
   const out = [COMMON[step]];
-  const lv = BY_LEVEL[step][level];
-  if (lv) out.push(lv);
   if (step === 'value' || step === 'final') {
     out.push(
       light === 'front'

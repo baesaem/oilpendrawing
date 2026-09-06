@@ -21,7 +21,7 @@ import { EDITS_INPUT, generateDrawing } from './providers';
 import { listDrawings, loadSettings, putDrawing, saveSettings } from './storage';
 import { IS_PREVIEW, PREVIEW_NOTE } from './env';
 import {
-  DEFAULT_PARAMS, LEVEL_LABEL, PAINT_FOR_STYLE, PROVIDER_LABEL, blendPaint, mergeParams, paintForLevel,
+  DEFAULT_PARAMS, PAINT_FOR_STYLE, PROVIDER_LABEL, blendPaint, mergeParams,
   type DirectionGuide, type Drawing, type DrawingParams, type PaintProfile, type Settings,
 } from './types';
 
@@ -36,7 +36,7 @@ export function App() {
   const [keysOpen, setKeysOpen] = useState(false);
 
   const [params, setParams] = useState<DrawingParams>(DEFAULT_PARAMS);
-  // 화풍(프리셋)·숙련도·견본이 바뀌면 아래 효과가 그리기 설정을 다시 채운다
+  // 화풍(프리셋)·견본이 바뀌면 아래 효과가 그리기 설정을 다시 채운다
   const patchParams = useCallback((p: Partial<DrawingParams>) => setParams((prev) => ({ ...prev, ...p })), []);
   const patchPaint = useCallback((p: Partial<PaintProfile>) => setParams((prev) => ({ ...prev, paint: { ...prev.paint, ...p } })), []);
 
@@ -116,16 +116,16 @@ export function App() {
     return () => { alive = false; ac.abort(); };
   }, [reference]);
 
-  // 화풍 프리셋·숙련도·견본·반영도가 바뀌면 그리기 설정을 다시 채웁니다: 화풍 프리셋을 숙련도로 단순화한 뒤 견본 측정값과 섞는다.
+  // 화풍 프리셋·견본·반영도가 바뀌면 그리기 설정을 다시 채웁니다: 화풍 프리셋에 견본 측정값을 섞는다.
   const paintFor = (p: DrawingParams) => {
-    const base = paintForLevel(p.level, PAINT_FOR_STYLE[p.style]);
+    const base = PAINT_FOR_STYLE[p.style];
     return measured ? blendPaint(base, measured, p.referenceWeight) : base;
   };
   useEffect(() => {
     if (keepStrokesRef.current) { keepStrokesRef.current = false; return; }
     setParams((p) => ({ ...p, paint: paintFor(p) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [measured, params.level, params.referenceWeight, params.style]);
+  }, [measured, params.referenceWeight, params.style]);
 
   const resetPaint = () => setParams((p) => ({ ...p, paint: paintFor(p) }));
 
@@ -347,7 +347,7 @@ export function App() {
     if (!current) return;
     const toned = await applyTone(current.result, params.brightness, params.contrast);
     const stamp = new Date(current.createdAt).toISOString().slice(0, 19).replace(/[:T]/g, '-');
-    downloadBlob(toned, `oilpen-${LEVEL_LABEL[current.params.level]}-${stamp}.png`);
+    downloadBlob(toned, `oilpen-${current.params.style}-${stamp}.png`);
   };
 
   const selectHistory = (d: Drawing) => {

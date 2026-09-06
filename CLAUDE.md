@@ -36,7 +36,8 @@ UI 문구는 모두 한국어이고, 코드 주석도 한국어로 쓴다.
 `App` 한 곳에만 있고 뷰어 컴포넌트는 그 사실을 모른다.
 
 - **draw**: 원본/결과 분할 비교. `view` 가 `'compare' | 'result' | 'original'`.
-- **guide**: 구도 → 큰 형태 → 명암 → 완성 참고 4단계 (`GuideStep`).
+- **guide**: 구도 → 큰 형태 → 명암 → 완성 참고 4단계 (`GuideStep`). 숙련도(초급·중급·상급)는 없앴다 —
+  윤곽 문턱과 명암 단계 수는 `guide.ts` 의 고정값(`EDGE_THRESHOLD` 45, `VALUE_LEVELS` 4)이다.
 
 `FullscreenView` 는 같은 두 모드를 전체화면으로 다시 그린다. 단계별 이미지 계산을
 중복하지 않으려고 `useGuideImage` 훅으로 뽑아 두었으니, 표시 이미지를 바꿀 때는
@@ -212,7 +213,7 @@ A4 가로(297mm)로 볼 때의 값이다(1px ≈ 0.3mm).
 먹, 잎은 짧은 잎 획 — 에 맞춰 무작위성 8·획 길이 80·형태 따라가기 90·잉크 92 다.
 
 화풍(`PenStyle`) 20종마다 `PAINT_FOR_STYLE` 에 완전한 설정이 있다 (DAP 의 프리셋). 갤러리나 드롭다운에서 화풍을 고르면 `App` 의 효과가
-`paintForLevel(level, PAINT_FOR_STYLE[style])` 로 숙련도에 맞게 단순화(초급은 층·세밀함↓ 굵은 펜)해 `params.paint` 에 넣고,
+`PAINT_FOR_STYLE[style]` 의 완전한 설정을 `params.paint` 에 넣고,
 견본이 있으면 `blendPaint(base, measured, referenceWeight)` 로 섞는다. 이력에서 불러올 때만 `keepStrokesRef` 로 그 재설정을 한 번 건너뛴다.
 새 화풍을 추가할 때는 `PenStyle`, `PAINT_FOR_STYLE`, `STYLE_LABEL`·`STYLE_DESC`, `STYLE_TEXT`, `STYLE_TIP`, `public/presets/<style>.jpg` 를 함께 넣는다.
 옛 ID `parkyongsoon` 은 `mergeParams` 가 `fineink` 로 바꾸고, 옛 레코드의 `strokes`(StrokeProfile)는 `migrateStrokes` 가 `paint` 로 옮긴다.
@@ -250,7 +251,7 @@ A4 가로(297mm)로 볼 때의 값이다(1px ≈ 0.3mm).
 **펜화와 붓화를 나눠 보여 준다**: `StylePanel` 의 갤러리는 "펜 화풍"과 "붓 화풍" 두 묶음이고(`PAINT_FOR_STYLE[st].brush` 가
 wash·oil·impasto 면 붓 화풍), `PaintPanel` 의 붓 선택기도 "펜으로 그리기"(펜화·리천·윤곽·점묘)와 "붓으로 그리기"(담채·유화·고흐)로 갈린다.
 
-오른쪽 패널은 초보자가 무엇을 만져야 할지 알 수 있게 **자주 쓰는 것만 밖에** 둔다. `StylePanel` 기본 화면에는 화풍 갤러리·숙련도·색 표현·
+오른쪽 패널은 초보자가 무엇을 만져야 할지 알 수 있게 **자주 쓰는 것만 밖에** 둔다. `StylePanel` 기본 화면에는 화풍 갤러리·색 표현·
 빛 방향, `PaintPanel` 기본 화면에는 붓 일곱(+그림붓이면 브러시 팁)과 슬라이더 넷 — 세밀함(펜화면 선 간격)·여백·진하기·선 굵기(점묘는 점 굵기) — 뿐이고(펜화 붓은 명암 단계가, 리천·윤곽 붓은 형태 따라가기가 하나씩 더 붙는다. 선 방향 슬라이더는 없앴다), 슬라이더 값 옆에는
 숫자 대신 사람 말("큰 형태만", "흰 종이를 넓게", "가는 펜 1.2px")을 쓴다. 나머지는 `<details className="advanced">` 두 곳에 접어 둔다:
 `PaintPanel` 의 "세부 조정 · 획 · 방향 · 색"(기본 프리셋 3개, 층 수, 획 크기, 획 길이, 무작위성, 원근 선 굵기, 윤곽선,
@@ -310,7 +311,7 @@ CORS 로 막을 때 코드 수정 없이 대응하기 위한 것이므로, 모�
 `prompt.ts` 의 `buildPrompt` 가 `DrawingParams` 를 문장들로 조립한다. 순서가 의미를 갖는다:
 
 ```
-기본 지시 → 화풍(STYLE_TEXT) → 그리기 설정(paintText) → 화가(artistText) → 숙련도(LEVEL_TEXT)
+기본 지시 → 화풍(STYLE_TEXT) → 그리기 설정(paintText) → 화가(artistText)
 → 강도 → 색 → 빛 방향 → 톤 → 종이 질감 → (견본이 있으면) 견본 반영
 ```
 
@@ -351,5 +352,5 @@ Windows 사용자는 `start.bat` 더블클릭으로 실행, `update.bat` 으로 
 
 ## 문서
 
-- `docs/design-proposal.md` — 파라미터 정의, 화풍·화가 목록, 숙련도 3단계의 근거
+- `docs/design-proposal.md` — 파라미터 정의, 화풍·화가 목록 (숙련도 3단계 절은 옛 설계다 — 초급·중급·상급은 없앴다)
 - `design/*.dc.html` — 초기 화면 목업 (기본안과 대안 B·C). 현재 UI 는 대안 B 를 구현한 것
