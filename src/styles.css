@@ -300,11 +300,15 @@ input[type=range]:focus-visible { outline: 1px solid var(--accent); outline-offs
 .tips button.on { border-color: var(--accent); color: var(--text); font-weight: 700; }
 .tip-thumb { display: block; width: 100%; height: auto; border-radius: 3px; }
 
+.gallery-group { margin-bottom: 8px; }
+.gallery-group .group-title { margin-bottom: 4px; }
+
 /* 색 팔레트 선택기 */
 .pal-list { display: flex; flex-direction: column; gap: 4px; }
 .pal-list button { display: flex; align-items: center; gap: 8px; padding: 4px 7px; border-radius: 6px; border: 1px solid var(--line); background: #1b1a18; color: var(--muted); font-size: 11.5px; }
 .pal-list button.on { border-color: var(--accent); color: var(--text); font-weight: 700; }
 .pal-list button > span:last-child { flex: none; width: 30px; text-align: right; }
+.pal-row { display: flex; margin-top: 5px; }
 .pal-bar { display: flex; flex: 1; height: 14px; border-radius: 3px; overflow: hidden; border: 1px solid #0f0e0d; }
 .pal-bar i { flex: 1; display: block; }
 .pal-photo { background: linear-gradient(90deg, #6f9bd1, #8bbf58, #e3d24a, #c0392b, #4a3324); }
@@ -332,6 +336,9 @@ input[type=range]:focus-visible { outline: 1px solid var(--accent); outline-offs
 .dial button { cursor: pointer; }
 .dial .dial-label { display: flex; flex-direction: column; gap: 2px; }
 .dial .dial-label b { font-family: var(--serif); font-size: 18px; font-weight: 700; }
+.dial-block { display: flex; flex-direction: column; gap: 8px; }
+.dial-block .light-modes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dial-block .light-modes button { height: 30px; font-size: 12px; white-space: nowrap; }
 
 /* ---------- 다이얼로그 ---------- */
 .dialog-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; z-index: 10; }

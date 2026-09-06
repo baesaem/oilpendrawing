@@ -1,8 +1,8 @@
 /** 브라우저 Canvas 기반 이미지 유틸 */
-import { LIGHT_DIRS, type LightDir } from './types';
+import { LIGHT_DIRS, type CompassDir, type LightDir } from './types';
 
 /** 화면 좌표(y 아래) 기준 각도. E=0°, 시계 방향으로 증가 */
-const LIGHT_ANGLE: Record<LightDir, number> = { N: -90, NE: -45, E: 0, SE: 45, S: 90, SW: 135, W: 180, NW: 225 };
+const LIGHT_ANGLE: Record<CompassDir, number> = { N: -90, NE: -45, E: 0, SE: 45, S: 90, SW: 135, W: 180, NW: 225 };
 
 export async function blobToImage(blob: Blob): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(blob);
@@ -49,8 +49,46 @@ export async function prepareInput(blob: Blob, opts: { maxSide: number; grayscal
   return toBlob(c, 'image/jpeg', 0.92);
 }
 
-/** 빛 쪽은 밝게(screen), 반대쪽은 어둡게(multiply) 하는 대각 기울기. 큰 그림자 방향만 바꾸는 근사입니다 */
+/**
+ * 빛 쪽은 밝게(screen), 반대쪽은 어둡게(multiply) 하는 대각 기울기. 큰 그림자 방향만 바꾸는 근사입니다.
+ * 방향이 없는 두 가지는 따로 처리합니다 — 정면광(front)은 그림자를 지우고 고르게 밝히고,
+ * 역광(back)은 가운데를 가라앉히고 가장자리를 밝혀 실루엣과 테두리 빛을 만듭니다.
+ */
 function relight(ctx: CanvasRenderingContext2D, w: number, h: number, dir: LightDir) {
+  const cx0 = w / 2, cy0 = h / 2, r0 = Math.hypot(w, h) / 2;
+  if (dir === 'front') {
+    // 정면광: 그림자가 옅어지고 화면 전체가 고르다. 중간 회색 쪽으로 조금 당겨 대비를 낮춘 뒤 가운데를 올린다
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = '#8c8c8c';
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'screen';
+    const g = ctx.createRadialGradient(cx0, cy0 * 0.92, 0, cx0, cy0, r0);
+    g.addColorStop(0, 'rgba(255,255,255,0.26)');
+    g.addColorStop(0.6, 'rgba(255,255,255,0.13)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+    return;
+  }
+  if (dir === 'back') {
+    // 역광: 피사체가 어둡게 가라앉고 배경·테두리가 밝다
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    const d = ctx.createRadialGradient(cx0, cy0, 0, cx0, cy0, r0);
+    d.addColorStop(0, 'rgba(0,0,0,0.6)');
+    d.addColorStop(0.6, 'rgba(0,0,0,0.42)');
+    d.addColorStop(1, 'rgba(0,0,0,0.06)');
+    ctx.fillStyle = d; ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'screen';
+    const l = ctx.createRadialGradient(cx0, cy0, r0 * 0.5, cx0, cy0, r0);
+    l.addColorStop(0, 'rgba(255,255,255,0)');
+    l.addColorStop(1, 'rgba(255,255,255,0.55)');
+    ctx.fillStyle = l; ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+    return;
+  }
   const a = (LIGHT_ANGLE[dir] * Math.PI) / 180;
   const cx = w / 2, cy = h / 2, r = Math.hypot(w, h) / 2;
   const lx = cx + Math.cos(a) * r, ly = cy + Math.sin(a) * r; // 빛이 오는 가장자리
@@ -75,7 +113,7 @@ function relight(ctx: CanvasRenderingContext2D, w: number, h: number, dir: Light
  * 사진에서 빛이 오는 방향을 추정합니다.
  * 크게 뭉갠 밝기의 기울기(어두운 곳 → 밝은 곳)를 평균 내어 8방향 중 가장 가까운 것을 고릅니다.
  */
-export async function estimateLight(blob: Blob): Promise<LightDir> {
+export async function estimateLight(blob: Blob): Promise<CompassDir> {
   const img = await blobToImage(blob);
   const S = 48;
   const [, ctx] = canvasFor(S, S);
@@ -92,7 +130,7 @@ export async function estimateLight(blob: Blob): Promise<LightDir> {
   gy *= 0.7;
   if (Math.hypot(gx, gy) < 1) return 'NW';
   const ang = (Math.atan2(gy, gx) * 180) / Math.PI;
-  let best: LightDir = 'NW', bestDiff = 999;
+  let best: CompassDir = 'NW', bestDiff = 999;
   for (const dir of LIGHT_DIRS) {
     let diff = Math.abs(((ang - LIGHT_ANGLE[dir]) % 360 + 540) % 360 - 180);
     if (diff < bestDiff) { bestDiff = diff; best = dir; }

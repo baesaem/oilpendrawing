@@ -1,10 +1,14 @@
 import type { ReactNode } from 'react';
-import { COLOR_LABEL, LEVEL_DESC, LEVEL_LABEL, PEN_STYLES, STYLE_DESC, STYLE_LABEL, type ColorMode, type DrawingParams, type Level, type PenStyle } from '../types';
+import { COLOR_LABEL, LEVEL_DESC, LEVEL_LABEL, PAINT_FOR_STYLE, PEN_STYLES, STYLE_DESC, STYLE_LABEL, type ColorMode, type DrawingParams, type Level, type PenStyle } from '../types';
 import { LightDial } from './LightDial';
 import { ARTISTS, ARTIST_BY_ID, type ArtistId } from '../artists';
 import { presetImageUrl, presetShortLabel } from '../presetGallery';
 
 const LEVELS: Level[] = ['beginner', 'intermediate', 'advanced'];
+/** 화풍을 펜으로 그리는 것과 붓으로 그리는 것으로 나눈다 (그리기 설정 패널의 붓 구분과 같은 기준) */
+const isBrushStyle = (st: PenStyle) => ['wash', 'oil', 'impasto'].includes(PAINT_FOR_STYLE[st].brush);
+const PEN_ONLY = PEN_STYLES.filter((st) => !isBrushStyle(st));
+const BRUSH_ONLY = PEN_STYLES.filter(isBrushStyle);
 const COLORS: Array<{ id: ColorMode; sw: string[] }> = [
   { id: 'color', sw: ['#c86a3c', '#7d8a3a', '#4a6b9a'] },
   { id: 'mono', sw: ['#111', '#777', '#ccc'] },
@@ -32,19 +36,24 @@ export function StylePanel({ params, onParams, children }: Props) {
       <div className="panel-head"><h2>표현 설정</h2></div>
 
       <div className="field">
-        <div className="field-row"><b>화풍 프리셋</b><span className="muted small">예시 그림을 눌러 고르기</span></div>
+        <div className="field-row"><b>화풍 프리셋</b><span className="muted small">예시를 눌러 고르기</span></div>
         {/* Dynamic Auto-Painter 의 프리셋 탭처럼: 같은 사진을 화풍마다 그린 예시를 보고 고른다 */}
-        <div className="gallery" role="radiogroup" aria-label="화풍 프리셋">
-          {PEN_STYLES.map((st) => (
-            <button
-              key={st} type="button" className={params.style === st ? 'on' : ''} role="radio" aria-checked={params.style === st}
-              title={STYLE_LABEL[st]} onClick={() => onParams({ style: st })}
-            >
-              <img src={presetImageUrl(st)} alt="" loading="lazy" draggable={false} />
-              <span>{presetShortLabel(st)}</span>
-            </button>
-          ))}
-        </div>
+        {([['펜 화풍', PEN_ONLY], ['붓 화풍', BRUSH_ONLY]] as const).map(([title, list]) => (
+          <div key={title} className="gallery-group">
+            <div className="group-title">{title}</div>
+            <div className="gallery" role="radiogroup" aria-label={`${title} 프리셋`}>
+              {list.map((st) => (
+                <button
+                  key={st} type="button" className={params.style === st ? 'on' : ''} role="radio" aria-checked={params.style === st}
+                  title={STYLE_LABEL[st]} onClick={() => onParams({ style: st })}
+                >
+                  <img src={presetImageUrl(st)} alt="" loading="lazy" draggable={false} />
+                  <span>{presetShortLabel(st)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
         <div className="small muted">{STYLE_DESC[params.style]}</div>
       </div>
 

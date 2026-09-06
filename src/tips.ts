@@ -71,7 +71,13 @@ export function buildTip(step: GuideStep, level: Level, style: PenStyle, light: 
   const lv = BY_LEVEL[step][level];
   if (lv) out.push(lv);
   if (step === 'value' || step === 'final') {
-    out.push(`빛은 ${LIGHT_LABEL[light]}에서 옵니다. 해칭은 빛의 반대편으로 갈수록 촘촘하게, 그림자는 그 반대 방향으로 떨어집니다.`);
+    out.push(
+      light === 'front'
+        ? '빛이 정면에서 옵니다. 그림자가 거의 없으니 톤 차이는 작게 두고 윤곽과 형태선으로 읽히게 합니다.'
+        : light === 'back'
+          ? '빛이 뒤에서 옵니다(역광). 대상 안쪽은 한 덩어리로 어둡게 묶고, 테두리만 종이를 남겨 밝게 둡니다.'
+          : `빛은 ${LIGHT_LABEL[light]}에서 옵니다. 해칭은 빛의 반대편으로 갈수록 촘촘하게, 그림자는 그 반대 방향으로 떨어집니다.`,
+    );
     out.push(STYLE_TIP[style]);
     const a = ARTIST_BY_ID[artist];
     if (a && a.id !== 'none') out.push(`${a.name} 풍: ${a.tip}`);

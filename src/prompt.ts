@@ -83,10 +83,13 @@ const STYLE_TEXT: Record<PenStyle, string> = {
 const LIGHT_TEXT: Record<LightDir, string> = {
   N: 'from directly above', NE: 'from the upper right', E: 'from the right', SE: 'from the lower right',
   S: 'from below', SW: 'from the lower left', W: 'from the left', NW: 'from the upper left',
+  front: 'from the front, flat and even', back: 'from behind the subject as backlight',
 };
 const SHADOW_TEXT: Record<LightDir, string> = {
   N: 'straight below the forms', NE: 'toward the lower left', E: 'toward the left', SE: 'toward the upper left',
   S: 'above the forms', SW: 'toward the upper right', W: 'toward the right', NW: 'toward the lower right',
+  front: 'only as small contact shadows, so the forms read by outline rather than by shading',
+  back: 'toward the viewer, so the subject reads as one dark mass with a bright rim of light along its edges',
 };
 
 function artistText(p: DrawingParams): string {

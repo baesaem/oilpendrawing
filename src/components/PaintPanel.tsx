@@ -17,7 +17,8 @@ interface Props {
   onApplyPreset: (p: UserPreset) => void;
 }
 
-const BRUSHES: BrushKind[] = ['tone', 'pen', 'contour', 'stipple', 'wash', 'oil', 'impasto'];
+const PEN_BRUSHES: BrushKind[] = ['tone', 'pen', 'contour', 'stipple'];
+const PAINT_BRUSHES: BrushKind[] = ['wash', 'oil', 'impasto'];
 const TIPS: TipKind[] = ['auto', 'round', 'bristle', 'wet', 'chalk'];
 const PALETTES: PaletteId[] = ['photo', 'bright', 'mono', 'match', 'match2'];
 
@@ -59,8 +60,20 @@ const keepNote = (v: number) => (v < 35 ? '거의 다 채움' : v < 65 ? '보통
 const inkNote = (v: number) => (v < 35 ? '연하게' : v < 70 ? '보통' : '진하게');
 const mm = (px: number) => (px * 0.3).toFixed(2).replace(/0$/, '');
 const widthNote = (v: number) => `${v <= 1.2 ? '가는' : v <= 2.2 ? '보통' : '굵은'} 펜 · 약 ${mm(v)}mm`;
+/** 점묘는 같은 슬라이더가 점 하나의 굵기다 (지름 ≈ 선 굵기 × 1.24) */
+const dotNote = (v: number) => `${v <= 1.5 ? '작은' : v <= 3 ? '보통' : '굵은'} 점 · 약 ${mm(v * 1.24)}mm`;
 const realNote = (v: number) => (v < 30 ? '표현적으로' : v < 55 ? '조금 표현적' : v < 80 ? '조금 사실적' : '원본과 같게');
 const wetNote = (v: number) => (v < 25 ? '마른 붓' : v < 50 ? '조금 마르게' : v < 75 ? '조금 젖게' : '젖은 붓');
+
+/**
+ * 붓을 바꿀 때의 보정. 펜화 붓의 `passes` 는 층 수가 아니라 **명암 단계**라, 다른 붓의 층 수(2~4)를 그대로 물려받으면
+ * 3단계짜리 성긴 해칭이 된다. 펜화로 들어올 때만 교본대로 10단계를 넣어 준다 (그 뒤엔 슬라이더가 권한).
+ */
+function brushPatch(s: PaintProfile, b: BrushKind): Partial<PaintProfile> {
+  if (b === 'tone' && s.brush !== 'tone') return { brush: b, passes: Math.max(s.passes, 10) };
+  if (b !== 'tone' && s.brush === 'tone') return { brush: b, passes: Math.min(s.passes, 4) };
+  return { brush: b };
+}
 
 /**
  * 그리기 설정 (Dynamic Auto-Painter 의 파라미터 패널). 로컬 엔진이 보는 값의 전부이며, 화풍 프리셋을 고르면 채워지고
@@ -93,10 +106,21 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
       </div>
 
       <div className="field">
-        <div className="field-row"><b>붓</b><span className="muted small">{BRUSH_SHORT[s.brush]}</span></div>
-        <div className="seg" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }} role="radiogroup" aria-label="붓">
-          {BRUSHES.map((b) => (
-            <button key={b} className={s.brush === b ? 'on' : ''} role="radio" aria-checked={s.brush === b} onClick={() => onChange({ brush: b })} title={BRUSH_LABEL[b]} style={{ fontSize: 11 }}>
+        <div className="field-row"><b>펜으로 그리기</b>{!isPaint && <span className="muted small">{BRUSH_SHORT[s.brush]}</span>}</div>
+        <div className="seg" style={{ gridTemplateColumns: `repeat(${PEN_BRUSHES.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label="펜 붓">
+          {PEN_BRUSHES.map((b) => (
+            <button key={b} className={s.brush === b ? 'on' : ''} role="radio" aria-checked={s.brush === b} onClick={() => onChange(brushPatch(s, b))} title={BRUSH_LABEL[b]} style={{ fontSize: 11 }}>
+              {BRUSH_SHORT[b]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="field">
+        <div className="field-row"><b>붓으로 그리기</b>{isPaint && <span className="muted small">{BRUSH_SHORT[s.brush]}</span>}</div>
+        <div className="seg" style={{ gridTemplateColumns: `repeat(${PAINT_BRUSHES.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label="그림 붓">
+          {PAINT_BRUSHES.map((b) => (
+            <button key={b} className={s.brush === b ? 'on' : ''} role="radio" aria-checked={s.brush === b} onClick={() => onChange(brushPatch(s, b))} title={BRUSH_LABEL[b]} style={{ fontSize: 11 }}>
               {BRUSH_SHORT[b]}
             </button>
           ))}
@@ -131,20 +155,16 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
 
       <div className="field">
         <div className="field-row"><b>색 팔레트</b><span className="muted small">컬러일 때</span></div>
-        <div className="pal-list" role="radiogroup" aria-label="색 팔레트">
-          {PALETTES.map((q) => (
-            <button key={q} type="button" className={s.palette === q ? 'on' : ''} role="radio" aria-checked={s.palette === q}
-              title={PALETTE_LABEL[q]} onClick={() => onChange({ palette: q })}>
-              <PaletteSwatch id={q} />
-              <span>{PALETTE_SHORT[q]}</span>
-            </button>
-          ))}
-        </div>
+        <select className="text-input select" value={s.palette} aria-label="색 팔레트"
+          onChange={(e) => onChange({ palette: e.target.value as PaletteId })}>
+          {PALETTES.map((q) => <option key={q} value={q}>{PALETTE_SHORT[q]}</option>)}
+        </select>
+        <div className="pal-row"><PaletteSwatch id={s.palette} /></div>
         <div className="small faint">{PALETTE_LABEL[s.palette]}</div>
       </div>
 
       {s.brush === 'tone' && (
-        <Range label="명암 단계" value={s.passes} min={3} max={6} unit="단계" note={`${s.passes}단계 · 선 ${s.passes - 1}겹`}
+        <Range label="명암 단계" value={s.passes} min={3} max={10} unit="단계" note={`${s.passes}단계 · 선 ${s.passes - 1}겹`}
           hint="밝기를 몇 단계로 나눌지. 가장 밝은 단계는 선이 없습니다" onChange={(passes) => onChange({ passes })} />
       )}
       <Range label={s.brush === 'tone' ? '선 간격' : '세밀함'} value={s.detail} min={0} max={100}
@@ -154,7 +174,9 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
         hint="높을수록 밝은 곳을 넓게 종이로 남깁니다" onChange={(paperKeep) => onChange({ paperKeep })} />
       <Range label={isPaint ? '물감 진하기' : '잉크 진하기'} value={s.ink} min={0} max={100} note={inkNote(s.ink)}
         hint="획 하나의 진하기. 아주 진하면 깊은 그림자를 먹으로 채웁니다" onChange={(ink) => onChange({ ink })} />
-      <Range label={isPaint ? '붓 굵기' : '선 굵기'} value={s.lineWidth} min={1} max={6} step={0.5} note={widthNote(s.lineWidth)}
+      <Range label={isPaint ? '붓 굵기' : isStipple ? '점 굵기' : '선 굵기'} value={s.lineWidth} min={1} max={6} step={0.5}
+        note={isStipple ? dotNote(s.lineWidth) : widthNote(s.lineWidth)}
+        hint={isStipple ? '점 하나의 굵기입니다. 가장자리는 점마다 다르게 거칠어집니다' : undefined}
         onChange={(lineWidth) => onChange({ lineWidth })} />
       {!isPaint && !isStipple && (
         <>

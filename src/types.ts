@@ -1,6 +1,9 @@
 export type Level = 'beginner' | 'intermediate' | 'advanced';
 export type ColorMode = 'color' | 'mono' | 'sepia';
-export type LightDir = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
+/** 빛의 방향. 8방위에 정면광(front)·역광(back)을 더한 것. 자동(사진 그대로)은 DrawingParams.lightAuto 가 맡는다 */
+export type LightDir = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW' | 'front' | 'back';
+/** 다이얼에 점으로 놓이는 8방위 (정면·역광은 방향이 없어 빠진다) */
+export type CompassDir = Exclude<LightDir, 'front' | 'back'>;
 import type { ArtistId } from './artists';
 export type { ArtistId } from './artists';
 
@@ -139,7 +142,7 @@ export const DEFAULT_PAINT: PaintProfile = RICHEON_PAINT;
 
 /** 화풍마다 완전한 그리기 설정 (DAP 의 프리셋). 갤러리에서 화풍을 고르면 이 값이 그대로 들어간다 */
 export const PAINT_FOR_STYLE: Record<PenStyle, PaintProfile> = {
-  tonehatch: { ...CLASSIC_PAINT, brush: 'tone', passes: 5, brushSize: 50, detail: 62, accuracy: 70, strokeLength: 70, featureFollow: 0, baseAngle: 35, randomness: 22, lineWidth: 1.4, ink: 82, paperKeep: 58, edges: 45, vignette: 0 },
+  tonehatch: { ...CLASSIC_PAINT, brush: 'tone', passes: 10, brushSize: 50, detail: 62, accuracy: 70, strokeLength: 70, featureFollow: 0, baseAngle: 35, randomness: 22, lineWidth: 1.4, ink: 82, paperKeep: 58, edges: 45, vignette: 0 },
   richeon: RICHEON_PAINT,
   fineink: FINE_PAINT,
   hatching: CLASSIC_PAINT,
@@ -155,9 +158,9 @@ export const PAINT_FOR_STYLE: Record<PenStyle, PaintProfile> = {
   ghibli: { ...CLASSIC_PAINT, passes: 3, brushSize: 55, detail: 60, accuracy: 50, strokeLength: 65, featureFollow: 60, baseAngle: 30, randomness: 20, lineWidth: 1.4, ink: 70, paperKeep: 60, edges: 65 },
   webtoon: { ...CLASSIC_PAINT, brush: 'contour', passes: 3, brushSize: 50, detail: 65, accuracy: 55, strokeLength: 60, featureFollow: 60, baseAngle: 45, randomness: 10, lineWidth: 1.8, ink: 90, paperKeep: 62, edges: 95 },
   manga: { ...CLASSIC_PAINT, passes: 4, brushSize: 40, detail: 90, accuracy: 70, strokeLength: 60, featureFollow: 20, baseAngle: 45, randomness: 5, lineWidth: 1, ink: 90, paperKeep: 55, edges: 85 },
-  watercolor: { ...RICHEON_PAINT, brush: 'wash', tip: 'auto', palette: 'match2', wet: 72, passes: 4, brushSize: 70, detail: 80, accuracy: 72, strokeLength: 50, featureFollow: 70, baseAngle: 40, randomness: 35, lineWidth: 1.6, ink: 60, paperKeep: 62, edges: 45, vignette: 15 },
-  oil: { ...RICHEON_PAINT, brush: 'oil', tip: 'auto', palette: 'match2', wet: 30, passes: 5, brushSize: 55, detail: 95, accuracy: 80, strokeLength: 40, featureFollow: 80, baseAngle: 0, randomness: 30, lineWidth: 1, ink: 0, paperKeep: 0, edges: 0, vignette: 0 },
-  vangogh: { ...RICHEON_PAINT, brush: 'impasto', tip: 'auto', palette: 'match', wet: 18, passes: 4, brushSize: 50, detail: 85, accuracy: 75, strokeLength: 85, featureFollow: 100, baseAngle: 20, randomness: 45, lineWidth: 1.4, ink: 0, paperKeep: 0, edges: 55, vignette: 0 },
+  watercolor: { ...RICHEON_PAINT, brush: 'wash', tip: 'auto', palette: 'match2', wet: 72, passes: 4, brushSize: 78, detail: 80, accuracy: 72, strokeLength: 50, featureFollow: 55, baseAngle: 40, randomness: 50, lineWidth: 1.6, ink: 60, paperKeep: 62, edges: 45, vignette: 15 },
+  oil: { ...RICHEON_PAINT, brush: 'oil', tip: 'auto', palette: 'match2', wet: 30, passes: 4, brushSize: 68, detail: 95, accuracy: 80, strokeLength: 40, featureFollow: 65, baseAngle: 0, randomness: 55, lineWidth: 1, ink: 0, paperKeep: 0, edges: 0, vignette: 0 },
+  vangogh: { ...RICHEON_PAINT, brush: 'impasto', tip: 'auto', palette: 'match', wet: 18, passes: 4, brushSize: 62, detail: 85, accuracy: 75, strokeLength: 85, featureFollow: 100, baseAngle: 20, randomness: 45, lineWidth: 1.4, ink: 0, paperKeep: 0, edges: 55, vignette: 0 },
   carver: { ...RICHEON_PAINT, brush: 'impasto', tip: 'chalk', palette: 'mono', wet: 0, passes: 4, brushSize: 30, detail: 100, accuracy: 90, strokeLength: 100, featureFollow: 100, baseAngle: 0, randomness: 12, lineWidth: 1, ink: 0, paperKeep: 0, edges: 70, vignette: 0 },
 };
 
@@ -353,8 +356,9 @@ export const LEVEL_DESC: Record<Level, string> = {
 export const COLOR_LABEL: Record<ColorMode, string> = { color: '컬러', mono: '흑백', sepia: '세피아' };
 export const LIGHT_LABEL: Record<LightDir, string> = {
   N: '위', NE: '우상단', E: '오른쪽', SE: '우하단', S: '아래', SW: '좌하단', W: '왼쪽', NW: '좌상단',
+  front: '앞에서', back: '뒤에서',
 };
-export const LIGHT_DIRS: LightDir[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+export const LIGHT_DIRS: CompassDir[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
 export const PEN_STYLES: PenStyle[] = [
   'tonehatch', 'richeon', 'fineink', 'hatching', 'crosshatch', 'contour', 'scribble', 'stipple', 'engraving', 'urban', 'realistic', 'comic', 'architectural',
