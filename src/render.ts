@@ -922,7 +922,7 @@ function toneHatch(c: Ctx, lum: Float32Array, white: number, bg: Float32Array | 
   // 3) 층마다 선 간격·굵기·각도. 어두운 층일수록 촘촘하고 굵으며, 셋째 층부터 각도를 튼다
   const sets = levels - 1;
   const spread = Math.max(1, sets - 1);
-  const S0 = Math.max(lw * 1.6, minSide * (0.023 - 0.016 * clamp(p.detail, 0, 100) / 100));
+  const S0 = Math.max(lw * 1.35, minSide * (0.016 - 0.0115 * clamp(p.detail, 0, 100) / 100));
   const ANGLE_OFF = [0, 0, 52, -41, 88, 24, -68, 14, 70]; // 1·2층은 같은 방향(간격만 반 칸), 3층부터 교차 (10단계까지)
   const alphaBase = (0.42 + 0.5 * clamp(p.ink, 0, 100) / 100) * 0.86;
   const j = c.rnd;
@@ -976,7 +976,7 @@ function toneHatch(c: Ctx, lum: Float32Array, white: number, bg: Float32Array | 
   for (let k = 1; k <= sets; k++) {
     const t = (k - 1) / spread;
     // 어두운 단계일수록 간격을 좁게 (가장 어두운 단계는 첫 단계의 1/3). 선이 붙어 먹이 되지 않게 굵기의 1.5배는 띄운다
-    const spacing = Math.max(lw * 1.25, S0 * (1 - 0.66 * t));
+    const spacing = Math.max(lw * 1.1, S0 * (1 - 0.66 * t));
     const width = lw * (0.75 + 0.85 * t);
     const off = ANGLE_OFF[Math.min(k - 1, ANGLE_OFF.length - 1)] ?? 0;
     const phase = k === 2 ? 0.5 : rng();
