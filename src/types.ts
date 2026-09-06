@@ -245,7 +245,7 @@ export const DEFAULT_PARAMS: DrawingParams = {
   style: 'richeon',
   artist: 'none',
   intensity: 60,
-  color: 'mono',
+  color: 'color',
   light: 'NW',
   lightAuto: true,
   brightness: 0,
