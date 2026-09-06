@@ -3,6 +3,7 @@ import { useObjectUrl } from '../hooks';
 import type { PlacedStamp, StampItem } from '../stamps';
 import type { DirectionGuide } from '../types';
 import type { ProgressInfo, RawImage } from '../render';
+import { Overlay, type GridSize } from './GuideView';
 
 export type ViewMode = 'compare' | 'result' | 'original';
 
@@ -25,6 +26,8 @@ interface Props {
   direction?: DirectionProps;
   /** 로컬 엔진이 그리는 도중의 그림 (DAP 처럼 층이 쌓이는 과정을 보여 준다) */
   progress?: PaintProgress | null;
+  /** 사진·결과 위에 겹쳐 보이는 격자 (가이드 1단계와 같은 값) */
+  grid?: GridSize;
 }
 
 export interface PaintProgress { image: RawImage; info: ProgressInfo }
@@ -143,7 +146,7 @@ function StampLayer({ stamps, onMove, onDrop }: { stamps: Array<{ placed: Placed
   );
 }
 
-export function Stage({ original, result, view, busy, toneFilter, wide, guide, live, stamps, onStampMove, onStampDrop, direction, progress }: Props) {
+export function Stage({ original, result, view, busy, toneFilter, wide, guide, live, stamps, onStampMove, onStampDrop, direction, progress, grid = 0 }: Props) {
   const oUrl = useObjectUrl(original);
   const rUrl = useObjectUrl(result);
   const [split, setSplit] = useState(55);
@@ -195,6 +198,7 @@ export function Stage({ original, result, view, busy, toneFilter, wide, guide, l
             <StampLayer stamps={stamps} onMove={onStampMove} onDrop={onStampDrop} />
           )}
           {direction && (direction.editing || (direction.guides.length > 0 && view === 'original')) && <DirectionLayer d={direction} />}
+          {grid > 0 && <Overlay grid={grid} aspect={null} imgW={0} imgH={0} />}
         </div>
       )}
     </div>

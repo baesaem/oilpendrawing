@@ -1,6 +1,7 @@
 import { useObjectUrl } from '../hooks';
 import type { Drawing } from '../types';
 import type { ViewMode } from './Stage';
+import type { GridSize } from './GuideView';
 import { DirectionIcon, DownloadIcon, ExpandIcon, KeyIcon, PenIcon, StopIcon } from './Icons';
 
 export type Mode = 'draw' | 'guide';
@@ -34,6 +35,9 @@ interface Props {
   directionEditing: boolean;
   guideCount: number;
   onToggleDirection: () => void;
+  /** 격자 (가이드와 같은 값을 쓴다 — 드로잉 화면에도 겹쳐 보인다) */
+  grid: GridSize;
+  onGrid: (g: GridSize) => void;
 }
 
 function Thumb({ d, on, onClick }: { d: Drawing; on: boolean; onClick: () => void }) {
@@ -75,6 +79,11 @@ export function Toolbar(p: Props) {
             title="사진 위에 해칭 방향을 직접 그립니다. 그 근처의 해칭이 그 방향을 따릅니다" aria-pressed={p.directionEditing}>
             <DirectionIcon /> 방향 지시{p.guideCount > 0 && <span className="badge">{p.guideCount}</span>}
           </button>
+          {/* 격자: 가이드 1단계와 같은 값. 사진·결과 위에 그대로 겹쳐 보여 칸을 보고 옮겨 그릴 수 있다 */}
+          <select className="text-input select grid-select" value={p.grid} disabled={!p.hasPhoto}
+            onChange={(e) => p.onGrid(Number(e.target.value) as GridSize)} aria-label="격자" title="사진·결과 위에 격자를 겹쳐 봅니다 (가이드의 격자와 같은 값)">
+            <option value={0}>격자 없음</option><option value={3}>3×3</option><option value={4}>4×4</option><option value={6}>6×6</option>
+          </select>
         </>
       )}
 

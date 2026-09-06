@@ -356,7 +356,7 @@ export function App() {
       {IS_PREVIEW && <div className="preview-banner" title={PREVIEW_NOTE}>미리보기 모드 · AI 생성·저장은 배포판에서 동작합니다</div>}
 
       <Stage
-        original={stageOriginal} result={current ? current.base ?? current.result : null} view={view} busy={busy} live={live} toneFilter={filter} wide={panelsHidden} progress={progress}
+        original={stageOriginal} result={current ? current.base ?? current.result : null} view={view} busy={busy} live={live} toneFilter={filter} wide={panelsHidden} progress={progress} grid={grid}
         stamps={current ? placedWithItems : []} onStampMove={moveStamp} onStampDrop={() => { void rebake(); }}
         direction={{
           guides: params.guides, editing: directionEditing, radius: params.guideRadius,
@@ -425,6 +425,7 @@ export function App() {
         busy={!!busy} progress={progress ? progress.info.frac : null} onCancel={cancel} onDownload={download}
         onFullscreen={() => setFullscreen(true)}
         directionEditing={directionEditing} guideCount={params.guides.length} onToggleDirection={toggleDirection}
+        grid={grid} onGrid={setGrid}
       />
 
       {fullscreen && stageOriginal && (
