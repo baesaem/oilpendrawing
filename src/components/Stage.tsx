@@ -160,7 +160,9 @@ export function Stage({ original, result, view, busy, toneFilter, wide, guide, l
   return (
     <div className={`viewer ${wide ? 'wide' : ''}`}>
       {!oUrl ? (
-        <div className="empty-stage" />
+        <div className="empty-stage">
+          <h3>양평평생교육센터 오일펜(하근수 화가님) 드로잉 도우미</h3>
+        </div>
       ) : (
         <div className="frame">
           <img src={base ?? oUrl} alt={showResult ? '드로잉 결과' : '원본'} style={showResult ? { filter: toneFilter } : undefined} draggable={false} />
