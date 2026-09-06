@@ -1282,28 +1282,64 @@ export function passSizes(p: PaintProfile, minSide: number): number[] {
 
 /* ---------- 메인 ---------- */
 
+/** 밝기를 나눌 구역 수. 사진의 밝은 곳~어두운 곳을 이만큼으로 나눠 종이의 값 범위에 펼친다 */
+const TONE_ZONES = 15;
+
 /**
- * 로우키(전체가 어두운) 사진 자동 노출.
+ * 사진의 밝기 범위를 종이의 값 범위에 맞춘다.
  * 엔진의 여백 문턱은 밝기 0~1 의 절대값이라, 밝은 곳이 0.2 뿐인 밤·역광·검은 배경 사진은
- * 화면 전체가 문턱 아래로 들어가 통째로 새까만 해칭 덩어리가 된다 (사용자 제보).
- * 사람이 어두운 사진을 보고 그릴 때도 종이의 흰색부터 검정까지 다 쓰므로, 사진의 밝은 쪽 4%가
- * 0.9 근처에 오도록 한 번만 밝기를 늘린다. **밝기 분포에 따라 문턱을 움직이는 것이 아니라**
- * (그건 실패했다 — CLAUDE.md) 사진 자체를 정상 노출로 되돌리는 것이라, 보통 사진에는 아무 일도 없다.
+ * 화면 전체가 문턱 아래로 들어가 통째로 새까만 덩어리가 됐다 (사용자 제보).
+ * 사람이 그럴 때 하는 일을 그대로 한다 — 사진에서 가장 밝은 곳과 가장 어두운 곳을 찾아
+ * 그 사이를 `TONE_ZONES`(15) 개의 명암 구역으로 나누고, 각 구역에 종이의 값 범위를 고르게 나눠 준다.
+ * 흰 여백이 반드시 생기지는 않는다 — 여백은 여백 슬라이더가 정하고, 여기서는 값의 폭만 되찾는다.
+ *
+ * 두 가지를 섞는다: (1) 2~98 퍼센타일을 0.03~0.97 로 펴는 단순 확대(사진의 명암 관계가 그대로 남는다),
+ * (2) 15 구역이 값 범위를 똑같이 나눠 갖는 재배분(어두운 쪽에 몰린 사진에서 그림자 속 형태가 갈라진다).
+ * 구역 안에서는 원래 밝기 순서대로 이어 붙이므로 계단(포스터라이즈)이 생기지 않는다 —
+ * 톤을 단계로 눌러 버리는 옛 실패작과 다른 점이 이것이다.
  */
-function autoExpose(img: RawImage, lum: Float32Array): RawImage {
+function autoLevels(img: RawImage, lum: Float32Array): RawImage {
   const n = lum.length;
-  // 96 퍼센타일 (히스토그램 256칸)
-  const hist = new Int32Array(256);
-  for (let i = 0; i < n; i++) hist[Math.min(255, Math.max(0, Math.round(lum[i] * 255)))]++;
-  let acc = 0, hi = 255;
-  for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc >= n * 0.04) { hi = v; break; } }
-  const top = hi / 255;
-  if (top >= 0.62 || top < 0.01) return img; // 보통 사진은 그대로
-  const gain = Math.min(3.6, 0.9 / top);
+  const B = 256;
+  const hist = new Int32Array(B);
+  for (let i = 0; i < n; i++) hist[Math.min(B - 1, Math.max(0, Math.round(lum[i] * (B - 1))))]++;
+  // 2 / 98 퍼센타일
+  let acc = 0, loB = 0, hiB = B - 1;
+  for (let v = 0; v < B; v++) { acc += hist[v]; if (acc >= n * 0.02) { loB = v; break; } }
+  acc = 0;
+  for (let v = B - 1; v >= 0; v--) { acc += hist[v]; if (acc >= n * 0.02) { hiB = v; break; } }
+  const lo = loB / (B - 1), hi = hiB / (B - 1);
+  if (hi - lo < 0.02) return img; // 거의 단색인 사진은 건드리지 않는다
+  // **밝은 쪽이 제자리에 있는 사진은 손대지 않는다.** 고칠 것은 "가장 밝은 곳조차 어두운" 사진뿐이다.
+  // (밝은 배경이 있는 인물 사진까지 재배분하면 배경이 어두운 구역으로 밀려 새까매진다 — 시험함)
+  if (hi >= 0.72) return img;
+  const strength = clamp((0.72 - hi) / 0.3, 0, 1);
+
+  // 값 표: 밝기 256 칸마다 옮겨 갈 값을 미리 계산한다
+  const map = new Float32Array(B);
+  // (2) 15 구역 재배분 — 누적 분포로 구역을 나누고 구역 안에서는 순서를 지킨다
+  const cdf = new Float32Array(B);
+  let run = 0;
+  for (let v = 0; v < B; v++) { run += hist[v]; cdf[v] = run / n; }
+  const span = hi - lo;
+  for (let v = 0; v < B; v++) {
+    const L = v / (B - 1);
+    const stretch = clamp((L - lo) / span, 0, 1);
+    // 구역 번호와 그 구역 안에서의 위치 (0~1)
+    const z = clamp(cdf[v], 0, 1) * TONE_ZONES;
+    const zi = Math.min(TONE_ZONES - 1, Math.floor(z));
+    const zone = (zi + (z - zi)) / TONE_ZONES;
+    // 어두울수록 구역 재배분을 세게 섞는다 (조금 어두운 사진은 단순 확대만으로 충분하다)
+    const zw = 0.55 * strength;
+    map[v] = 0.03 + 0.94 * (stretch * (1 - zw) + zone * zw);
+  }
   const out = new Uint8ClampedArray(img.data.length);
-  // 감마가 아니라 곱셈이라 어두운 곳끼리의 관계(그림자 안의 형태)가 그대로 살아난다
   for (let i = 0; i < img.data.length; i += 4) {
-    out[i] = img.data[i] * gain; out[i + 1] = img.data[i + 1] * gain; out[i + 2] = img.data[i + 2] * gain;
+    const L = (0.299 * img.data[i] + 0.587 * img.data[i + 1] + 0.114 * img.data[i + 2]) / 255;
+    const t = map[Math.min(B - 1, Math.max(0, Math.round(L * (B - 1))))];
+    // 색은 유지하고 밝기만 옮긴다 (색상이 튀지 않게 곱셈 비율로)
+    const k = L > 0.004 ? t / L : t / 0.004;
+    out[i] = img.data[i] * k; out[i + 1] = img.data[i + 1] * k; out[i + 2] = img.data[i + 2] * k;
     out[i + 3] = img.data[i + 3];
   }
   return { width: img.width, height: img.height, data: out };
@@ -1317,8 +1353,8 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   const minSide = Math.min(w, h);
   const scale = Math.max(w, h) / 1000;
 
-  // 로우키 사진은 먼저 정상 노출로 되돌린다 — 안 그러면 화면 전체가 문턱 아래로 들어가 새까매진다
-  img = autoExpose(img, luminance01(img));
+  // 사진의 밝기 범위를 15 구역으로 나눠 종이의 값 범위에 펼친다 — 안 그러면 어두운 사진이 통째로 새까매진다
+  img = autoLevels(img, luminance01(img));
   const lum = luminance01(img);
   const grads = channelGradients(img, w, h);
   const mag = colorEdgeMag(grads, N);
