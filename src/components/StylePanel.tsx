@@ -47,7 +47,7 @@ export function StylePanel({ params, onParams, paint, presets, onSavePreset, onD
   const [peek, setPeek] = useState<{ st: PenStyle; top: number; left: number } | null>(null);
   const showPeek = (st: PenStyle, el: HTMLElement) => {
     const r = el.getBoundingClientRect();
-    const W = 300, H = 380;
+    const W = 240, H = 320;
     setPeek({
       st,
       top: Math.max(12, Math.min(window.innerHeight - H - 12, r.top + r.height / 2 - H / 2)),
