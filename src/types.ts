@@ -350,7 +350,7 @@ export const STYLE_LABEL: Record<PenStyle, string> = {
   fineink: '인물화 (세밀 펜)',
   hatching: '고전 (한 방향 해칭)',
   crosshatch: '단순 (교차 해칭)',
-  contour: '윤곽선 드로잉',
+  contour: '윤곽선',
   stipple: '점묘',
   engraving: '판화풍',
   realistic: '극사실 세밀화',
