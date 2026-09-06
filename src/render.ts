@@ -1376,19 +1376,34 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   let bgMask: Float32Array | null = null;
   if (!painty) {
     // 큰 어두운 배경(스튜디오 인물 사진의 검은 배경, 밤 하늘): 펜 화가는 비워 두고 인물의 윤곽만 남긴다.
-    // 그대로 두면 화면의 절반이 교차 해칭 덩어리가 된다. 어둡고 평탄한 화소가 넓은 범위(짧은 변/8)에서 55% 이상이면 배경으로 본다.
+    // 그대로 두면 화면의 절반이 교차 해칭 덩어리가 된다.
+    // **풍경 사진의 그늘진 나무를 배경으로 오인하면 안 된다** (사용자 제보: 호수 사진의 어두운 물가 나무가
+    // 통째로 흰 종이가 됐다). 가르는 기준은 경계의 **절대** 세기가 아니라 그 자리 밝기에 대한 **비율**이다 —
+    // 깊은 그늘은 사진 전체가 곱셈으로 어두워진 것이라 절대 경계는 작아도 밝기 대비 비율은 밝은 곳과 같지만,
+    // 스튜디오 배경·밤 하늘은 비율로 재도 센서 노이즈뿐이다. (절대값으로만 재던 옛 조건이 그늘을 배경으로 봤다.)
+    // 여기에 두 가지를 더 건다: 그런 화소가 화면 전체의 14% 이상일 것(스튜디오 배경은 40~60%),
+    // 그 자리 둘레(짧은 변/8)의 55% 이상이 그런 화소일 것.
     {
       // 센서 노이즈에 속지 않도록 밝기·경계 모두 조금 뭉갠 값으로 판단한다
-      const lumS = boxBlur(lum, w, h, 3), magS = boxBlur(mag, w, h, 5);
+      const lumS = boxBlur(lum, w, h, 3), magS = boxBlur(mag, w, h, 5), texS = boxBlur(texture, w, h, 5);
       const dark = new Float32Array(N);
-      for (let i = 0; i < N; i++) dark[i] = lumS[i] < 0.16 && magS[i] < 0.14 ? 1 : 0;
-      const frac = boxBlur(dark, w, h, Math.max(8, Math.round(minSide / 8)));
-      const near = boxBlur(dark, w, h, 3);
-      bgMask = new Float32Array(N);
+      let darkN = 0;
       for (let i = 0; i < N; i++) {
-        const bg = clamp((frac[i] - 0.35) / 0.25, 0, 1) * near[i];
-        bgMask[i] = bg;
-        if (bg > 0) { target[i] *= 1 - bg; texture[i] *= 1 - bg; }
+        // 밝기 대비 경계 세기. 실측(스튜디오 배경 0.28 · 그늘진 숲 0.72 · 밝은 곳의 어두운 화소 2.3)에서
+        // 0.45 가 배경과 그늘을 가른다
+        const rel = magS[i] / (lumS[i] + 0.04);
+        const d = lumS[i] < 0.13 && magS[i] < 0.14 && rel < 0.45 && texS[i] < 0.15 ? 1 : 0;
+        dark[i] = d; darkN += d;
+      }
+      if (darkN / N >= 0.14) {
+        const frac = boxBlur(dark, w, h, Math.max(8, Math.round(minSide / 8)));
+        const near = boxBlur(dark, w, h, 3);
+        bgMask = new Float32Array(N);
+        for (let i = 0; i < N; i++) {
+          const bg = clamp((frac[i] - 0.55) / 0.2, 0, 1) * near[i];
+          bgMask[i] = bg;
+          if (bg > 0) { target[i] *= 1 - bg; texture[i] *= 1 - bg; }
+        }
       }
     }
     // 펜: 사람 화가처럼 단순화한다. 잎 하나하나가 아니라 나무 덩어리의 톤을 본다 — 잔결 영역은 크게 뭉개고(세밀함이 낮을수록 더),
