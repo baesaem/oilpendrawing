@@ -213,7 +213,8 @@ export function App() {
       // 로컬 결과가 있고 스위치가 켜져 있으면 그것을 견본으로 (같은 구도라 올린 견본보다 정확히 따름)
       const localRef = params.aiRefFromLocal && (current?.engine === 'local') ? current.base ?? current.result : null;
       // 둘 다 없으면 고른 화풍의 프리셋 예시 그림 (다른 사진이므로 기법만 따르라고 지시)
-      const presetRef = !localRef && !reference && params.aiRefFromPreset ? await fetchPresetImage(params.style) : null;
+      // 견본도 로컬 결과도 없으면 고른 화풍의 갤러리 예시 그림을 견본으로 보낸다 (못 가져오면 견본 없이 그린다)
+      const presetRef = !localRef && !reference ? await fetchPresetImage(params.style) : null;
       const preparedRef = localRef
         ? await prepareInput(localRef, { maxSide: 1024, grayscale: false })
         : reference ? await prepareInput(reference, { maxSide: 1024, grayscale: false })

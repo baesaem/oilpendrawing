@@ -78,16 +78,6 @@ export function StylePanel({ params, onParams, children }: Props) {
               <div className="field-row"><b>강도</b><span className="muted">{intensityHint(params.intensity)}</span></div>
               <input type="range" min={0} max={100} value={params.intensity} onChange={(e) => onParams({ intensity: Number(e.target.value) })} aria-label="강도" />
             </div>
-            <div className="field" style={{ marginTop: 10 }}>
-              <button
-                className="toggle" role="switch" aria-checked={params.aiRefFromPreset}
-                onClick={() => onParams({ aiRefFromPreset: !params.aiRefFromPreset })}
-                title="견본 이미지도 로컬 결과도 없을 때, 고른 화풍의 예시 그림을 견본으로 함께 보내 그 풍을 더 정확히 따르게 합니다"
-              >
-                <span>견본이 없으면 프리셋 예시 그림을 견본으로</span>
-                <span className={`switch ${params.aiRefFromPreset ? 'on' : ''}`} />
-              </button>
-            </div>
           </>
         )}
       </div>
