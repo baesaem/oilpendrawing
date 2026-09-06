@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { COLOR_LABEL, PAINT_FOR_STYLE, PEN_STYLES, STYLE_DESC, STYLE_LABEL, type ColorMode, type DrawingParams, type PenStyle } from '../types';
 import { LightDial } from './LightDial';
 import { ARTISTS, ARTIST_BY_ID, type ArtistId } from '../artists';
@@ -41,6 +42,18 @@ export function StylePanel({ params, onParams, paint, presets, onSavePreset, onD
   // 화풍 프리셋을 세 탭으로 나눈다: 저장해 둔 "즐겨찾기", 브라우저가 그리는 "로컬"(예시 그림 갤러리),
   // 키가 있어야 켜지는 "AI"(AI 전용 설정). 화풍·색·빛은 세 경로가 함께 쓰므로 탭 밖에 둔다.
   const [tab, setTab] = useState<'fav' | 'local' | 'ai'>('local');
+  // 썸네일에 마우스를 올리면 그 예시 그림을 크게 띄운다 (패널이 좁아 썸네일만으로는 기법이 안 보인다).
+  // 패널 왼쪽에 붙여 화면 밖으로 나가지 않게 자리를 잡고, 마우스 이벤트는 통과시킨다.
+  const [peek, setPeek] = useState<{ st: PenStyle; top: number; left: number } | null>(null);
+  const showPeek = (st: PenStyle, el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    const W = 300, H = 240;
+    setPeek({
+      st,
+      top: Math.max(12, Math.min(window.innerHeight - H - 12, r.top + r.height / 2 - H / 2)),
+      left: Math.max(12, r.left - W - 14),
+    });
+  };
   return (
     <>
       <div className="panel-head"><h2>표현 설정</h2></div>
@@ -69,6 +82,8 @@ export function StylePanel({ params, onParams, paint, presets, onSavePreset, onD
                     <button
                       key={st} type="button" className={params.style === st ? 'on' : ''} role="radio" aria-checked={params.style === st}
                       title={STYLE_LABEL[st]} onClick={() => onParams({ style: st })}
+                      onMouseEnter={(e) => showPeek(st, e.currentTarget)} onFocus={(e) => showPeek(st, e.currentTarget)}
+                      onMouseLeave={() => setPeek(null)} onBlur={() => setPeek(null)}
                     >
                       <img src={presetImageUrl(st)} alt="" loading="lazy" draggable={false} />
                       <span>{presetShortLabel(st)}</span>
@@ -78,6 +93,14 @@ export function StylePanel({ params, onParams, paint, presets, onSavePreset, onD
               </div>
             ))}
             <div className="small muted">{STYLE_DESC[params.style]}</div>
+            {/* 패널에 backdrop-filter 가 걸려 있어 그 안에서는 position:fixed 가 패널 기준이 된다 — body 로 내보낸다 */}
+            {peek && createPortal(
+              <div className="preset-peek" style={{ top: peek.top, left: peek.left }} aria-hidden="true">
+                <img src={presetImageUrl(peek.st)} alt="" />
+                <span>{STYLE_LABEL[peek.st]}</span>
+              </div>,
+              document.body,
+            )}
           </>
         ) : (
           <>

@@ -114,6 +114,15 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .gallery button:hover { border-color: var(--line-strong); color: var(--text); }
+/* 썸네일에 마우스를 올렸을 때 크게 보여 주는 예시 그림 */
+.preset-peek {
+  position: fixed; width: 300px; z-index: 8; pointer-events: none;
+  background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px; padding: 6px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.5);
+}
+.preset-peek img { display: block; width: 100%; border-radius: 4px; background: #f2ece0; }
+.preset-peek span { display: block; padding: 5px 2px 1px; font-size: 12px; color: var(--text); text-align: center; }
+@media (max-width: 900px) { .preset-peek { display: none; } }
 .gallery button.on { border-color: var(--accent); color: var(--text); font-weight: 700; box-shadow: 0 0 0 1px var(--accent); }
 .swatches i { width: 7px; height: 7px; border-radius: 50%; display: block; }
 

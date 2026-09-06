@@ -357,7 +357,7 @@ export const STYLE_LABEL: Record<PenStyle, string> = {
   comic: '잉크 일러스트',
   watercolor: '수채 담채 (펜 + 수채)',
   oil: '유화 붓터치 (인상주의)',
-  vangogh: '고흐풍 유화 (임파스토)',
+  vangogh: '고흐 (임파스토 유화)',
 
 };
 export const STYLE_DESC: Record<PenStyle, string> = {
