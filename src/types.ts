@@ -345,7 +345,7 @@ export const PEN_STYLES: PenStyle[] = [
   'watercolor', 'oil', 'vangogh',
 ];
 export const STYLE_LABEL: Record<PenStyle, string> = {
-  tonehatch: '펜화 · 명암 단계 해칭 (교본식)',
+  tonehatch: '펜화 · 대비',
   richeon: '리천 스타일 (어반 펜 스케치)',
   fineink: '세밀 펜화',
   hatching: '클래식 해칭',
