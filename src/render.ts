@@ -460,6 +460,8 @@ interface Ctx {
   colorAt: (i: number) => RGB;
   /** 그림붓(담채·유화·임파스토)인지 — 잔결을 무시하고 큰 흐름을 따른다 */
   painty: boolean;
+  /** 비워 두는 큰 어두운 배경 0..1 (펜 붓만). 획도 윤곽도 놓지 않는다 */
+  bg: Float32Array | null;
 }
 
 /**
@@ -609,6 +611,7 @@ function edgePass(c: Ctx, mag: Float32Array, mass: { mag: Float32Array; gx: Floa
     let best = -1, bi = -1;
     for (let y = cy | 0; y < y1; y++) for (let x = cx | 0; x < x1; x++) { const i = y * w + x; const s = strength(i); if (s > best) { best = s; bi = i; } }
     if (bi < 0 || best < th || done[bi]) continue;
+    if (c.bg && c.bg[bi] > 0.5) continue; // 비워 둔 배경의 노이즈 경계는 긋지 않는다
     sid++;
     const x0 = (bi % w) + 0.5, y0 = Math.floor(bi / w) + 0.5;
     const i0 = bi;
@@ -623,6 +626,7 @@ function edgePass(c: Ctx, mag: Float32Array, mass: { mag: Float32Array; gx: Floa
         const i = yi * w + xi;
         const m = strength(i);
         if (m < th * (0.45 + 0.3 * texture[i])) break;
+        if (c.bg && c.bg[i] > 0.7 && s > 3) break;
         // 다른 윤곽 획이 이미 지나간 자리로 들어가면 조금 겹친 뒤 멈춘다
         if (done[i] && done[i] !== sid) { if (++dup > 4) break; }
         mark(xi, yi);
@@ -885,7 +889,7 @@ function applyVignette(cv: Canvas, paper: RGB, amount: number, rng: () => number
   const m = (amount / 100) * 0.22 * Math.min(w, h);
   if (m < 1) return;
   const eL = smoothNoise1D(h, rng), eR = smoothNoise1D(h, rng), eT = smoothNoise1D(w, rng), eB = smoothNoise1D(w, rng);
-  const amp = m * 0.7;
+  const amp = m * 0.35; // 경계 흔들림은 완만하게 — 어두운 배경 위에서 톱니처럼 보이지 않게
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const d = Math.min(x + eL[y] * amp, w - 1 - x + eR[y] * amp, y + eT[x] * amp, h - 1 - y + eB[x] * amp);
     if (d >= m) continue;
@@ -943,12 +947,30 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     target[i] = (0.06 + 0.84 * Math.pow(d, 1.1)) * (1 - texture[i] * 0.22);
   }
   const painty = p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto';
+  let bgMask: Float32Array | null = null;
   if (!painty) {
+    // 큰 어두운 배경(스튜디오 인물 사진의 검은 배경, 밤 하늘): 펜 화가는 비워 두고 인물의 윤곽만 남긴다.
+    // 그대로 두면 화면의 절반이 교차 해칭 덩어리가 된다. 어둡고 평탄한 화소가 넓은 범위(짧은 변/8)에서 55% 이상이면 배경으로 본다.
+    {
+      // 센서 노이즈에 속지 않도록 밝기·경계 모두 조금 뭉갠 값으로 판단한다
+      const lumS = boxBlur(lum, w, h, 3), magS = boxBlur(mag, w, h, 5);
+      const dark = new Float32Array(N);
+      for (let i = 0; i < N; i++) dark[i] = lumS[i] < 0.16 && magS[i] < 0.14 ? 1 : 0;
+      const frac = boxBlur(dark, w, h, Math.max(8, Math.round(minSide / 8)));
+      const near = boxBlur(dark, w, h, 3);
+      bgMask = new Float32Array(N);
+      for (let i = 0; i < N; i++) {
+        const bg = clamp((frac[i] - 0.35) / 0.25, 0, 1) * near[i];
+        bgMask[i] = bg;
+        if (bg > 0) { target[i] *= 1 - bg; texture[i] *= 1 - bg; }
+      }
+    }
     // 펜: 사람 화가처럼 단순화한다. 잎 하나하나가 아니라 나무 덩어리의 톤을 본다 — 잔결 영역은 크게 뭉개고(세밀함이 낮을수록 더),
     // 덩어리끼리의 대비를 키운 뒤 톤을 층 수만큼의 단계로 눌러 덩어리마다 고른 해칭이 들어가게 한다.
     // (이걸 안 하면 실사의 빽빽한 숲이 고리·획 부스러기로 덮인 '그림이 아닌 것'이 된다.)
     const rS = Math.max(2, Math.round(minSide * (0.008 + 0.03 * (1 - clamp(p.detail, 0, 100) / 100))));
-    const s1 = boxBlur(target, w, h, Math.max(1, Math.round(rS * 0.4))), s2 = boxBlur(target, w, h, rS * 2);
+    // 잔결이 없는 곳(얼굴·벽)은 거의 뭉개지 않는다 — 눈·입·주름 같은 작은 톤 차가 곧 그림이다
+    const s1 = boxBlur(target, w, h, Math.max(1, Math.round(rS * 0.15))), s2 = boxBlur(target, w, h, rS * 2);
     for (let i = 0; i < N; i++) target[i] = s1[i] * (1 - texture[i]) + s2[i] * texture[i];
     // 잎 무리의 밝은 덩어리와 그늘 덩어리가 갈라져야 나무로 읽힌다 — 덩어리 크기(짧은 변/70)의 지역 대비를 키운다.
     // 단계로 누르거나(포스터라이즈) 어두운 곳만 남기는 시도는 실사에서 섬 윤곽이 위장 무늬처럼 보여 뺐다.
@@ -979,6 +1001,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     tol: 0.10 + 0.25 * (1 - acc),
     colorAt,
     painty: p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto',
+    bg: bgMask,
   };
   const T = 0.03 + 0.28 * (1 - acc);
   const sizes = passSizes(p, minSide);

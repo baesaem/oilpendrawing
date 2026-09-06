@@ -33,29 +33,29 @@ function TipThumb({ kind }: { kind: TipKind }) {
   return <canvas ref={ref} className="tip-thumb" aria-hidden="true" />;
 }
 
-function Range({ label, value, min, max, step = 1, unit = '', hint, onChange }: {
-  label: string; value: number; min: number; max: number; step?: number; unit?: string; hint?: string; onChange: (v: number) => void;
+function Range({ label, value, min, max, step = 1, unit = '', hint, note, onChange }: {
+  label: string; value: number; min: number; max: number; step?: number; unit?: string; hint?: string; note?: string; onChange: (v: number) => void;
 }) {
   return (
     <div className="field" title={hint}>
-      <div className="field-row"><b>{label}</b><span className="muted">{value}{unit}</span></div>
+      <div className="field-row"><b>{label}</b><span className="muted">{note ?? `${value}${unit}`}</span></div>
       <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-label={label} />
     </div>
   );
 }
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="group">
-      <div className="group-title">{title}</div>
-      {children}
-    </div>
-  );
-}
+/** 슬라이더 값을 사람 말로 (숫자만 보면 무엇이 달라지는지 알기 어렵다) */
+const detailNote = (v: number) => (v < 35 ? '큰 형태만' : v < 70 ? '보통' : '아주 세밀하게');
+const keepNote = (v: number) => (v < 35 ? '거의 다 채움' : v < 65 ? '보통' : '흰 종이를 넓게');
+const inkNote = (v: number) => (v < 35 ? '연하게' : v < 70 ? '보통' : '진하게');
+const widthNote = (v: number) => (v <= 1.2 ? `가는 펜 ${v}px` : v <= 2.2 ? `보통 펜 ${v}px` : `굵은 펜 ${v}px`);
 
 /**
  * 그리기 설정 (Dynamic Auto-Painter 의 파라미터 패널). 로컬 엔진이 보는 값의 전부이며, 화풍 프리셋을 고르면 채워지고
- * 견본을 올리면 분석값으로 채워진다. 여기서 바로 고칠 수 있고, 움직이면 결과가 다시 그려진다.
+ * 견본을 올리면 분석값으로 채워진다. 움직이면 결과가 바로 다시 그려진다.
+ *
+ * 자주 쓰는 넷(세밀함·여백·진하기·선 굵기)만 밖에 두고 나머지는 "세부 조정"에 접어 둔다 —
+ * 이 앱은 드로잉 초보자용이라 슬라이더가 많으면 무엇을 만져야 할지 알 수 없다.
  */
 export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, onSavePreset, onDeletePreset, onApplyPreset }: Props) {
   const [saving, setSaving] = useState(false);
@@ -68,7 +68,8 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
     setName('');
     setSaving(false);
   };
-  const isStipple = s.brush === 'stipple', isWash = s.brush === 'wash' || s.brush === 'oil' || s.brush === 'impasto';
+  const isStipple = s.brush === 'stipple';
+  const isPaint = s.brush === 'wash' || s.brush === 'oil' || s.brush === 'impasto';
   return (
     <>
       <div className="panel-head">
@@ -76,22 +77,48 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
         <button className="link" onClick={onReset} title="화풍·숙련도 기본값으로 되돌립니다">{fromSample ? '견본값 다시 반영' : '기본값'}</button>
       </div>
       <div className="small muted">
-        {fromSample ? '견본에서 읽은 값입니다. 슬라이더를 움직이면 결과가 바로 다시 그려집니다.' : '화풍 프리셋을 고르면 채워집니다. 직접 조절해도 됩니다.'}
+        {fromSample ? '견본에서 읽은 값입니다. 움직이면 결과가 바로 다시 그려집니다.' : '화풍을 고르면 채워집니다. 네 가지만 만져도 충분합니다.'}
       </div>
 
       <div className="field">
-        <div className="field-row"><b>기본 프리셋</b></div>
-        <div className="chips">
-          <button className={samePaint(s, RICHEON_PAINT) ? 'on' : ''} onClick={() => onChange({ ...RICHEON_PAINT })} title="가는 펜, 면 방향 획, 나뭇잎 고리선, 가장자리 여백 (@richeons_drawing_journey)">리천 스타일</button>
-          <button className={samePaint(s, FINE_PAINT) ? 'on' : ''} onClick={() => onChange({ ...FINE_PAINT })} title="아주 가는 선, 끝까지 완성, 수평 하늘 해칭, 먹 그림자">세밀 펜화</button>
-          <button className={samePaint(s, CLASSIC_PAINT) ? 'on' : ''} onClick={() => onChange({ ...CLASSIC_PAINT })} title="굵은 펜의 한 방향 해칭">클래식</button>
+        <div className="field-row"><b>붓</b><span className="muted small">{BRUSH_SHORT[s.brush]}</span></div>
+        <div className="seg" style={{ gridTemplateColumns: 'repeat(9, minmax(0, 1fr))' }} role="radiogroup" aria-label="붓">
+          {BRUSHES.map((b) => (
+            <button key={b} className={s.brush === b ? 'on' : ''} role="radio" aria-checked={s.brush === b} onClick={() => onChange({ brush: b })} title={BRUSH_LABEL[b]} style={{ fontSize: 11 }}>
+              {BRUSH_SHORT[b]}
+            </button>
+          ))}
         </div>
+        <div className="small faint">{BRUSH_LABEL[s.brush]}</div>
       </div>
+
+      {isPaint && (
+        <div className="field">
+          <div className="field-row"><b>브러시 팁</b><span className="muted small">{TIP_SHORT[s.tip]}</span></div>
+          <div className="tips" role="radiogroup" aria-label="브러시 팁">
+            {TIPS.map((t) => (
+              <button key={t} type="button" className={s.tip === t ? 'on' : ''} role="radio" aria-checked={s.tip === t} title={TIP_LABEL[t]} onClick={() => onChange({ tip: t })}>
+                <TipThumb kind={t} />
+                <span>{TIP_SHORT[t]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Range label="세밀함" value={s.detail} min={0} max={100} note={detailNote(s.detail)}
+        hint="낮으면 큰 형태만, 높으면 작은 획으로 세부까지" onChange={(detail) => onChange({ detail })} />
+      <Range label="여백" value={s.paperKeep} min={0} max={100} note={keepNote(s.paperKeep)}
+        hint="높을수록 밝은 곳을 넓게 종이로 남깁니다" onChange={(paperKeep) => onChange({ paperKeep })} />
+      <Range label={isPaint ? '물감 진하기' : '잉크 진하기'} value={s.ink} min={0} max={100} note={inkNote(s.ink)}
+        hint="획 하나의 진하기. 아주 진하면 깊은 그림자를 먹으로 채웁니다" onChange={(ink) => onChange({ ink })} />
+      <Range label={isPaint ? '붓 굵기' : '선 굵기'} value={s.lineWidth} min={1} max={6} step={0.5} note={widthNote(s.lineWidth)}
+        onChange={(lineWidth) => onChange({ lineWidth })} />
 
       <div className="field">
         <div className="field-row">
-          <b>즐겨찾기 프리셋</b>
-          {!saving && <button className="link" onClick={() => setSaving(true)} disabled={full} title={full ? `최대 ${PRESET_LIMIT}개까지 저장됩니다` : '지금 슬라이더 값을 이름 붙여 저장합니다'}>현재 설정 저장</button>}
+          <b>즐겨찾기</b>
+          {!saving && <button className="link" onClick={() => setSaving(true)} disabled={full} title={full ? `최대 ${PRESET_LIMIT}개까지 저장됩니다` : '지금 설정을 이름 붙여 저장합니다'}>현재 설정 저장</button>}
         </div>
         {saving && (
           <div className="preset-save">
@@ -117,53 +144,28 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
         )}
       </div>
 
-      <div className="field">
-        <div className="field-row"><b>붓</b><span className="muted small">{BRUSH_SHORT[s.brush]}</span></div>
-        <div className="seg" style={{ gridTemplateColumns: 'repeat(9, minmax(0, 1fr))' }} role="radiogroup" aria-label="붓">
-          {BRUSHES.map((b) => (
-            <button key={b} className={s.brush === b ? 'on' : ''} role="radio" aria-checked={s.brush === b} onClick={() => onChange({ brush: b })} title={BRUSH_LABEL[b]} style={{ fontSize: 11 }}>
-              {BRUSH_SHORT[b]}
-            </button>
-          ))}
-        </div>
-        <div className="small faint">{BRUSH_LABEL[s.brush]}</div>
-      </div>
+      <details className="advanced">
+        <summary>세부 조정 · 획 · 방향 · 색</summary>
 
-      {isWash && (
         <div className="field">
-          <div className="field-row"><b>브러시 팁</b><span className="muted small">{TIP_SHORT[s.tip]}</span></div>
-          <div className="tips" role="radiogroup" aria-label="브러시 팁">
-            {TIPS.map((t) => (
-              <button key={t} type="button" className={s.tip === t ? 'on' : ''} role="radio" aria-checked={s.tip === t} title={TIP_LABEL[t]} onClick={() => onChange({ tip: t })}>
-                <TipThumb kind={t} />
-                <span>{TIP_SHORT[t]}</span>
-              </button>
-            ))}
+          <div className="field-row"><b>기본 프리셋</b></div>
+          <div className="chips">
+            <button className={samePaint(s, RICHEON_PAINT) ? 'on' : ''} onClick={() => onChange({ ...RICHEON_PAINT })} title="가는 펜, 면 방향 획, 나뭇잎 고리선, 가장자리 여백 (@richeons_drawing_journey)">리천</button>
+            <button className={samePaint(s, FINE_PAINT) ? 'on' : ''} onClick={() => onChange({ ...FINE_PAINT })} title="아주 가는 선, 끝까지 완성, 수평 하늘 해칭, 먹 그림자">세밀 펜화</button>
+            <button className={samePaint(s, CLASSIC_PAINT) ? 'on' : ''} onClick={() => onChange({ ...CLASSIC_PAINT })} title="굵은 펜의 한 방향 해칭">클래식</button>
           </div>
-          <div className="small faint">{TIP_LABEL[s.tip]}</div>
         </div>
-      )}
 
-      <Group title="획 — 큰 획에서 작은 획으로">
-        <Range label="층 수" value={s.passes} min={1} max={6} hint="획 크기를 줄여 가며 몇 번 겹쳐 그릴지" onChange={(passes) => onChange({ passes })} />
+        <Range label="층 수" value={s.passes} min={1} max={6} unit="층" hint="획 크기를 줄여 가며 몇 번 겹쳐 그릴지" onChange={(passes) => onChange({ passes })} />
         <Range label="획 크기" value={s.brushSize} min={0} max={100} hint="첫 층의 획 길이·간격. 큰 형태를 잡는 획" onChange={(brushSize) => onChange({ brushSize })} />
-        <Range label="세밀함" value={s.detail} min={0} max={100} hint="마지막 층의 획이 얼마나 작은지. 높을수록 세부까지 그리고 해칭 간격이 좁아짐" onChange={(detail) => onChange({ detail })} />
         {!isStipple && <Range label="획 길이" value={s.strokeLength} min={0} max={100} hint="획 하나의 길이 (획 크기 배수)" onChange={(strokeLength) => onChange({ strokeLength })} />}
-      </Group>
-
-      <Group title="정밀도 · 방향">
-        <Range label="정밀도" value={s.accuracy} min={0} max={100} hint="낮으면 큰 명암 차이만 획으로 메워 성글고, 높으면 사진의 명암에 가깝게" onChange={(accuracy) => onChange({ accuracy })} />
-        {!isStipple && <Range label="형태 따라가기" value={s.featureFollow} min={0} max={100} hint="0 = 기준 각도로만, 100 = 면·경계의 방향을 그대로 따름 (DAP 의 Feature Follow)" onChange={(featureFollow) => onChange({ featureFollow })} />}
-        {!isStipple && <Range label="기준 각도" value={s.baseAngle} min={0} max={179} unit="°" hint="방향이 없는 곳(하늘·평면)과 형태 따라가기가 약할 때의 해칭 방향" onChange={(baseAngle) => onChange({ baseAngle })} />}
+        <Range label="정밀도" value={s.accuracy} min={0} max={100} hint="낮으면 큰 명암 차이만 메워 성글고, 높으면 사진의 명암에 가깝게" onChange={(accuracy) => onChange({ accuracy })} />
+        {!isStipple && <Range label="형태 따라가기" value={s.featureFollow} min={0} max={100} hint="0 = 기준 각도로만, 100 = 면·경계의 방향을 그대로 따름" onChange={(featureFollow) => onChange({ featureFollow })} />}
+        {!isStipple && <Range label="기준 각도" value={s.baseAngle} min={0} max={179} unit="°" hint="방향이 없는 곳(하늘·평면)의 해칭 방향" onChange={(baseAngle) => onChange({ baseAngle })} />}
         <Range label="무작위성" value={s.randomness} min={0} max={100} hint="시작점·각도·길이·필압의 흔들림" onChange={(randomness) => onChange({ randomness })} />
-      </Group>
-
-      <Group title="펜 · 종이">
-        <Range label="선 굵기" value={s.lineWidth} min={1} max={6} step={0.5} unit="px" onChange={(lineWidth) => onChange({ lineWidth })} />
-        <Range label={isWash ? '담채 진하기' : '잉크 농도'} value={s.ink} min={0} max={100} hint="획 하나의 진하기. 85 이상이면 가장 깊은 그림자를 먹으로 채움" onChange={(ink) => onChange({ ink })} />
-        <Range label="여백" value={s.paperKeep} min={0} max={100} unit="%" hint="높을수록 밝은 곳을 넓게 종이로 남김" onChange={(paperKeep) => onChange({ paperKeep })} />
         <Range label="윤곽선" value={s.edges} min={0} max={100} hint="색 경계를 따라가는 선의 양" onChange={(edges) => onChange({ edges })} />
         <Range label="가장자리 여백" value={s.vignette} min={0} max={100} hint="가장자리를 미완성처럼 흐림 (어반 스케치)" onChange={(vignette) => onChange({ vignette })} />
+
         <div className="field">
           <div className="field-row"><b>종이 · 잉크색</b><span className="muted small">흑백일 때만</span></div>
           <div className="color-row">
@@ -171,7 +173,7 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
             <label><input type="color" value={s.inkColor} onChange={(e) => onChange({ inkColor: e.target.value })} aria-label="잉크색" /><span>잉크</span></label>
           </div>
         </div>
-      </Group>
+      </details>
     </>
   );
 }

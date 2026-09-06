@@ -45,9 +45,6 @@ export function StylePanel({ params, onParams, children }: Props) {
             </button>
           ))}
         </div>
-        <select className="text-input select" value={params.style} onChange={(e) => onParams({ style: e.target.value as PenStyle })} aria-label="화풍">
-          {PEN_STYLES.map((st) => <option key={st} value={st}>{STYLE_LABEL[st]}</option>)}
-        </select>
         <div className="small muted">{STYLE_DESC[params.style]}</div>
       </div>
 
@@ -77,22 +74,27 @@ export function StylePanel({ params, onParams, children }: Props) {
 
       <LightDial value={params.light} auto={params.lightAuto} onChange={(light) => onParams({ light, lightAuto: false })} onAuto={() => onParams({ lightAuto: true })} />
 
-      <div className="field">
-        <div className="field-row"><b>밝기</b><span className="muted">{params.brightness > 0 ? `+${params.brightness}` : params.brightness}</span></div>
-        <input type="range" min={-50} max={50} value={params.brightness} onChange={(e) => onParams({ brightness: Number(e.target.value) })} aria-label="밝기" />
-      </div>
-      <div className="field">
-        <div className="field-row"><b>대비</b><span className="muted">{params.contrast > 0 ? `+${params.contrast}` : params.contrast}</span></div>
-        <input type="range" min={-50} max={50} value={params.contrast} onChange={(e) => onParams({ contrast: Number(e.target.value) })} aria-label="대비" />
-      </div>
-      <div className="small faint">밝기·대비는 결과에 즉시 적용되고, AI 생성 때 지시문에도 반영됩니다.</div>
-
       {children}
 
       <details className="advanced">
-        <summary>AI 생성 전용 · 화가 화풍 접목 · 강도</summary>
+        <summary>화풍 목록 · 밝기 · 대비 · 화가 접목</summary>
         <div className="field">
-          <div className="field-row"><b>화가 화풍 접목</b><span className="muted small">선택</span></div>
+          <div className="field-row"><b>화풍 고르기</b><span className="muted small">{PEN_STYLES.length}종</span></div>
+          <select className="text-input select" value={params.style} onChange={(e) => onParams({ style: e.target.value as PenStyle })} aria-label="화풍">
+            {PEN_STYLES.map((st) => <option key={st} value={st}>{STYLE_LABEL[st]}</option>)}
+          </select>
+        </div>
+        <div className="field" style={{ marginTop: 10 }}>
+          <div className="field-row"><b>밝기</b><span className="muted">{params.brightness > 0 ? `+${params.brightness}` : params.brightness}</span></div>
+          <input type="range" min={-50} max={50} value={params.brightness} onChange={(e) => onParams({ brightness: Number(e.target.value) })} aria-label="밝기" />
+        </div>
+        <div className="field" style={{ marginTop: 10 }}>
+          <div className="field-row"><b>대비</b><span className="muted">{params.contrast > 0 ? `+${params.contrast}` : params.contrast}</span></div>
+          <input type="range" min={-50} max={50} value={params.contrast} onChange={(e) => onParams({ contrast: Number(e.target.value) })} aria-label="대비" />
+        </div>
+        <div className="small faint">밝기·대비는 결과에 즉시 적용되고, AI 생성 때 지시문에도 반영됩니다.</div>
+        <div className="field" style={{ marginTop: 10 }}>
+          <div className="field-row"><b>화가 화풍 접목</b><span className="muted small">AI 전용</span></div>
           <select className="text-input select" value={params.artist} onChange={(e) => onParams({ artist: e.target.value as ArtistId })} aria-label="화가 화풍">
             {ARTISTS.map((a) => <option key={a.id} value={a.id}>{a.id === 'none' ? '없음' : `${a.name} (${a.years})`}</option>)}
           </select>
@@ -109,7 +111,7 @@ export function StylePanel({ params, onParams, children }: Props) {
           </button>
         </div>
         <div className="field" style={{ marginTop: 10 }}>
-          <div className="field-row"><b>강도</b><span className="muted">{params.intensity} · {intensityHint(params.intensity)}</span></div>
+          <div className="field-row"><b>강도</b><span className="muted">{intensityHint(params.intensity)} · AI 전용</span></div>
           <input type="range" min={0} max={100} value={params.intensity} onChange={(e) => onParams({ intensity: Number(e.target.value) })} aria-label="강도" />
         </div>
       </details>
