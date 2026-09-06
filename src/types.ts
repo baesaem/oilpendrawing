@@ -348,7 +348,7 @@ export const STYLE_LABEL: Record<PenStyle, string> = {
   tonehatch: '펜화 · 대비',
   richeon: '리천 스타일 (어반 펜 스케치)',
   fineink: '인물화 (세밀 펜)',
-  hatching: '클래식 해칭',
+  hatching: '고전 (한 방향 해칭)',
   crosshatch: '크로스 해칭',
   contour: '윤곽선 드로잉',
   stipple: '점묘',
