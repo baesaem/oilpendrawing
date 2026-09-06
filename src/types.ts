@@ -351,7 +351,7 @@ export const STYLE_LABEL: Record<PenStyle, string> = {
   hatching: '고전 (한 방향 해칭)',
   crosshatch: '단순 (교차 해칭)',
   contour: '윤곽선',
-  stipple: '점묘',
+  stipple: '점묘법',
   engraving: '판화풍',
   realistic: '극사실 세밀화',
   comic: '잉크 일러스트',
