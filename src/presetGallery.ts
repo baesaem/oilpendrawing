@@ -10,7 +10,7 @@ import { STYLE_LABEL, type PenStyle } from './types';
  * 파일 이름이 늘 같아 브라우저가 옛 그림을 캐시에 물고 있을 수 있으므로 버전 꼬리표를 붙인다 —
  * **예시 그림을 바꾸면 이 값도 함께 올린다** (Vite 는 public/ 파일에 해시를 붙이지 않는다).
  */
-const PRESET_VERSION = '20260906e';
+const PRESET_VERSION = '20260906f';
 export function presetImageUrl(style: PenStyle): string {
   return `${import.meta.env.BASE_URL}presets/${style}.jpg?v=${PRESET_VERSION}`;
 }

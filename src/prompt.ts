@@ -22,7 +22,9 @@ const STYLE_TEXT: Record<PenStyle, string> = {
     'The lit cheek, the bridge of the nose and the highlights stay untouched white paper, and the background is left ' +
     'mostly empty with only light hatching behind the head. Leave one lower corner clear for a signature.',
   hatching:
-    'Style: classic parallel hatching. Tone is built with straight, evenly spaced strokes in one dominant direction per plane.',
+    'Style: pen line drawing with partial color. Form and tone are built with straight, evenly spaced parallel strokes in one ' +
+    'dominant direction per plane; then only a few focal areas (a roof, a door, foliage) get light transparent washes of color, ' +
+    'while the rest stays black line on white paper. Most of the sheet is left uncolored.',
   crosshatch:
     'Style: cross-hatching. Layers of strokes at two to four angles build smooth, continuous mid-tones; darkest areas have the most layers.',
   contour:
