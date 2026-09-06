@@ -68,13 +68,6 @@ export function Toolbar(p: Props) {
       {p.mode === 'draw' && (
         <>
           <div className="sep" />
-          <div className="view-seg" role="radiogroup" aria-label="보기">
-            {(['compare', 'result', 'original'] as ViewMode[]).map((v) => (
-              <button key={v} className={p.view === v ? 'on' : ''} role="radio" aria-checked={p.view === v} disabled={!p.hasResult && v !== 'original'} onClick={() => p.onView(v)}>
-                {v === 'compare' ? '비교' : v === 'result' ? '결과' : '원본'}
-              </button>
-            ))}
-          </div>
           <button className={`btn btn-ghost btn-sm ${p.directionEditing ? 'on-accent' : ''}`} disabled={!p.hasPhoto} onClick={p.onToggleDirection}
             title="사진 위에 해칭 방향을 직접 그립니다. 그 근처의 해칭이 그 방향을 따릅니다" aria-pressed={p.directionEditing}>
             <DirectionIcon /> 방향 지시{p.guideCount > 0 && <span className="badge">{p.guideCount}</span>}
@@ -100,14 +93,37 @@ export function Toolbar(p: Props) {
       <button className="btn btn-ghost btn-sm" onClick={p.onDownload} disabled={!p.hasResult} title="PNG 저장"><DownloadIcon /> 저장</button>
       <button className="btn btn-ghost btn-sm" onClick={p.onFullscreen} disabled={!p.hasPhoto} title="전체화면 (F)"><ExpandIcon /> 전체화면</button>
 
-      {p.busy ? (
-        <button className="btn btn-generate" onClick={p.onCancel}><StopIcon /> 중단{p.progress != null && <span className="muted"> · {Math.round(p.progress * 100)}%</span>}</button>
-      ) : (
-        <>
-          <button className="btn btn-primary btn-generate" onClick={p.onDraw} disabled={!p.canDraw} title="브라우저에서 층을 쌓아 가며 그립니다 (API 비용 없음)"><PenIcon /> 그리기 시작</button>
-          <button className="btn btn-generate btn-ai" onClick={p.onAi} disabled={!p.canAi} title={p.keyOk ? 'AI 제공사에 요청합니다 (API 비용)' : 'API 키를 연결하면 쓸 수 있습니다'}>AI로 그리기</button>
-        </>
-      )}
     </div>
+  );
+}
+
+/** 보기 전환 (비교 · 결과 · 원본). 그리기 버튼과 함께 화면 위 제목 옆에 둔다 */
+export function ViewSeg(p: Pick<Props, 'view' | 'onView' | 'hasResult'>) {
+  return (
+    <div className="view-seg" role="radiogroup" aria-label="보기">
+      {(['compare', 'result', 'original'] as ViewMode[]).map((v) => (
+        <button key={v} className={p.view === v ? 'on' : ''} role="radio" aria-checked={p.view === v} disabled={!p.hasResult && v !== 'original'} onClick={() => p.onView(v)}>
+          {v === 'compare' ? '비교' : v === 'result' ? '결과' : '원본'}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 그리기 버튼들 (그리기 시작 · AI로 그리기 · 중단).
+ * 아래 툴바가 아니라 **화면 위 제목 오른쪽**에 둔다 — 가장 자주 누르는 버튼이라 눈에 먼저 들어와야 한다.
+ */
+export function DrawActions(p: Pick<Props, 'busy' | 'progress' | 'canDraw' | 'onDraw' | 'canAi' | 'onAi' | 'onCancel' | 'keyOk'>) {
+  if (p.busy) {
+    return (
+      <button className="btn btn-generate" onClick={p.onCancel}><StopIcon /> 중단{p.progress != null && <span className="muted"> · {Math.round(p.progress * 100)}%</span>}</button>
+    );
+  }
+  return (
+    <>
+      <button className="btn btn-primary btn-generate" onClick={p.onDraw} disabled={!p.canDraw} title="브라우저에서 층을 쌓아 가며 그립니다 (API 비용 없음)"><PenIcon /> 그리기 시작</button>
+      <button className="btn btn-generate btn-ai" onClick={p.onAi} disabled={!p.canAi} title={p.keyOk ? 'AI 제공사에 요청합니다 (API 비용)' : 'API 키를 연결하면 쓸 수 있습니다'}>AI로 그리기</button>
+    </>
   );
 }

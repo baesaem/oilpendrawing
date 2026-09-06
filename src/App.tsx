@@ -6,7 +6,7 @@ import { Stage, type PaintProgress, type ViewMode } from './components/Stage';
 import { StylePanel } from './components/StylePanel';
 import { PaintPanel } from './components/PaintPanel';
 import { StampPanel } from './components/StampPanel';
-import { Toolbar, type Mode } from './components/Toolbar';
+import { DrawActions, Toolbar, ViewSeg, type Mode } from './components/Toolbar';
 import { GuideView, type GridSize } from './components/GuideView';
 import { FullscreenView } from './components/FullscreenView';
 import type { PaperRatio } from './guide';
@@ -349,9 +349,20 @@ export function App() {
     <div className="app">
       <div className="stage" />
 
-      <div className="brand">
-        <h1>리천 오일펜 드로잉 도우미</h1>
-        <span>PHOTO → OIL PEN</span>
+      <div className="topbar">
+        <div className="top-actions">
+          {mode === 'draw' && <ViewSeg view={view} onView={setView} hasResult={!!current} />}
+        </div>
+        <div className="brand">
+          <h1>리천 오일펜 드로잉 도우미</h1>
+          <span>PHOTO → OIL PEN</span>
+        </div>
+        <div className="top-actions">
+          <DrawActions
+            busy={!!busy} progress={progress ? progress.info.frac : null} onCancel={cancel}
+            canDraw={!!input && !busy} onDraw={drawLocal} canAi={!!input && keyOk && !busy} onAi={drawAi} keyOk={keyOk}
+          />
+        </div>
       </div>
       {IS_PREVIEW && <div className="preview-banner" title={PREVIEW_NOTE}>미리보기 모드 · AI 생성·저장은 배포판에서 동작합니다</div>}
 

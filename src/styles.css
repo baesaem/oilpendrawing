@@ -63,12 +63,21 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
 .panel h2 { font-family: var(--serif); font-size: 16px; letter-spacing: -0.01em; }
 .panel-head { display: flex; align-items: baseline; justify-content: space-between; }
 
+/* 화면 위 한 줄: [보기 전환] 제목 [그리기 버튼] */
+.topbar {
+  position: absolute; left: 50%; top: 16px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 16px; z-index: 3;
+}
+.top-actions { display: flex; align-items: center; gap: 8px; }
 .brand {
-  position: absolute; left: 50%; top: 20px; transform: translateX(-50%);
   display: flex; align-items: baseline; gap: 10px; pointer-events: none;
 }
 .brand h1 { font-family: var(--serif); font-size: 26px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; }
-.brand span { font-size: 11px; letter-spacing: .1em; color: var(--faint); }
+.brand span { font-size: 11px; letter-spacing: .1em; color: var(--faint); white-space: nowrap; }
+/* 좁아지면 부제와 제목을 차례로 줄여 상단 한 줄이 겹치지 않게 한다 */
+@media (max-width: 1300px) { .brand span { display: none; } }
+@media (max-width: 1100px) { .brand h1 { font-size: 20px; } }
+@media (max-width: 900px) { .brand { display: none; } }
 
 .preview-banner {
   position: absolute; left: 50%; top: 52px; transform: translateX(-50%);
