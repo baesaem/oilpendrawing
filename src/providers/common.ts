@@ -10,12 +10,22 @@ export interface GenerateRequest {
   onStatus?: (message: string) => void;
 }
 
+/** 제공사 계정에서 쓸 수 있는 모델 ID 목록 (설정 화면의 드롭다운용) */
+export interface ModelLists {
+  /** 이미지 생성·편집에 쓸 만한 모델 */
+  image: string[];
+  /** 사진을 글로 묘사할 비전 모델 (xAI 처럼 2단계인 제공사만) */
+  vision?: string[];
+}
+
 export interface ImageProvider {
   id: ProviderId;
   /** 사진 → 드로잉 결과 이미지 */
   generate(req: GenerateRequest, s: ProviderSettings): Promise<Blob>;
   /** 키·URL이 유효한지 가볍게 확인. 성공 메시지를 돌려줍니다. */
   test(s: ProviderSettings): Promise<string>;
+  /** 계정에서 쓸 수 있는 모델 목록. 제공사가 목록 API 를 주지 않으면 없다 */
+  list(s: ProviderSettings): Promise<ModelLists>;
 }
 
 export class ProviderError extends Error {

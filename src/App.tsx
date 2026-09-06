@@ -313,7 +313,7 @@ export function App() {
           <ViewSeg view={view} onView={setView} hasResult={!!current} />
         </div>
         <div className="brand">
-          <h1>리천 오일펜 드로잉 도우미</h1>
+          <h1>양평평생교육센터 오일펜(하근수 화가님) 드로잉 도우미</h1>
           <span>PHOTO → OIL PEN</span>
         </div>
         <div className="top-actions">

@@ -238,7 +238,8 @@ A4 가로(297mm)로 볼 때의 값이다(1px ≈ 0.3mm).
 
 ### 화풍 프리셋 갤러리 (DAP 의 프리셋 탭)
 
-`presetGallery.ts` + `public/presets/<style>.jpg`. `StylePanel` 맨 위 `.gallery` 격자가 화풍마다 예시 그림을 보여 주고,
+`presetGallery.ts` + `public/presets/<style>.jpg`. **예시 그림을 바꾸면 `presetGallery.ts` 의 `PRESET_VERSION` 도 올린다** —
+Vite 는 `public/` 파일에 해시를 붙이지 않아 파일 이름이 같으면 브라우저가 옛 그림을 캐시에서 계속 보여 준다(주소 뒤 `?v=` 로 막는다). `StylePanel` 맨 위 `.gallery` 격자가 화풍마다 예시 그림을 보여 주고,
 누르면 `onParams({ style })` 만 한다 — 화풍이 바뀌면 `App` 의 효과가 `PAINT_FOR_STYLE` 의 완전한 그리기 설정을 넣는다 (위 로컬 엔진 절).
 썸네일에 마우스를 올리면 그 예시 그림을 300px 로 크게 띄우고 화풍 이름·설명(`STYLE_DESC`)을 함께 보여 준다(`.preset-peek`) —
 갤러리 아래에 늘 떠 있던 설명 줄은 지웠다. `.panel` 에 `backdrop-filter` 가 걸려 있어

@@ -160,9 +160,7 @@ export function Stage({ original, result, view, busy, toneFilter, wide, guide, l
   return (
     <div className={`viewer ${wide ? 'wide' : ''}`}>
       {!oUrl ? (
-        <div className="empty-stage">
-          <h3>사진을 보고 스케치북에 그릴 때 옆에 두는 참고서</h3>
-        </div>
+        <div className="empty-stage" />
       ) : (
         <div className="frame">
           <img src={base ?? oUrl} alt={showResult ? '드로잉 결과' : '원본'} style={showResult ? { filter: toneFilter } : undefined} draggable={false} />

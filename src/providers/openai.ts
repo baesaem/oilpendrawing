@@ -1,6 +1,6 @@
 import { base64ToBlob } from '../image';
 import type { ProviderSettings } from '../types';
-import { callApi, joinUrl, ProviderError, type GenerateRequest, type ImageProvider } from './common';
+import { callApi, joinUrl, ProviderError, type GenerateRequest, type ImageProvider, type ModelLists } from './common';
 
 /**
  * OpenAI Images API — POST /v1/images/edits (multipart).
@@ -59,5 +59,17 @@ export const openaiProvider: ImageProvider = {
     const json = (await res.json()) as { data?: Array<{ id: string }> };
     const ids = new Set((json.data ?? []).map((m) => m.id));
     return ids.has(s.model) ? `연결됨 · ${s.model} 사용 가능` : `연결됨 · 모델 목록에 ${s.model} 이(가) 보이지 않습니다. 모델 ID를 확인하세요.`;
+  },
+
+  /** 계정에서 쓸 수 있는 모델 중 이미지 관련만 */
+  async list(s: ProviderSettings): Promise<ModelLists> {
+    const res = await callApi(
+      joinUrl(s.baseUrl, '/v1/models'),
+      { headers: { Authorization: `Bearer ${s.apiKey}` } },
+      'OpenAI',
+    );
+    const json = (await res.json()) as { data?: Array<{ id: string }> };
+    const ids = (json.data ?? []).map((m) => m.id);
+    return { image: ids.filter((n) => /image|dall-e/i.test(n)) };
   },
 };

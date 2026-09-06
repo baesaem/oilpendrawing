@@ -1,7 +1,7 @@
 import { blobToBase64, base64ToBlob } from '../image';
 import { DESCRIBE_PROMPT } from '../prompt';
 import type { ProviderSettings } from '../types';
-import { callApi, joinUrl, ProviderError, type GenerateRequest, type ImageProvider } from './common';
+import { callApi, joinUrl, ProviderError, type GenerateRequest, type ImageProvider, type ModelLists } from './common';
 
 /**
  * xAI — 이미지 생성 API(/v1/images/generations)는 입력 이미지를 받지 않으므로 2단계로 처리합니다.
@@ -99,5 +99,17 @@ export const xaiProvider: ImageProvider = {
     return missing.length
       ? `연결됨 · 모델 목록에 ${missing.join(', ')} 이(가) 보이지 않습니다. 모델 ID를 확인하세요.`
       : '연결됨 · 모델 확인 완료';
+  },
+
+  /** 이미지 생성 모델과 사진 묘사용 비전 모델을 나눠 준다 */
+  async list(s: ProviderSettings): Promise<ModelLists> {
+    const res = await callApi(
+      joinUrl(s.baseUrl, '/v1/models'),
+      { headers: { Authorization: `Bearer ${s.apiKey}` } },
+      'xAI',
+    );
+    const json = (await res.json()) as { data?: Array<{ id: string }> };
+    const ids = (json.data ?? []).map((m) => m.id);
+    return { image: ids.filter((n) => /image/i.test(n)), vision: ids.filter((n) => !/image/i.test(n)) };
   },
 };

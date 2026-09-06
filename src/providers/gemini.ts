@@ -1,6 +1,6 @@
 import { base64ToBlob, blobToBase64 } from '../image';
 import type { ProviderSettings } from '../types';
-import { callApi, joinUrl, ProviderError, type GenerateRequest, type ImageProvider } from './common';
+import { callApi, joinUrl, ProviderError, type GenerateRequest, type ImageProvider, type ModelLists } from './common';
 
 interface GeminiPart {
   text?: string;
@@ -68,5 +68,21 @@ export const geminiProvider: ImageProvider = {
     );
     const json = (await res.json()) as { displayName?: string; supportedGenerationMethods?: string[] };
     return `연결됨 · ${json.displayName ?? s.model}`;
+  },
+
+  /** 계정에서 쓸 수 있는 모델 목록. 이미지를 낼 수 있는 것만 골라 준다 */
+  async list(s: ProviderSettings): Promise<ModelLists> {
+    const res = await callApi(
+      joinUrl(s.baseUrl, '/v1beta/models?pageSize=200'),
+      { headers: { 'x-goog-api-key': s.apiKey } },
+      'Gemini',
+    );
+    const json = (await res.json()) as { models?: Array<{ name?: string; supportedGenerationMethods?: string[] }> };
+    const all = (json.models ?? [])
+      .filter((m) => (m.supportedGenerationMethods ?? []).some((x) => /generateContent|predict/i.test(x)))
+      .map((m) => (m.name ?? '').replace(/^models\//, ''))
+      .filter(Boolean);
+    // 이미지를 내는 모델만 (이름에 image/imagen 이 들어간다)
+    return { image: all.filter((n) => /image|imagen/i.test(n)) };
   },
 };
