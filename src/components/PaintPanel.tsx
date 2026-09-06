@@ -178,21 +178,12 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
         note={isStipple ? dotNote(s.lineWidth) : widthNote(s.lineWidth)}
         hint={isStipple ? '점 하나의 굵기입니다. 가장자리는 점마다 다르게 거칠어집니다' : undefined}
         onChange={(lineWidth) => onChange({ lineWidth })} />
-      {!isPaint && !isStipple && (
-        <>
-          <Range label="선 방향" value={s.baseAngle} min={0} max={179} unit="°"
-            note={`${s.baseAngle}° ${s.baseAngle < 20 || s.baseAngle > 160 ? '(가로)' : s.baseAngle > 70 && s.baseAngle < 110 ? '(세로)' : '(사선)'}`}
-            hint={s.brush === 'tone'
-              ? '모든 단계가 이 방향으로 그어집니다. 셋째 단계부터는 여기서 각도를 틀어 교차선이 됩니다'
-              : '방향이 없는 곳(하늘·벽)의 선 방향입니다. 이 붓은 면의 방향을 먼저 따르므로, 각도를 확실히 바꾸려면 아래 "형태 따라가기"를 낮추세요'}
-            onChange={(baseAngle) => onChange({ baseAngle })} />
-          {s.brush !== 'tone' && (
-            <Range label="형태 따라가기" value={s.featureFollow} min={0} max={100}
-              note={s.featureFollow < 25 ? '선 방향대로만' : s.featureFollow < 70 ? '반반' : '면의 방향을 따라'}
-              hint="0 이면 위 선 방향으로만 긋고, 100 이면 면·경계의 방향을 그대로 따릅니다"
-              onChange={(featureFollow) => onChange({ featureFollow })} />
-          )}
-        </>
+      {/* 선 방향(기준 각도) 슬라이더는 두지 않는다 — 각도는 화풍 프리셋이 정하고, 바꿀 때는 툴바의 "방향 지시"로 직접 긋는다 */}
+      {!isPaint && !isStipple && s.brush !== 'tone' && (
+        <Range label="형태 따라가기" value={s.featureFollow} min={0} max={100}
+          note={s.featureFollow < 25 ? '한 방향으로만' : s.featureFollow < 70 ? '반반' : '면의 방향을 따라'}
+          hint="0 이면 화풍이 정한 한 방향으로만 긋고, 100 이면 면·경계의 방향을 그대로 따릅니다"
+          onChange={(featureFollow) => onChange({ featureFollow })} />
       )}
 
       <div className="field">
