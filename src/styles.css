@@ -318,6 +318,9 @@ input[type=range]:focus-visible { outline: 1px solid var(--accent); outline-offs
 .pal-list button.on { border-color: var(--accent); color: var(--text); font-weight: 700; }
 .pal-list button > span:last-child { flex: none; width: 30px; text-align: right; }
 .pal-row { display: flex; margin-top: 5px; }
+.pal-current { display: flex; align-items: center; gap: 8px; text-align: left; }
+.pal-current > span:last-child { flex: none; width: 32px; text-align: right; color: var(--text); }
+.pal-list { margin-top: 5px; }
 .pal-bar { display: flex; flex: 1; height: 14px; border-radius: 3px; overflow: hidden; border: 1px solid #0f0e0d; }
 .pal-bar i { flex: 1; display: block; }
 .pal-photo { background: linear-gradient(90deg, #6f9bd1, #8bbf58, #e3d24a, #c0392b, #4a3324); }

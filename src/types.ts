@@ -44,31 +44,42 @@ export const BRUSH_SHORT: Record<BrushKind, string> = { tone: '펜화', pen: '�
  * 색 팔레트 (DAP Main Painter 의 Palette 에 해당). 컬러로 그릴 때만 뜻이 있다.
  * `match`·`match2` 는 사진 색을 물감 팔레트의 가장 가까운 색으로 옮긴다 — 실제 물감통을 쓰는 것처럼 색 수가 줄어 그림다워진다.
  */
-export type PaletteId = 'photo' | 'bright' | 'mono' | 'match' | 'match2';
+export type PaletteId = 'photo' | 'bright' | 'mono' | 'match' | 'match2' | 'vangogh';
 export const PALETTE_LABEL: Record<PaletteId, string> = {
   photo: '사진 색 그대로',
   bright: '선명하게 (채도를 올려 맑게)',
   mono: '단색 (잉크색 하나의 명암으로)',
   match: '팔레트 12색 (가장 가까운 물감색으로)',
   match2: '팔레트 + 사진색 (물감색과 사진색을 반씩)',
+  vangogh: '고흐 12색 (별이 빛나는 밤의 파랑·크림)',
 };
-export const PALETTE_SHORT: Record<PaletteId, string> = { photo: '기본', bright: '선명', mono: '단색', match: '12색', match2: '혼합' };
+export const PALETTE_SHORT: Record<PaletteId, string> = { photo: '기본', bright: '선명', mono: '단색', match: '12색', match2: '혼합', vangogh: '고흐' };
 /** 팔레트 12색 (수채 기본 세트). match·match2 가 이 색으로 옮긴다 */
 export const PALETTE_12: string[] = [
   '#f5d000', '#ef7b10', '#d9381e', '#a4123f', '#6b3fa0', '#2b4b9b',
   '#1e88c7', '#0e8a6b', '#6fa83c', '#c99a2e', '#8c4a2f', '#38424d',
 ];
+/** 고흐 팔레트 (사용자가 올린 DAP 고흐 프리셋의 색 띠에서 뽑은 12색): 크림·푸른 보라·남색·청회색·갈색 */
+export const PALETTE_VANGOGH: string[] = [
+  '#f9f1e7', '#a9a8a8', '#9093ae', '#7980af', '#5968a1', '#425277',
+  '#303243', '#1c1b16', '#535f73', '#7fa289', '#88958b', '#6f5a56',
+];
+/** 팔레트 id → 물감색 목록 (match 계열이 이 목록에서 가장 가까운 색을 고른다) */
+export const PALETTE_COLORS: Partial<Record<PaletteId, string[]>> = {
+  match: PALETTE_12, match2: PALETTE_12, vangogh: PALETTE_VANGOGH,
+};
 
 /** 브러시 팁 (포토샵 브러시 도구의 팁 모양에 해당). 담채·유화·임파스토 붓이 쓴다. 펜 붓은 늘 둥근 펜촉 */
-export type TipKind = 'auto' | 'round' | 'bristle' | 'wet' | 'chalk';
+export type TipKind = 'auto' | 'round' | 'bristle' | 'wet' | 'chalk' | 'swirl';
 export const TIP_LABEL: Record<TipKind, string> = {
   auto: '자동 — 1~2층은 큰 평붓(수채는 젖은 붓), 3~4층은 중간 둥근 붓, 5~6층은 가는 붓 (DAP 의 붓 3벌)',
   round: '둥근 붓 (부드러운 원형 자국)',
   bristle: '평붓 강모 (붓털 줄무늬가 보이는 납작한 자국)',
   wet: '젖은 둥근 붓 (가장자리가 불규칙하게 번지는 수채 붓)',
   chalk: '드라이 브러시 (털이 성글어 긁힌 듯 갈라지는 자국)',
+  swirl: '고흐 붓 (한쪽이 굵고 끝으로 갈수록 가늘게 휘는 쉼표 자국, 붓털 줄무늬)',
 };
-export const TIP_SHORT: Record<TipKind, string> = { auto: '자동', round: '둥근', bristle: '평붓', wet: '젖은', chalk: '드라이' };
+export const TIP_SHORT: Record<TipKind, string> = { auto: '자동', round: '둥근', bristle: '평붓', wet: '젖은', chalk: '드라이', swirl: '고흐' };
 
 /**
  * 그리기 설정 (Dynamic Auto-Painter 의 프리셋 파라미터에 해당). 로컬 엔진이 보는 값의 전부다.
@@ -154,7 +165,7 @@ export const PAINT_FOR_STYLE: Record<PenStyle, PaintProfile> = {
   comic: { ...CLASSIC_PAINT, brush: 'contour', passes: 3, brushSize: 45, detail: 70, accuracy: 55, strokeLength: 55, featureFollow: 60, baseAngle: 45, randomness: 20, lineWidth: 2.4, ink: 95, paperKeep: 60, edges: 100 },
   watercolor: { ...RICHEON_PAINT, brush: 'wash', tip: 'auto', palette: 'match2', wet: 72, passes: 4, brushSize: 78, detail: 80, accuracy: 72, strokeLength: 50, featureFollow: 55, baseAngle: 40, randomness: 50, lineWidth: 1.6, ink: 60, paperKeep: 62, edges: 45, vignette: 15 },
   oil: { ...RICHEON_PAINT, brush: 'oil', tip: 'auto', palette: 'match2', wet: 30, passes: 4, brushSize: 68, detail: 95, accuracy: 80, strokeLength: 40, featureFollow: 65, baseAngle: 0, randomness: 55, lineWidth: 1, ink: 0, paperKeep: 0, edges: 0, vignette: 0 },
-  vangogh: { ...RICHEON_PAINT, brush: 'impasto', tip: 'auto', palette: 'match', wet: 18, passes: 4, brushSize: 62, detail: 85, accuracy: 75, strokeLength: 85, featureFollow: 100, baseAngle: 20, randomness: 45, lineWidth: 1.4, ink: 0, paperKeep: 0, edges: 55, vignette: 0 },
+  vangogh: { ...RICHEON_PAINT, brush: 'impasto', tip: 'swirl', palette: 'vangogh', wet: 18, passes: 4, brushSize: 62, detail: 85, accuracy: 75, strokeLength: 85, featureFollow: 100, baseAngle: 20, randomness: 45, lineWidth: 1.4, ink: 0, paperKeep: 0, edges: 55, vignette: 0 },
 
 };
 

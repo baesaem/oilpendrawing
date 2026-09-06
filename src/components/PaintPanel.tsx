@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { samePaint } from '../presets';
-import { BRUSH_LABEL, BRUSH_SHORT, CLASSIC_PAINT, FINE_PAINT, PALETTE_12, PALETTE_LABEL, PALETTE_SHORT, RICHEON_PAINT, TIP_LABEL, TIP_SHORT, type BrushKind, type PaintProfile, type PaletteId, type TipKind } from '../types';
+import { BRUSH_LABEL, BRUSH_SHORT, CLASSIC_PAINT, FINE_PAINT, PALETTE_12, PALETTE_LABEL, PALETTE_SHORT, PALETTE_VANGOGH, RICHEON_PAINT, TIP_LABEL, TIP_SHORT, type BrushKind, type PaintProfile, type PaletteId, type TipKind } from '../types';
 import { tipPreview } from '../render';
 
 interface Props {
@@ -13,15 +13,16 @@ interface Props {
 
 const PEN_BRUSHES: BrushKind[] = ['tone', 'pen', 'contour', 'stipple'];
 const PAINT_BRUSHES: BrushKind[] = ['wash', 'oil', 'impasto'];
-const TIPS: TipKind[] = ['auto', 'round', 'bristle', 'wet', 'chalk'];
-const PALETTES: PaletteId[] = ['photo', 'bright', 'mono', 'match', 'match2'];
+const TIPS: TipKind[] = ['auto', 'round', 'bristle', 'wet', 'chalk', 'swirl'];
+const PALETTES: PaletteId[] = ['photo', 'bright', 'mono', 'match', 'match2', 'vangogh'];
 
 /** 팔레트 색 띠 (12색 물감을 쓰는 팔레트만 색을 보여 준다) */
 function PaletteSwatch({ id }: { id: PaletteId }) {
   if (id === 'photo') return <span className="pal-bar pal-photo" aria-hidden="true" />;
   if (id === 'mono') return <span className="pal-bar" aria-hidden="true">{[0.1, 0.3, 0.5, 0.7, 0.9].map((v) => <i key={v} style={{ background: `rgb(${v * 230},${v * 228},${v * 224})` }} />)}</span>;
   if (id === 'bright') return <span className="pal-bar" aria-hidden="true">{['#ff2d2d', '#ff9500', '#ffe000', '#12c46a', '#1e7bff', '#8a2be2'].map((c) => <i key={c} style={{ background: c }} />)}</span>;
-  return <span className="pal-bar" aria-hidden="true">{PALETTE_12.map((c) => <i key={c} style={{ background: c }} />)}</span>;
+  const list = id === 'vangogh' ? PALETTE_VANGOGH : PALETTE_12;
+  return <span className="pal-bar" aria-hidden="true">{list.map((c) => <i key={c} style={{ background: c }} />)}</span>;
 }
 
 /** 브러시 팁 미리보기 (포토샵 브러시 선택기처럼 획 하나를 보여 준다). 엔진의 같은 팁 코드로 그린다 */
@@ -77,6 +78,7 @@ function brushPatch(s: PaintProfile, b: BrushKind): Partial<PaintProfile> {
  * 이 앱은 드로잉 초보자용이라 슬라이더가 많으면 무엇을 만져야 할지 알 수 없다.
  */
 export function PaintPanel({ paint: s, onChange, fromSample, onReset }: Props) {
+  const [palOpen, setPalOpen] = useState(false);
   const isStipple = s.brush === 'stipple';
   const isPaint = s.brush === 'wash' || s.brush === 'oil' || s.brush === 'impasto';
   // 탭을 오갈 때 그쪽에서 마지막으로 쓰던 붓으로 돌아가게 기억해 둔다
@@ -139,11 +141,23 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset }: Props) {
 
       <div className="field">
         <div className="field-row"><b>색 팔레트</b><span className="muted small">컬러일 때</span></div>
-        <select className="text-input select" value={s.palette} aria-label="색 팔레트"
-          onChange={(e) => onChange({ palette: e.target.value as PaletteId })}>
-          {PALETTES.map((q) => <option key={q} value={q}>{PALETTE_SHORT[q]}</option>)}
-        </select>
-        <div className="pal-row"><PaletteSwatch id={s.palette} /></div>
+        {/* 드롭다운처럼 접었다 펴되, 목록의 이름 옆에 그 팔레트의 색상표를 함께 보여 준다 */}
+        <button className="text-input select pal-current" aria-expanded={palOpen} aria-label="색 팔레트"
+          onClick={() => setPalOpen((o) => !o)}>
+          <PaletteSwatch id={s.palette} />
+          <span>{PALETTE_SHORT[s.palette]}</span>
+        </button>
+        {palOpen && (
+          <div className="pal-list" role="radiogroup" aria-label="색 팔레트 목록">
+            {PALETTES.map((q) => (
+              <button key={q} type="button" className={s.palette === q ? 'on' : ''} role="radio" aria-checked={s.palette === q}
+                title={PALETTE_LABEL[q]} onClick={() => { onChange({ palette: q }); setPalOpen(false); }}>
+                <PaletteSwatch id={q} />
+                <span>{PALETTE_SHORT[q]}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="small faint">{PALETTE_LABEL[s.palette]}</div>
       </div>
 

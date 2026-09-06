@@ -15,7 +15,7 @@
  * 붓(brush) 이 획의 모양을 정한다: tone(명암 단계 평행선·교차선), pen(면을 따르는 짧은 획·나뭇잎 고리선),
  * contour(윤곽 위주), stipple(점), wash(수채 담채), oil(유화), impasto(고흐풍 임파스토).
  */
-import { PALETTE_12, type ColorMode, type DirectionGuide, type PaintProfile, type PaletteId, type TipKind } from './types';
+import { PALETTE_COLORS, type ColorMode, type DirectionGuide, type PaintProfile, type PaletteId, type TipKind } from './types';
 
 export interface RawImage { width: number; height: number; data: Uint8ClampedArray }
 export interface ProgressInfo { pass: number; passes: number; frac: number; strokes: number; /** 지금 단계 이름 (밑칠·중간·세부·윤곽) */ label?: string }
@@ -301,7 +301,9 @@ function nearMap(lum: Float32Array, w: number, h: number, minSide: number): Floa
 
 /* ---------- 색 팔레트 ---------- */
 
-const PALETTE_RGB: RGB[] = PALETTE_12.map((h) => hexToRgb(h));
+const PALETTE_RGB: Partial<Record<PaletteId, RGB[]>> = Object.fromEntries(
+  Object.entries(PALETTE_COLORS).map(([k, list]) => [k, (list as string[]).map((h) => hexToRgb(h))]),
+) as Partial<Record<PaletteId, RGB[]>>;
 
 /**
  * 색 팔레트 (DAP 의 Palette). 입력·출력 모두 0..1 의 RGB.
@@ -320,21 +322,23 @@ function applyPalette(r: number, g: number, b: number, pal: PaletteId, ink: RGB)
     const k = 1.55;
     return [clamp(mean + (r - mean) * k, 0, 1), clamp(mean + (g - mean) * k, 0, 1), clamp(mean + (b - mean) * k, 0, 1)];
   }
-  // match / match2: 색도(밝기를 뺀 색)가 가장 가까운 물감색으로 **묶는다** — 비슷한 색끼리 한 물감색이 되어
+  // match / match2 / vangogh: 색도(밝기를 뺀 색)가 가장 가까운 물감색으로 **묶는다** — 비슷한 색끼리 한 물감색이 되어
   // 팔레트에 있는 색만 남는다 (색 수가 줄어 그림다워지고, 밝기는 그대로라 톤은 사진처럼 읽힌다).
+  const list = PALETTE_RGB[pal];
+  if (!list) return [r, g, b];
   const chroma = Math.max(Math.abs(r - mean), Math.abs(g - mean), Math.abs(b - mean));
-  const strength = clamp((chroma - 0.012) * 14, 0, 1) * (pal === 'match' ? 1 : 0.72);
+  const strength = clamp((chroma - 0.012) * 14, 0, 1) * (pal === 'match2' ? 0.72 : 1);
   if (strength < 0.02) return [r, g, b];
   const sum = r + g + b + 0.03;
   const cr = r / sum, cg = g / sum;
   let best = 0, bd = 1e9;
-  for (let k = 0; k < PALETTE_RGB.length; k++) {
-    const p0 = PALETTE_RGB[k];
+  for (let k = 0; k < list.length; k++) {
+    const p0 = list[k];
     const ps = (p0[0] + p0[1] + p0[2]) / 255 + 0.03;
     const d = Math.abs(p0[0] / 255 / ps - cr) + Math.abs(p0[1] / 255 / ps - cg);
     if (d < bd) { bd = d; best = k; }
   }
-  const p1 = PALETTE_RGB[best];
+  const p1 = list[best];
   const pl = Math.max(0.06, (0.299 * p1[0] + 0.587 * p1[1] + 0.114 * p1[2]) / 255);
   const sc = L / pl;
   const mr = clamp((p1[0] / 255) * sc, 0, 1), mg = clamp((p1[1] / 255) * sc, 0, 1), mb = clamp((p1[2] / 255) * sc, 0, 1);
@@ -344,7 +348,7 @@ function applyPalette(r: number, g: number, b: number, pal: PaletteId, ink: RGB)
 /* ---------- 브러시 팁 ---------- */
 
 /** 획 하나 동안 유지되는 팁 상태: 붓털 프로필(가로지름 방향 24점)과 젖은 붓의 가장자리 흔들림(각도 16점) */
-interface TipState { kind: Exclude<TipKind, 'auto'>; prof: Float32Array; wob: Float32Array }
+interface TipState { kind: Exclude<TipKind, 'auto'>; prof: Float32Array; wob: Float32Array; curl: number }
 
 /**
  * 층별 붓 (DAP Main Painter 의 붓 3벌): 1~2층은 큰 평붓(수채는 젖은 붓), 3~4층은 중간 둥근 붓, 5~6층은 가는 붓.
@@ -364,9 +368,10 @@ function tipForStage(p: PaintProfile, stage: 0 | 1 | 2): Exclude<TipKind, 'auto'
 /** 획을 시작할 때 팁을 새로 만든다 — 붓털 배치와 번짐 모양이 획마다 다르다 */
 function makeTip(kind: Exclude<TipKind, 'auto'>, rng: () => number): TipState {
   const prof = new Float32Array(24), wob = new Float32Array(16);
-  if (kind === 'bristle' || kind === 'chalk') {
+  if (kind === 'bristle' || kind === 'chalk' || kind === 'swirl') {
     // 붓털: chalk 는 털이 성글고 사이가 비고, bristle 은 촘촘하되 털마다 눌린 정도가 다르다
     const hairs = kind === 'chalk' ? 6 : 11;
+    // 고흐 붓은 붓털이 굵고 성글게 보이도록 몇 가닥만
     const amp: number[] = [];
     for (let k = 0; k < hairs; k++) amp.push(kind === 'chalk' ? (rng() < 0.35 ? 0 : 0.5 + rng() * 0.5) : 0.55 + rng() * 0.45);
     for (let i = 0; i < 24; i++) {
@@ -379,7 +384,9 @@ function makeTip(kind: Exclude<TipKind, 'auto'>, rng: () => number): TipState {
   // 젖은 붓: 반지름 흔들림 ±15%, 이웃 각도끼리 부드럽게
   const raw = Array.from({ length: 16 }, () => (rng() - 0.5) * 0.3);
   for (let i = 0; i < 16; i++) wob[i] = (raw[(i + 15) % 16] + raw[i] * 2 + raw[(i + 1) % 16]) / 4;
-  return { kind, prof, wob };
+  // 고흐 붓: 자국이 휘는 방향·정도를 획마다 정한다 (쉼표 모양의 굽이)
+  const curl = kind === 'swirl' ? (rng() < 0.5 ? -1 : 1) * (0.5 + rng() * 0.5) : 0;
+  return { kind, prof, wob, curl };
 }
 
 /** 팁 미리보기 (그리기 설정 패널의 브러시 선택기): 밝은 종이 위에 짙은 획 하나 */
@@ -511,17 +518,27 @@ class Canvas {
       }
       return;
     }
-    // 납작한 붓: 폭 r(가로지름), 길이 r·0.7(획 방향)
-    const L = r * 0.7, ext = Math.max(r, L) + 1;
+    // 납작한 붓: 폭 r(가로지름), 길이 r·0.7(획 방향). 고흐 붓은 길고(1.5배) 휘며 앞으로 갈수록 가늘다
+    const swirl = tip.kind === 'swirl';
+    const L = r * (swirl ? 1.15 : 0.7), ext = Math.max(r, L) + 1;
     const x0 = Math.max(0, Math.floor(cx - ext)), x1 = Math.min(this.w - 1, Math.ceil(cx + ext));
     const y0 = Math.max(0, Math.floor(cy - ext)), y1 = Math.min(this.h - 1, Math.ceil(cy + ext));
     const n = tip.prof.length;
     const chalk = tip.kind === 'chalk';
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const px = x + 0.5 - cx, py = y + 0.5 - cy;
-      const along = px * dx + py * dy, across = -px * dy + py * dx;
-      const u = across / r, v = along / L;
-      if (u <= -1 || u >= 1 || v * v >= 1) continue;
+      const along = px * dx + py * dy;
+      let across = -px * dy + py * dx;
+      let v = along / L;
+      if (v * v >= 1) continue;
+      let width = r;
+      if (swirl) {
+        // 쉼표 자국: 뒤쪽 2/3 은 붓 폭 그대로 두껍고 앞머리만 가늘어지며, 진행 방향에서 옆으로 휜다
+        across -= tip.curl * r * 0.5 * v * v;
+        width = r * (v < 0.25 ? 1 : 1 - ((v - 0.25) / 0.75) * 0.7);
+      }
+      const u = across / width;
+      if (u <= -1 || u >= 1) continue;
       let c = tip.prof[Math.min(n - 1, Math.floor((u + 1) * 0.5 * n))] * Math.sqrt(1 - v * v);
       if (chalk) { const hsh = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453; c *= 0.55 + 0.9 * (hsh - Math.floor(hsh)); }
       if (c <= 0.01) continue;
