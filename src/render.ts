@@ -270,6 +270,35 @@ function smoothNoise1D(n: number, rng: () => number): Float32Array {
   return a;
 }
 
+/**
+ * 원근(가까움) 0..1 — 1 = 가깝다. 사진에는 깊이 정보가 없으므로 두 가지 단서를 섞는다:
+ * (1) 화면 아래일수록 가깝다 (풍경·거리 사진의 기본 구도), (2) 지역 대비가 클수록 가깝다 —
+ * 먼 곳은 대기 때문에 흐려진다(공기 원근). 이걸로 선 굵기를 바꾼다: 가까우면 굵고 멀면 가늘게.
+ */
+function nearMap(lum: Float32Array, w: number, h: number, minSide: number): Float32Array {
+  const N = w * h;
+  const R = Math.max(3, Math.round(minSide / 45));
+  const soft = boxBlur(lum, w, h, R);
+  const dev = new Float32Array(N);
+  for (let i = 0; i < N; i++) dev[i] = Math.abs(lum[i] - soft[i]);
+  const con = boxBlur(dev, w, h, R * 2);
+  // 90퍼센타일로 정규화 (한 곳만 아주 또렷해도 전체가 눌리지 않게)
+  const step = Math.max(1, Math.floor(N / 20000));
+  const sample: number[] = [];
+  for (let i = 0; i < N; i += step) sample.push(con[i]);
+  sample.sort((a, b) => a - b);
+  const hi = Math.max(1e-4, sample[Math.floor(sample.length * 0.9)]);
+  const out = new Float32Array(N);
+  for (let y = 0; y < h; y++) {
+    const yt = h > 1 ? y / (h - 1) : 1; // 아래 = 1
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      out[i] = clamp(0.4 * yt + 0.6 * clamp(con[i] / hi, 0, 1), 0, 1);
+    }
+  }
+  return boxBlur(out, w, h, R);
+}
+
 /* ---------- 색 팔레트 ---------- */
 
 const PALETTE_RGB: RGB[] = PALETTE_12.map((h) => hexToRgb(h));
@@ -293,7 +322,7 @@ function applyPalette(r: number, g: number, b: number, pal: PaletteId, ink: RGB)
   }
   // match / match2: 색도(밝기를 뺀 색)가 가장 가까운 물감색
   const chroma = Math.max(Math.abs(r - mean), Math.abs(g - mean), Math.abs(b - mean));
-  const strength = clamp(chroma * 3.2, 0, 1) * (pal === 'match' ? 1 : 0.55);
+  const strength = clamp(chroma * 6, 0, 1) * (pal === 'match' ? 1 : 0.6);
   if (strength < 0.02) return [r, g, b];
   const sum = r + g + b + 0.03;
   const cr = r / sum, cg = g / sum;
@@ -532,6 +561,8 @@ interface Ctx {
   bg: Float32Array | null;
   /** 마른 붓 0 ↔ 젖은 붓 1 */
   wet: number;
+  /** 자리 i 의 선 굵기 배수 (원근): 가까우면 1, 멀면 0.22 까지 */
+  wMul: (i: number) => number;
 }
 
 /**
@@ -585,7 +616,7 @@ function penStroke(c: Ctx, ref: Float32Array, x0: number, y0: number, L: number,
       if (cv.dark[i] > ref[i] + 0.08) { if (++over > 4) break; } else over = 0;
       const taper = Math.min(1, (s + step) / 4, (half - s) / 4 + 0.35);
       const wob = Math.sin(s * wobF + wobP) * wobA;
-      cv.dot(x - dy * wob, y + dx * wob, r * (0.65 + 0.35 * taper) * pressure, 0.75 + 0.25 * taper);
+      cv.dot(x - dy * wob, y + dx * wob, r * (0.65 + 0.35 * taper) * pressure * c.wMul(i), 0.75 + 0.25 * taper);
       // 방향장을 조금씩 따라감 (부호는 이전 방향과 맞춤)
       const wf = Math.max(c.ff * c.field.coh[i], c.field.man[i]);
       if (wf > 0.12 && c.texture[i] < 0.5) {
@@ -620,7 +651,7 @@ function loopStroke(c: Ctx, ref: Float32Array, x0: number, y0: number, R: number
     if (x < 0 || y < 0 || x >= w || y >= h) continue;
     const i = y * w + x;
     if (ref[i] < 0.02) continue;
-    cv.dot(px, py, lw * 0.45, 0.9);
+    cv.dot(px, py, lw * 0.45 * c.wMul(i), 0.9);
   }
   cv.end(alphaFor(c, D0) * 0.6, c.colorAt(i0));
 }
@@ -678,7 +709,7 @@ function edgePass(c: Ctx, mag: Float32Array, mass: { mag: Float32Array; gx: Floa
         if (done[i] && done[i] !== sid) { if (++dup > 4) break; }
         mark(xi, yi);
         const k = clamp(m / th, 0.5, 1.6);
-        cv.dot(x, y, r * (0.6 + 0.4 * Math.min(1, k)), 0.6 + 0.4 * Math.min(1, k));
+        cv.dot(x, y, r * (0.6 + 0.4 * Math.min(1, k)) * c.wMul(i), 0.6 + 0.4 * Math.min(1, k));
         drawn++;
         // 경계 접선을 따라감 (부호 유지)
         let [fx, fy] = tangent(i);
@@ -747,7 +778,7 @@ function sweep(c: Ctx, ref: Float32Array, R: number, sw: Sweep, T: number, L: nu
         const px = xs + rng() * (x1 - xs), py = ys + rng() * (y1 - ys);
         const i = (py | 0) * w + (px | 0);
         if (ref[i] < 0.02 || cv.dark[i] > ref[i]) continue;
-        cv.dot(px, py, (lw / 2) * (0.7 + rng() * 0.6), 0.95);
+        cv.dot(px, py, (lw / 2) * (0.7 + rng() * 0.6) * c.wMul(i), 0.95);
         cv.end(clamp(alphaFor(c, ref[i]) * 1.1, 0, 0.97), c.colorAt(i));
       }
       continue;
@@ -786,7 +817,22 @@ function toneHatch(c: Ctx, lum: Float32Array, white: number, bg: Float32Array | 
     tone[i] = clamp(Math.round(((white - L) / white) * (levels - 1) + 0.35), 1, levels - 1);
   }
 
-  // 2) 층마다 선 간격·굵기·각도. 어두운 층일수록 촘촘하고 굵으며, 셋째 층부터 각도를 튼다
+  // 2) 방향 지시선: 선을 휘게 하면 한쪽으로 몰려 구멍이 생긴다. 대신 지시선이 센 구역을 각도별로 나눠
+  //    **구역마다 곧은 평행선**을 따로 긋는다 (사람이 벽은 세로, 바닥은 원근 방향으로 나눠 긋는 것과 같다).
+  const BINS = 12; // 15도 간격
+  const bin = new Int8Array(N).fill(-1);
+  const bins = new Set<number>();
+  if (c.field.man) {
+    for (let i = 0; i < N; i++) {
+      if (c.field.man[i] < 0.3 || !tone[i]) continue;
+      let a = Math.atan2(c.field.ty[i], c.field.tx[i]);
+      a = ((a % Math.PI) + Math.PI) % Math.PI;
+      const bi = Math.min(BINS - 1, Math.floor((a / Math.PI) * BINS));
+      bin[i] = bi; bins.add(bi);
+    }
+  }
+
+  // 3) 층마다 선 간격·굵기·각도. 어두운 층일수록 촘촘하고 굵으며, 셋째 층부터 각도를 튼다
   const sets = levels - 1;
   const spread = Math.max(1, sets - 1);
   const S0 = Math.max(lw * 2.2, minSide * (0.032 - 0.021 * clamp(p.detail, 0, 100) / 100));
@@ -794,26 +840,21 @@ function toneHatch(c: Ctx, lum: Float32Array, white: number, bg: Float32Array | 
   const alphaBase = 0.42 + 0.5 * clamp(p.ink, 0, 100) / 100;
   const j = c.rnd;
 
-  for (let k = 1; k <= sets; k++) {
-    const t = (k - 1) / spread;
-    const spacing = S0 * (1 - 0.4 * t);
-    const width = lw * (0.75 + 0.85 * t);
-    const angle = c.p.baseAngle + (ANGLE_OFF[Math.min(k - 1, ANGLE_OFF.length - 1)] ?? 0);
-    const th = (angle * Math.PI) / 180;
+  /** 곧은 평행선 한 벌. keep(i) 가 참인 자리에만 자국을 남긴다 */
+  const drawSet = (angleDeg: number, spacing: number, width: number, phase: number, keep: (i: number) => boolean,
+    onFrac?: (f: number) => void) => {
+    const th = (angleDeg * Math.PI) / 180;
     const dx = Math.cos(th), dy = Math.sin(th);
     const nx = -dy, ny = dx;
     const cx = w / 2, cy = h / 2;
     const diag = Math.hypot(w, h);
     const r = width / 2;
-    const phase = k === 2 ? 0.5 : rng(); // 2층은 1층 사이에 끼워 넣어 선 갯수를 두 배로
     let done = 0;
     const total = Math.max(1, Math.ceil(diag / spacing));
-
     for (let o = -diag / 2 + phase * spacing; o <= diag / 2; o += spacing) {
-      if (onLevel && (done & 15) === 0) onLevel(k - 1, done / total);
+      if (onFrac && (done & 15) === 0) onFrac(done / total);
       done++;
       const bx = cx + nx * o, by = cy + ny * o;
-      // 손으로 그은 선: 완만한 흔들림과 필압 변화
       const wobA = (0.3 + 1.5 * j) * Math.max(1, lw * 0.7);
       const wobF = 0.006 + rng() * 0.012, wobP = rng() * 6.28;
       const pressure = 0.85 + rng() * 0.3;
@@ -823,7 +864,8 @@ function toneHatch(c: Ctx, lum: Float32Array, white: number, bg: Float32Array | 
           const n = seg.length / 2;
           for (let q = 0; q < n; q++) {
             const taper = Math.min(1, (q + 1) / 4, (n - q) / 4);
-            cv.dot(seg[q * 2], seg[q * 2 + 1], r * (0.55 + 0.45 * taper) * pressure, 0.8 + 0.2 * taper);
+            const di = (seg[q * 2 + 1] | 0) * w + (seg[q * 2] | 0);
+            cv.dot(seg[q * 2], seg[q * 2 + 1], r * (0.55 + 0.45 * taper) * pressure * c.wMul(di), 0.8 + 0.2 * taper);
           }
           cv.end(clamp(alphaBase * (0.85 + rng() * 0.3), 0, 0.97), c.colorAt((seg[1] | 0) * w + (seg[0] | 0)));
         } else cv.end(0, [0, 0, 0]); // 너무 짧으면 버린다 (모아 둔 자국도 지운다)
@@ -834,8 +876,7 @@ function toneHatch(c: Ctx, lum: Float32Array, white: number, bg: Float32Array | 
         const wob = Math.sin(u * wobF + wobP) * wobA;
         const px = bx + dx * u + nx * wob, py = by + dy * u + ny * wob;
         const xi = px | 0, yi = py | 0;
-        const inside = xi >= 0 && yi >= 0 && xi < w && yi < h && tone[yi * w + xi] >= k;
-        if (!inside) { if (seg.length) flush(); continue; }
+        if (xi < 0 || yi < 0 || xi >= w || yi >= h || !keep(yi * w + xi)) { if (seg.length) flush(); continue; }
         // 가끔 펜을 떼었다 놓는다 (손그림 느낌). 무작위성이 클수록 자주
         if (skip > 0) { skip -= 0.8; if (seg.length) flush(); continue; }
         if (j > 0.05 && rng() < 0.0015 * j) { skip = 2 + rng() * 6 * j; continue; }
@@ -843,7 +884,23 @@ function toneHatch(c: Ctx, lum: Float32Array, white: number, bg: Float32Array | 
       }
       if (seg.length) flush();
     }
-    if (onLevel) onLevel(k - 1, 1);
+  };
+
+  for (let k = 1; k <= sets; k++) {
+    const t = (k - 1) / spread;
+    // 어두운 단계일수록 간격을 좁게 (가장 어두운 단계는 첫 단계의 1/3). 선이 붙어 먹이 되지 않게 굵기의 1.5배는 띄운다
+    const spacing = Math.max(lw * 1.5, S0 * (1 - 0.66 * t));
+    const width = lw * (0.75 + 0.85 * t);
+    const off = ANGLE_OFF[Math.min(k - 1, ANGLE_OFF.length - 1)] ?? 0;
+    const phase = k === 2 ? 0.5 : rng();
+    // 지시선이 없는 곳: 기준 각도로
+    drawSet(p.baseAngle + off, spacing, width, phase, (i) => tone[i] >= k && bin[i] < 0, (f) => onLevel?.(k - 1, f));
+    // 지시선 구역: 그 구역의 방향으로 (구역마다 곧은 평행선)
+    for (const bi of bins) {
+      const ang = ((bi + 0.5) / BINS) * 180 + off;
+      drawSet(ang, spacing, width, phase, (i) => tone[i] >= k && bin[i] === bi);
+    }
+    onLevel?.(k - 1, 1);
   }
 }
 
@@ -963,7 +1020,7 @@ function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, 
       // 팔레트: 사진 색을 고른 물감색 쪽으로 옮긴다
       // 사실 쪽에서는 팔레트 이동을 줄인다 (원본 색 그대로에 가깝게)
       const pr = applyPalette(tr, tg, tb, pal, ink);
-      const pk = 1 - 0.65 * real;
+      const pk = 1 - 0.35 * real;
       tr += (pr[0] - tr) * pk; tg += (pr[1] - tg) * pk; tb += (pr[2] - tb) * pk;
     } else {
       const g = L * 0.8 + 0.2;
@@ -1129,6 +1186,9 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
       return [inkC[0] * ki + r * 255 * kc, inkC[1] * ki + g * 255 * kc, inkC[2] * ki + b * 255 * kc];
     };
   }
+  // 원근 선 굵기 (펜 붓만): 가까우면 슬라이더 굵기 그대로, 멀면 최대 0.22배까지 가늘게
+  const dk = 0.78 * clamp(p.depth ?? 0, 0, 100) / 100;
+  const nearField = !painty && dk > 0.02 ? nearMap(lum, w, h, minSide) : null;
   const acc = clamp(p.accuracy, 0, 100) / 100;
   const c: Ctx = {
     w, h, N, cv, field, texture, rng, p,
@@ -1141,6 +1201,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     painty: p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto',
     bg: bgMask,
     wet: clamp(p.wet ?? 40, 0, 100) / 100,
+    wMul: nearField ? (i: number) => 1 - dk * (1 - nearField[i]) : () => 1,
   };
   const T = 0.03 + 0.28 * (1 - acc);
   const sizes = passSizes(p, minSide);
@@ -1204,7 +1265,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     const fineSteps = p.brush === 'impasto' ? (realD >= 70 ? 1 : 0) : realD >= 75 ? 2 : realD >= 45 ? 1 : 0;
     for (let f = 0; f < fineSteps; f++) {
       const dt = clamp(realD, 0, 100) / 100;
-      const Rf = Math.max(2.5, minSide * (0.015 - 0.010 * dt) * (fineSteps === 2 && f === 0 ? 1.7 : 1) * (p.brush === 'impasto' ? 1.6 : 1));
+      const Rf = Math.max(3.2, minSide * (0.015 - 0.010 * dt) * (fineSteps === 2 && f === 0 ? 1.7 : 1) * (p.brush === 'impasto' ? 1.6 : 1));
       stageLabel = fineSteps === 2 && f === 0 ? '세부 (작은 붓)' : '마무리 (가장 작은 붓)';
       washSweep(c, blurRGB(want0, w, h, f === 0 && fineSteps === 2 ? 1 : 0), Rf, Math.max(3, 8 * (1 - acc)),
         (fr: number) => report(passes - 1, (f + fr) / fineSteps), { alpha: 1, len: 0.45, tip: tipForStage(p, 2) });
@@ -1212,6 +1273,23 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     }
     // 물감이 마르며 가장자리에 고이는 안료: 캔버스 밝기의 경계를 조금 어둡게
     if (!oil) pigmentEdges(cv, 0.12 + 0.34 * c.wet, mulberry32(77));
+    // 7층: 원본 사진 겹치기. 표현↔사실 슬라이더가 사실 쪽일수록 원본이 진하게 비친다 (DAP 의 마지막 레이어)
+    const photoMix = clamp((acc - 0.5) / 0.5, 0, 1) * 0.5;
+    if (photoMix > 0.01) {
+      stageLabel = '7층 · 원본 겹치기';
+      const soft = [0, 1, 2].map((ch) => {
+        const a2 = new Float32Array(N);
+        for (let i = 0, q = 0; i < img.data.length; i += 4, q++) a2[q] = img.data[i + ch];
+        return boxBlur(a2, w, h, 1);
+      });
+      for (let i = 0; i < N; i++) {
+        const o = i * 3;
+        cv.rgb[o] += (soft[0][i] - cv.rgb[o]) * photoMix;
+        cv.rgb[o + 1] += (soft[1][i] - cv.rgb[o + 1]) * photoMix;
+        cv.rgb[o + 2] += (soft[2][i] - cv.rgb[o + 2]) * photoMix;
+      }
+      report(passes - 1, 1, true);
+    }
     // 펜: 잉크 농도가 있을 때만 가장 어두운 곳에 성긴 획 (순수 수채는 ink 0)
     if (p.ink >= 30) {
       const ref = boxBlur(target, w, h, 1);

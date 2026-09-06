@@ -78,6 +78,11 @@ export interface PaintProfile {
   tip: TipKind;
   /** 색 팔레트 (컬러로 그릴 때만) */
   palette: PaletteId;
+  /**
+   * 원근 선 굵기 0~100 (펜 붓만). 가까운 곳은 굵고(선 굵기 그대로 ≈ 0.4~0.6mm) 먼 곳은 가늘게(≈ 0.05~0.2mm) 긋는다.
+   * 0 이면 어디나 같은 굵기. 원근은 사진에서 추정한다 (아래쪽·또렷한 곳이 가깝고, 위쪽·흐린 곳이 멀다).
+   */
+  depth: number;
   /** 마른 붓 0 ↔ 젖은 붓 100 (DAP 의 Dry–Wet). 붓 종류·번짐·안료 고임·불투명도를 함께 움직인다 */
   wet: number;
   /** 층 수 1~6. 큰 획 층에서 작은 획 층으로 */
@@ -117,17 +122,17 @@ export interface PaintProfile {
  * 가는 검정 펜, 면의 방향을 따르는 획, 나뭇잎은 고리 선 뭉치, 하늘·하이라이트는 흰 종이, 가장자리는 미완성.
  */
 export const RICHEON_PAINT: PaintProfile = {
-  brush: 'pen', tip: 'round', palette: 'photo', wet: 30, passes: 4, brushSize: 45, detail: 75, accuracy: 60, strokeLength: 60, featureFollow: 85, baseAngle: 55, randomness: 30,
+  brush: 'pen', tip: 'round', palette: 'photo', wet: 30, depth: 70, passes: 4, brushSize: 45, detail: 75, accuracy: 60, strokeLength: 60, featureFollow: 85, baseAngle: 55, randomness: 30,
   lineWidth: 1.4, ink: 88, paperKeep: 66, edges: 80, vignette: 40, paperColor: '#f6f3ec', inkColor: '#17171a',
 };
 /** 세밀 펜화: 아주 가늘고 고른 선으로 끝까지 완성, 수평 하늘 해칭, 먹 그림자 */
 export const FINE_PAINT: PaintProfile = {
-  brush: 'pen', tip: 'round', palette: 'photo', wet: 30, passes: 6, brushSize: 40, detail: 100, accuracy: 85, strokeLength: 80, featureFollow: 90, baseAngle: 0, randomness: 8,
+  brush: 'pen', tip: 'round', palette: 'photo', wet: 30, depth: 60, passes: 6, brushSize: 40, detail: 100, accuracy: 85, strokeLength: 80, featureFollow: 90, baseAngle: 0, randomness: 8,
   lineWidth: 1, ink: 92, paperKeep: 52, edges: 90, vignette: 0, paperColor: '#f7f5f0', inkColor: '#111114',
 };
 /** 클래식: 굵은 펜의 한 방향 해칭 */
 export const CLASSIC_PAINT: PaintProfile = {
-  brush: 'tone', tip: 'round', palette: 'photo', wet: 30, passes: 5, brushSize: 50, detail: 62, accuracy: 65, strokeLength: 70, featureFollow: 40, baseAngle: 35, randomness: 30,
+  brush: 'tone', tip: 'round', palette: 'photo', wet: 30, depth: 70, passes: 5, brushSize: 50, detail: 62, accuracy: 65, strokeLength: 70, featureFollow: 40, baseAngle: 35, randomness: 30,
   lineWidth: 1.8, ink: 80, paperKeep: 55, edges: 50, vignette: 0, paperColor: '#f5f0e6', inkColor: '#221e1b',
 };
 export const DEFAULT_PAINT: PaintProfile = RICHEON_PAINT;
@@ -174,6 +179,7 @@ export function blendPaint(base: PaintProfile, m: PaintProfile, weight: number):
     tip: t >= 0.5 ? m.tip : base.tip,
     palette: base.palette,
     wet: mix(base.wet, m.wet),
+    depth: base.depth,
     passes: mix(base.passes, m.passes),
     brushSize: mix(base.brushSize, m.brushSize),
     detail: mix(base.detail, m.detail),

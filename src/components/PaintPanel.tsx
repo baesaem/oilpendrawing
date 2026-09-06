@@ -57,7 +57,8 @@ function Range({ label, value, min, max, step = 1, unit = '', hint, note, onChan
 const detailNote = (v: number) => (v < 35 ? '큰 형태만' : v < 70 ? '보통' : '아주 세밀하게');
 const keepNote = (v: number) => (v < 35 ? '거의 다 채움' : v < 65 ? '보통' : '흰 종이를 넓게');
 const inkNote = (v: number) => (v < 35 ? '연하게' : v < 70 ? '보통' : '진하게');
-const widthNote = (v: number) => (v <= 1.2 ? `가는 펜 ${v}px` : v <= 2.2 ? `보통 펜 ${v}px` : `굵은 펜 ${v}px`);
+const mm = (px: number) => (px * 0.3).toFixed(2).replace(/0$/, '');
+const widthNote = (v: number) => `${v <= 1.2 ? '가는' : v <= 2.2 ? '보통' : '굵은'} 펜 · 약 ${mm(v)}mm`;
 const realNote = (v: number) => (v < 30 ? '표현적으로' : v < 55 ? '조금 표현적' : v < 80 ? '조금 사실적' : '원본과 같게');
 const wetNote = (v: number) => (v < 25 ? '마른 붓' : v < 50 ? '조금 마르게' : v < 75 ? '조금 젖게' : '젖은 붓');
 
@@ -118,7 +119,9 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
       )}
 
       <Range label="표현 ↔ 사실" value={s.accuracy} min={0} max={100} note={realNote(s.accuracy)}
-        hint="사실 쪽으로 갈수록 원본 사진과 같아집니다 — 색을 덜 바꾸고 세부를 더 그립니다"
+        hint={isPaint
+          ? '사실 쪽으로 갈수록 원본 사진과 같아집니다 — 색을 덜 바꾸고 세부를 더 그리며, 마지막에 원본 사진을 겹쳐 비칩니다 (50 이상부터, 100 에서 절반)'
+          : '사실 쪽으로 갈수록 원본 사진과 같아집니다 — 명암 차이가 작은 곳까지 선을 놓습니다'}
         onChange={(accuracy) => onChange({ accuracy })} />
       {isPaint && (
         <Range label="마른 붓 ↔ 젖은 붓" value={s.wet} min={0} max={100} note={wetNote(s.wet)}
@@ -153,9 +156,21 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
         hint="획 하나의 진하기. 아주 진하면 깊은 그림자를 먹으로 채웁니다" onChange={(ink) => onChange({ ink })} />
       <Range label={isPaint ? '붓 굵기' : '선 굵기'} value={s.lineWidth} min={1} max={6} step={0.5} note={widthNote(s.lineWidth)}
         onChange={(lineWidth) => onChange({ lineWidth })} />
-      {s.brush === 'tone' && (
-        <Range label="선 방향" value={s.baseAngle} min={0} max={179} unit="°" note={`${s.baseAngle}° ${s.baseAngle < 20 || s.baseAngle > 160 ? '(가로)' : s.baseAngle > 70 && s.baseAngle < 110 ? '(세로)' : '(사선)'}`}
-          hint="모든 단계가 이 방향으로 그어집니다. 셋째 단계부터는 여기서 각도를 틀어 교차선이 됩니다" onChange={(baseAngle) => onChange({ baseAngle })} />
+      {!isPaint && !isStipple && (
+        <>
+          <Range label="선 방향" value={s.baseAngle} min={0} max={179} unit="°"
+            note={`${s.baseAngle}° ${s.baseAngle < 20 || s.baseAngle > 160 ? '(가로)' : s.baseAngle > 70 && s.baseAngle < 110 ? '(세로)' : '(사선)'}`}
+            hint={s.brush === 'tone'
+              ? '모든 단계가 이 방향으로 그어집니다. 셋째 단계부터는 여기서 각도를 틀어 교차선이 됩니다'
+              : '방향이 없는 곳(하늘·벽)의 선 방향입니다. 이 붓은 면의 방향을 먼저 따르므로, 각도를 확실히 바꾸려면 아래 "형태 따라가기"를 낮추세요'}
+            onChange={(baseAngle) => onChange({ baseAngle })} />
+          {s.brush !== 'tone' && (
+            <Range label="형태 따라가기" value={s.featureFollow} min={0} max={100}
+              note={s.featureFollow < 25 ? '선 방향대로만' : s.featureFollow < 70 ? '반반' : '면의 방향을 따라'}
+              hint="0 이면 위 선 방향으로만 긋고, 100 이면 면·경계의 방향을 그대로 따릅니다"
+              onChange={(featureFollow) => onChange({ featureFollow })} />
+          )}
+        </>
       )}
 
       <div className="field">
@@ -202,9 +217,13 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
         <Range label="층 수" value={s.passes} min={1} max={6} unit="층" hint="획 크기를 줄여 가며 몇 번 겹쳐 그릴지" onChange={(passes) => onChange({ passes })} />
         <Range label="획 크기" value={s.brushSize} min={0} max={100} hint="첫 층의 획 길이·간격. 큰 형태를 잡는 획" onChange={(brushSize) => onChange({ brushSize })} />
         {!isStipple && <Range label="획 길이" value={s.strokeLength} min={0} max={100} hint="획 하나의 길이 (획 크기 배수)" onChange={(strokeLength) => onChange({ strokeLength })} />}
-        {!isStipple && <Range label="형태 따라가기" value={s.featureFollow} min={0} max={100} hint="0 = 기준 각도로만, 100 = 면·경계의 방향을 그대로 따름" onChange={(featureFollow) => onChange({ featureFollow })} />}
-        {!isStipple && <Range label="기준 각도" value={s.baseAngle} min={0} max={179} unit="°" hint="방향이 없는 곳(하늘·평면)의 해칭 방향" onChange={(baseAngle) => onChange({ baseAngle })} />}
         <Range label="무작위성" value={s.randomness} min={0} max={100} hint="시작점·각도·길이·필압의 흔들림" onChange={(randomness) => onChange({ randomness })} />
+        {!isPaint && (
+          <Range label="원근 선 굵기" value={s.depth} min={0} max={100}
+            note={s.depth < 10 ? '어디나 같게' : `먼 곳 약 ${mm(s.lineWidth * (1 - 0.78 * s.depth / 100))}mm`}
+            hint="가까운 곳은 선 굵기 그대로, 먼 곳은 가늘게 긋습니다. 사진의 아래쪽·또렷한 곳을 가깝다고 봅니다"
+            onChange={(depth) => onChange({ depth })} />
+        )}
         <Range label="윤곽선" value={s.edges} min={0} max={100} hint="색 경계를 따라가는 선의 양" onChange={(edges) => onChange({ edges })} />
         <Range label="가장자리 여백" value={s.vignette} min={0} max={100} hint="가장자리를 미완성처럼 흐림 (어반 스케치)" onChange={(vignette) => onChange({ vignette })} />
 
