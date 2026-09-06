@@ -65,7 +65,7 @@ const wetNote = (v: number) => (v < 25 ? '마른 붓' : v < 50 ? '조금 마르�
  * 3단계짜리 성긴 해칭이 된다. 펜화로 들어올 때는 기본 10단계를 넣어 준다 (그 뒤엔 슬라이더가 권한, 3~15).
  */
 function brushPatch(s: PaintProfile, b: BrushKind): Partial<PaintProfile> {
-  if (b === 'tone' && s.brush !== 'tone') return { brush: b, passes: 10 };
+  if (b === 'tone' && s.brush !== 'tone') return { brush: b, passes: 15 };
   if (b !== 'tone' && s.brush === 'tone') return { brush: b, passes: Math.min(s.passes, 4) };
   return { brush: b };
 }
