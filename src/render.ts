@@ -1118,7 +1118,7 @@ function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, 
       tr += (pr[0] - tr) * pk; tg += (pr[1] - tg) * pk; tb += (pr[2] - tb) * pk;
     } else {
       const g = L * 0.8 + 0.2;
-      if (mode === 'sepia') { tr = g * 0.92 + 0.08; tg = g * 0.82 + 0.1; tb = g * 0.66 + 0.1; } else { tr = g; tg = g; tb = g; }
+      tr = g; tg = g; tb = g;
     }
     if (oil) { want[o] = tr * 255; want[o + 1] = tg * 255; want[o + 2] = tb * 255; continue; } // 불투명: 종이색과 무관
     want[o] = paper[0] * (1 - op * (1 - tr)); want[o + 1] = paper[1] * (1 - op * (1 - tg)); want[o + 2] = paper[2] * (1 - op * (1 - tb));
@@ -1245,9 +1245,9 @@ function applyVignette(cv: Canvas, paper: RGB, amount: number, rng: () => number
   }
 }
 
-/** 색 모드에 따른 종이색 */
-function paperFor(mode: ColorMode, p: PaintProfile): RGB {
-  return mode === 'sepia' ? [243, 231, 208] : hexToRgb(p.paperColor);
+/** 종이색 (설정의 종이색 그대로) */
+function paperFor(p: PaintProfile): RGB {
+  return hexToRgb(p.paperColor);
 }
 
 /** 층별 획 크기: 첫 층(brushSize)에서 마지막 층(detail) 까지 등비로 */
@@ -1336,10 +1336,9 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     }
   }
 
-  const paper = paperFor(opts.color, p);
+  const paper = paperFor(p);
   const cv = new Canvas(w, h, paper);
   let inkC = hexToRgb(p.inkColor);
-  if (opts.color === 'sepia') inkC = [74, 46, 28];
   // 컬러 펜: 사진 색을 잉크색과 섞어 어둡게 누른 색
   let colorAt: (i: number) => RGB = () => inkC;
   if (opts.color === 'color') {

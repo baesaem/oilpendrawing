@@ -1,4 +1,4 @@
-export type ColorMode = 'color' | 'mono' | 'sepia';
+export type ColorMode = 'color' | 'mono';
 /** 빛의 방향. 8방위에 정면광(front)·역광(back)을 더한 것. 자동(사진 그대로)은 DrawingParams.lightAuto 가 맡는다 */
 export type LightDir = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW' | 'front' | 'back';
 /** 다이얼에 점으로 놓이는 8방위 (정면·역광은 방향이 없어 빠진다) */
@@ -277,6 +277,7 @@ export function mergeParams(p: Partial<DrawingParams> | undefined): DrawingParam
   delete (merged as unknown as { strokes?: unknown }).strokes;
   delete (merged as unknown as { level?: unknown }).level; // 숙련도(초급·중급·상급)는 없앴다
   delete (merged as unknown as { grayscaleInput?: unknown }).grayscaleInput; // 입력 흑백 변환 토글도 없앴다
+  if ((merged.color as string) === 'sepia') merged.color = 'mono'; // 세피아는 없앴다
   if (style) merged.style = style;
   return merged;
 }
@@ -333,7 +334,7 @@ export interface Drawing {
   prompt?: string;
 }
 
-export const COLOR_LABEL: Record<ColorMode, string> = { color: '컬러', mono: '흑백', sepia: '세피아' };
+export const COLOR_LABEL: Record<ColorMode, string> = { color: '컬러', mono: '흑백' };
 export const LIGHT_LABEL: Record<LightDir, string> = {
   N: '위', NE: '우상단', E: '오른쪽', SE: '우하단', S: '아래', SW: '좌하단', W: '왼쪽', NW: '좌상단',
   front: '앞에서', back: '뒤에서',

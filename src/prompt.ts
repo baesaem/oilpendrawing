@@ -109,8 +109,6 @@ function colorText(p: DrawingParams): string {
   switch (p.color) {
     case 'mono':
       return 'Monochrome: black oil pen ink only on off-white paper.';
-    case 'sepia':
-      return 'Single-color: warm sepia brown oil pen ink only on cream paper.';
     case 'color':
       return 'Colored oil pens: a limited palette of five to seven pen colors layered by hatching, ' +
         'keeping the drawn, hand-made look (not a painting).';

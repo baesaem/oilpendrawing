@@ -88,6 +88,9 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
 .seg button.on { background: #2a2825; color: var(--text); font-weight: 700; box-shadow: inset 0 0 0 1px var(--line-strong); }
 .seg button:hover:not(.on) { color: var(--text); }
 
+/* 화풍 프리셋의 로컬 / AI 탭 */
+.engine-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 8px; }
+
 .chips { display: flex; gap: 6px; }
 .chips button {
   flex: 1; height: 40px; border-radius: 6px; border: 1px solid var(--line); background: #1b1a18; color: var(--muted);
