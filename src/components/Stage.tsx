@@ -161,7 +161,7 @@ export function Stage({ original, result, view, busy, toneFilter, wide, guide, l
     <div className={`viewer ${wide ? 'wide' : ''}`}>
       {!oUrl ? (
         <div className="empty-stage">
-          <h3>양평평생교육센터 오일펜(하근수 화가님) 드로잉 도우미</h3>
+          <h3>양평평생교육센터 오일펜(하근수 화가님) 드로잉</h3>
         </div>
       ) : (
         <div className="frame">
