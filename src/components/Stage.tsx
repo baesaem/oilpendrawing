@@ -134,7 +134,7 @@ function StampLayer({ stamps, onMove, onDrop }: { stamps: Array<{ placed: Placed
   return (
     <div className="stamp-layer" ref={layer}>
       {stamps.map(({ placed: p, item }) => (
-        <div key={p.id} className="stamp-drag" style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%`, width: `${p.size * 100}%` }}
+        <div key={p.id} className="stamp-drag" style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%`, width: `${p.size * 100}%`, opacity: p.opacity ?? 0.95 }}
           onPointerDown={(e) => down(e, p)} onPointerMove={move} onPointerUp={up} onPointerCancel={up} title="끌어서 옮기기">
           <img src={item.dataUrl} alt={item.name} draggable={false} />
         </div>

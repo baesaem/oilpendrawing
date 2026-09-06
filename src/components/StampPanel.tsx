@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { CloseIcon } from './Icons';
-import { STAMP_LABEL, STAMP_LIMIT, sealFromText, signFromCanvas, stampFromFile, type PlacedStamp, type StampItem, type StampKind } from '../stamps';
+import { STAMP_LABEL, STAMP_LIMIT, STAMP_OPACITY, sealFromText, signFromCanvas, stampFromFile, type PlacedStamp, type StampItem, type StampKind } from '../stamps';
 
 interface Props {
   items: StampItem[];
@@ -11,6 +11,7 @@ interface Props {
   onPlace: (item: StampItem) => void;
   onUnplace: (placedId: string) => void;
   onResize: (placedId: string, size: number) => void;
+  onFade: (placedId: string, opacity: number) => void;
 }
 
 /** 마우스·터치로 사인을 그리는 작은 판 */
@@ -57,7 +58,7 @@ function SignPad({ onDone, onClose }: { onDone: (item: StampItem) => void; onClo
   );
 }
 
-function Group({ kind, items, placed, hasResult, onAddItem, onRemoveItem, onPlace, onUnplace, onResize }: Props & { kind: StampKind }) {
+function Group({ kind, items, placed, hasResult, onAddItem, onRemoveItem, onPlace, onUnplace, onResize, onFade }: Props & { kind: StampKind }) {
   const mine = items.filter((i) => i.kind === kind);
   const limit = STAMP_LIMIT[kind];
   const [text, setText] = useState('');
@@ -84,12 +85,32 @@ function Group({ kind, items, placed, hasResult, onAddItem, onRemoveItem, onPlac
                 <img src={it.dataUrl} alt={it.name} />
               </button>
               <div className="stamp-meta">
-                <span title={it.name}>{it.name}</span>
+                <div className="stamp-name">
+                  <span title={it.name}>{it.name}</span>
+                  <button className="link" onClick={() => onRemoveItem(it.id)}>삭제</button>
+                </div>
+                {/* 적용/비적용: 그림에 놓을지 말지. 껐다 켜도 자리·크기·투명도는 기본값으로 돌아간다 */}
+                <button className="toggle toggle-sm" role="switch" aria-checked={on.length > 0} disabled={!hasResult}
+                  title={!hasResult ? '먼저 드로잉을 만드세요' : on.length ? '그림에서 뺍니다' : '그림에 놓습니다'}
+                  onClick={() => (on.length ? onUnplace(on[0].id) : onPlace(it))}>
+                  <span>{on.length ? '적용' : '비적용'}</span>
+                  <span className={`switch ${on.length ? 'on' : ''}`} />
+                </button>
                 {on.length > 0 && (
-                  <input type="range" min={kind === 'seal' ? 0.03 : 0.08} max={kind === 'seal' ? 0.2 : 0.45} step={0.005} value={on[0].size}
-                    onChange={(e) => onResize(on[0].id, Number(e.target.value))} aria-label="크기" />
+                  <>
+                    <label className="stamp-slider">
+                      <span>크기</span>
+                      <input type="range" min={kind === 'seal' ? 0.03 : 0.08} max={kind === 'seal' ? 0.2 : 0.45} step={0.005} value={on[0].size}
+                        onChange={(e) => onResize(on[0].id, Number(e.target.value))} aria-label="크기" />
+                    </label>
+                    <label className="stamp-slider">
+                      <span>투명도</span>
+                      <input type="range" min={0.1} max={1} step={0.05} value={on[0].opacity ?? STAMP_OPACITY}
+                        onChange={(e) => onFade(on[0].id, Number(e.target.value))} aria-label="투명도" />
+                      <b>{Math.round((on[0].opacity ?? STAMP_OPACITY) * 100)}%</b>
+                    </label>
+                  </>
                 )}
-                <button className="link" onClick={() => onRemoveItem(it.id)}>삭제</button>
               </div>
             </div>
           );

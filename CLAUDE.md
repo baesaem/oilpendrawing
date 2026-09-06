@@ -280,8 +280,10 @@ wash·oil·impasto 면 붓 화풍), `PaintPanel` 의 붓 선택기도 "펜으로
 
 ### 낙관·사인
 
-`stamps.ts`. 등록 항목(`StampItem`, 투명 PNG data URL)과 배치(`PlacedStamp`, 그림에 대한 상대 좌표 0~1과 폭 비율)를
-localStorage `oilpen.stamps.v1` 에 둔다. 낙관 2개·사인 3개 한도. `Drawing.base` 가 찍기 전 결과이고 `result` 는 배치를
+`stamps.ts`. 등록 항목(`StampItem`, 투명 PNG data URL)과 배치(`PlacedStamp`, 그림에 대한 상대 좌표 0~1, 폭 비율, 투명도)를
+localStorage `oilpen.stamps.v1` 에 둔다. 낙관 2개·사인 3개 한도. 항목마다 **적용/비적용 토글**(배치를 넣고 뺀다)과
+크기·**투명도** 슬라이더가 있고, 투명도는 `compositeStamps` 의 `globalAlpha` 와 끌기 중 오버레이 양쪽에 쓰인다
+(옛 레코드에는 없어 `STAMP_OPACITY` 0.95 를 기본으로 본다). `Drawing.base` 가 찍기 전 결과이고 `result` 는 배치를
 구워 넣은 것이라, 전체화면·가이드·저장은 `result` 를 그대로 쓴다. `Stage` 는 끌기 중 부드럽게 보이도록 `base` 위에
 DOM 오버레이(`StampLayer`)로 그리고, 놓는 순간 `App.rebake` 가 `compositeStamps` 로 다시 굽는다.
 

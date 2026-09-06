@@ -23,6 +23,8 @@ export interface PlacedStamp {
   y: number;
   /** 그림 너비에 대한 폭 비율 */
   size: number;
+  /** 투명도 0.1~1 (1 이 불투명). 옛 레코드에는 없어 기본값 0.95 로 본다 */
+  opacity?: number;
 }
 export interface StampState { items: StampItem[]; placed: PlacedStamp[] }
 
@@ -30,6 +32,8 @@ export const STAMP_LIMIT: Record<StampKind, number> = { seal: 2, sign: 3 };
 export const STAMP_LABEL: Record<StampKind, string> = { seal: '낙관', sign: '사인' };
 const KEY = 'oilpen.stamps.v1';
 const MAX_SIDE = 480;
+/** 배치 기본 투명도 (종이에 찍은 낙관처럼 아주 살짝 비친다) */
+export const STAMP_OPACITY = 0.95;
 
 export const newStampId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -152,6 +156,7 @@ export function defaultPlacement(item: StampItem, existing: PlacedStamp[]): Plac
     id: newStampId(), stampId: item.id,
     x: seal ? 0.93 - n * 0.02 : 0.8 - n * 0.02, y: seal ? 0.93 : 0.94,
     size: seal ? 0.06 : 0.16,
+    opacity: STAMP_OPACITY,
   };
 }
 
@@ -168,7 +173,7 @@ export async function compositeStamps(base: Blob, placed: PlacedStamp[], items: 
     sImg.src = item.dataUrl;
     await sImg.decode();
     const w = p.size * W, h = w * (item.h / item.w);
-    ctx.globalAlpha = 0.95;
+    ctx.globalAlpha = Math.min(1, Math.max(0.05, p.opacity ?? STAMP_OPACITY));
     ctx.drawImage(sImg, p.x * W - w / 2, p.y * H - h / 2, w, h);
   }
   return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('이미지 인코딩 실패'))), 'image/png'));

@@ -325,6 +325,12 @@ input[type=range]:focus-visible { outline: 1px solid var(--accent); outline-offs
 .stamp-list { display: flex; flex-direction: column; gap: 6px; }
 .stamp-item { display: flex; gap: 10px; align-items: center; padding: 6px; border: 1px solid var(--line); border-radius: 6px; background: #1b1a18; }
 .stamp-item.on { border-color: var(--accent); }
+.stamp-meta .stamp-name { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.stamp-slider { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.stamp-slider > span { flex: none; width: 34px; }
+.stamp-slider > input { flex: 1; }
+.stamp-slider > b { flex: none; width: 32px; text-align: right; color: var(--text); font-weight: 600; }
+.toggle.toggle-sm { height: 28px; font-size: 12px; }
 .stamp-thumb { width: 52px; height: 52px; flex: none; border-radius: 4px; background: #f3efe6; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .stamp-thumb img { max-width: 46px; max-height: 46px; display: block; }
 .stamp-meta { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; font-size: 12px; color: var(--muted); }

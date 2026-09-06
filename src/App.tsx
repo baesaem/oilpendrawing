@@ -271,8 +271,8 @@ export function App() {
     void putDrawing(updated);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, stamps]);
-  const stampsKey = JSON.stringify(stamps.placed.map((p) => [p.stampId, p.size]));
-  useEffect(() => { void rebake(); /* 추가·제거·크기 */ // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stampsKey = JSON.stringify(stamps.placed.map((p) => [p.stampId, p.size, p.opacity]));
+  useEffect(() => { void rebake(); /* 추가·제거·크기·투명도 */ // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stampsKey, stamps.items]);
 
   const addStamp = (item: StampItem) => setStamps((s) => ({ ...s, items: [...s.items, item] }));
@@ -280,6 +280,7 @@ export function App() {
   const placeStamp = (item: StampItem) => setStamps((s) => ({ ...s, placed: [...s.placed, defaultPlacement(item, s.placed.filter((p) => s.items.find((i) => i.id === p.stampId)?.kind === item.kind))] }));
   const unplaceStamp = (id: string) => setStamps((s) => ({ ...s, placed: s.placed.filter((p) => p.id !== id) }));
   const resizeStamp = (id: string, size: number) => setStamps((s) => ({ ...s, placed: s.placed.map((p) => (p.id === id ? { ...p, size } : p)) }));
+  const fadeStamp = (id: string, opacity: number) => setStamps((s) => ({ ...s, placed: s.placed.map((p) => (p.id === id ? { ...p, opacity } : p)) }));
   const moveStamp = (id: string, x: number, y: number) => setStamps((s) => ({ ...s, placed: s.placed.map((p) => (p.id === id ? { ...p, x, y } : p)) }));
   const placedWithItems = stamps.placed
     .map((placed) => ({ placed, item: stamps.items.find((i) => i.id === placed.stampId)! }))
@@ -393,7 +394,7 @@ export function App() {
         </StylePanel>
         <StampPanel
           items={stamps.items} placed={stamps.placed} hasResult={!!current}
-          onAddItem={addStamp} onRemoveItem={removeStamp} onPlace={placeStamp} onUnplace={unplaceStamp} onResize={resizeStamp}
+          onAddItem={addStamp} onRemoveItem={removeStamp} onPlace={placeStamp} onUnplace={unplaceStamp} onResize={resizeStamp} onFade={fadeStamp}
         />
       </aside>
 
