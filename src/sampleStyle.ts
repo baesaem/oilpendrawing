@@ -175,11 +175,11 @@ export function analyzeSample(img: RawImage): SampleAnalysis {
   const runLen = median(runs, 10);
 
   // 8) 붓 추정
-  let brush: BrushKind = 'hatch';
+  let brush: BrushKind = 'tone';
   if (runLen <= 4 && runs.length > 20) brush = 'stipple';
-  else if (concentration < 0.22 && total > 0) brush = 'scribble';
-  else if (hasSecond) brush = 'cross';
+  else if (concentration < 0.22 && total > 0) brush = 'pen'; // 방향이 흩어진 손그림 = 리천 획
   else if (drawn && bins[0] / drawn > 0.75 && tones <= 3) brush = 'contour';
+  // hasSecond(교차선)는 명암 단계 해칭이 어두운 층에서 저절로 만든다
 
   // 9) 그리기 설정으로: 톤 단계 → 층 수, 해칭 간격 → 세밀함(간격이 좁을수록 작은 획), 토막 길이 → 획 길이,
   //    방향 집중도 → 무작위성. 형태 따라가기·정밀도는 견본 한 장으로 재기 어려워 기본값을 둔다.
@@ -187,11 +187,12 @@ export function analyzeSample(img: RawImage): SampleAnalysis {
   const strokeLength = clamp(Math.round((runLen / 60) * 100), 20, 90);
   const profile: PaintProfile = {
     ...DEFAULT_PAINT,
-    brush, passes: tones, detail, strokeLength, baseAngle: hatchAngle, randomness: jitter, lineWidth, paperKeep, paperColor, inkColor,
-    featureFollow: brush === 'hatch' || brush === 'cross' ? 40 : DEFAULT_PAINT.featureFollow,
+    // 견본에 교차선이 있으면 단계를 늘린다 — 명암 단계 해칭은 셋째 층부터 교차선이 되기 때문
+    brush, passes: clamp(hasSecond ? tones + 1 : tones, 2, 6), detail, strokeLength, baseAngle: hatchAngle, randomness: jitter, lineWidth, paperKeep, paperColor, inkColor,
+    featureFollow: brush === 'tone' ? 0 : DEFAULT_PAINT.featureFollow,
   };
   const summary = `${BRUSH_TEXT[brush]} · ${tones}층 · 선 ${lineWidth}px · 간격 ${hatchSpacing}px · ${hatchAngle}°`;
   return { profile, summary };
 }
 
-const BRUSH_TEXT: Record<BrushKind, string> = { pen: '펜 획', hatch: '한 방향 해칭', cross: '교차 해칭', contour: '윤곽선 위주', scribble: '스크리블', stipple: '점묘', wash: '펜 선 + 담채', oil: '유화 붓터치', impasto: '임파스토' };
+const BRUSH_TEXT: Record<BrushKind, string> = { tone: '명암 단계 해칭', pen: '리천 획', contour: '윤곽선 위주', stipple: '점묘', wash: '펜 선 + 담채', oil: '유화 붓터치', impasto: '임파스토' };

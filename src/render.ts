@@ -12,8 +12,8 @@
  *  3. 색 경계를 따라가는 윤곽선 획을 얹고, 가장자리 미완성 처리 뒤 종이 위에 합성한다.
  *  층이 끝날 때마다(그리고 도중에도) onProgress 로 중간 그림을 내보내 화면에서 그려지는 과정을 볼 수 있다.
  *
- * 붓(brush) 이 획의 모양을 정한다: pen(면을 따르는 짧은 획·나뭇잎 고리선), hatch(평행), cross(교차), contour(윤곽 위주),
- * scribble(고리 선), stipple(점), wash(수채 담채 붓 자국 + 펜).
+ * 붓(brush) 이 획의 모양을 정한다: tone(명암 단계 평행선·교차선), pen(면을 따르는 짧은 획·나뭇잎 고리선),
+ * contour(윤곽 위주), stipple(점), wash(수채 담채), oil(유화), impasto(고흐풍 임파스토).
  */
 import type { ColorMode, DirectionGuide, PaintProfile, TipKind } from './types';
 
@@ -555,29 +555,6 @@ function loopStroke(c: Ctx, ref: Float32Array, x0: number, y0: number, R: number
   cv.end(alphaFor(c, D0) * 0.6, c.colorAt(i0));
 }
 
-/** 스크리블: 굽은 정도가 무작위인 고리 선이 목표 안에서만 맴돈다 */
-function scribbleStroke(c: Ctx, ref: Float32Array, x0: number, y0: number, L: number) {
-  const { cv, w, h, rng, lw } = c;
-  const i0 = (y0 | 0) * w + (x0 | 0);
-  const D0 = ref[i0];
-  if (D0 <= 0.01) return;
-  let th = rng() * 6.283;
-  const curv = (0.12 + rng() * 0.25) * (rng() < 0.5 ? 1 : -1) / Math.max(1, lw * 0.8);
-  let x = x0, y = y0, over = 0;
-  const step = 0.7;
-  for (let s = 0; s < L; s += step) {
-    const xi = x | 0, yi = y | 0;
-    if (xi < 0 || yi < 0 || xi >= w || yi >= h) break;
-    const i = yi * w + xi;
-    if (ref[i] < D0 - c.tol || ref[i] < 0.02) { th += 1.2; x += Math.cos(th) * step; y += Math.sin(th) * step; if (++over > 8) break; continue; }
-    if (cv.dark[i] > ref[i] + 0.1) { if (++over > 12) break; } else over = 0;
-    cv.dot(x, y, lw / 2, 0.85);
-    th += curv * step + (rng() - 0.5) * 0.25 * c.rnd;
-    x += Math.cos(th) * step; y += Math.sin(th) * step;
-  }
-  cv.end(alphaFor(c, D0) * 0.8, c.colorAt(i0));
-}
-
 /**
  * 색 경계를 따라가는 윤곽선 (DAP 의 edge 층). 셀마다 경계가 가장 센 자리에서 출발해 경계 접선을 따라 양쪽으로 긋고,
  * 지나간 자리는 표시해 같은 경계를 두 번 긋지 않는다. 잔결(나뭇잎) 영역은 눌러서 잎 덩어리가 검게 뭉치지 않게 한다.
@@ -656,7 +633,7 @@ interface Sweep {
   minRef?: number;
   /** 격자 배율 */
   gMul?: number;
-  kind?: 'pen' | 'scribble' | 'stipple';
+  kind?: 'pen' | 'stipple';
 }
 
 /**
@@ -705,7 +682,6 @@ function sweep(c: Ctx, ref: Float32Array, R: number, sw: Sweep, T: number, L: nu
       }
       continue;
     }
-    if (sw.kind === 'scribble') { scribbleStroke(c, ref, x0, y0, len * 1.6); continue; }
     // pen 붓: 잔결(나뭇잎)은 획 대신 고리 선
     // 무작위성이 낮은(정돈된 손) 설정은 고리 대신 짧은 잎 획으로 잔결을 낸다 (세밀 펜화)
     if (c.p.brush === 'pen' && !sw.rot && c.rnd >= 0.25 && c.texture[i0] > 0.45 && c.field.aniso[i0] < 0.45 && ref[i0] > 0.25 && ref[i0] < 0.75 && rng() < 0.3) { loopStroke(c, ref, x0, y0, R); continue; }
@@ -717,17 +693,98 @@ function sweep(c: Ctx, ref: Float32Array, R: number, sw: Sweep, T: number, L: nu
   }
 }
 
+/**
+ * 톤 해칭 (명암 단계 한 방향 펜선) — 드로잉 교본의 값 스케일 그대로.
+ *
+ * 사진을 명암 `levels` 단계로 나누고, 단계마다 한 방향 평행선을 그 단계 **이상** 어두운 곳에 얹는다.
+ * 층이 겹치므로 어두운 곳일수록 선이 저절로 여러 벌 쌓이고(선 갯수 많게), 층마다 선을 굵게·촘촘하게 하며(어두울수록 굵은선),
+ * 셋째 층부터 각도를 틀어 교차선이 된다. 가장 밝은 단계(0)는 선이 없다 — 흰 종이 그대로.
+ * 초보자가 종이에 그대로 따라 그릴 수 있는 방식이라 이 앱의 목적에 가장 잘 맞는다.
+ */
+function toneHatch(c: Ctx, lum: Float32Array, white: number, bg: Float32Array | null, levels: number,
+  minSide: number, onLevel?: (k: number, frac: number) => void) {
+  const { w, h, N, cv, rng, lw, p } = c;
+
+  // 1) 명암 단계: 큰 덩어리로 읽히도록 뭉갠 뒤 나눈다 (세밀함이 높을수록 덜 뭉갠다)
+  const rS = Math.max(1, Math.round(minSide * (0.004 + 0.022 * (1 - clamp(p.detail, 0, 100) / 100))));
+  const base = boxBlur(lum, w, h, rS);
+  const tone = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (bg && bg[i] > 0.5) continue; // 비워 두는 큰 어두운 배경
+    const L = base[i];
+    if (L >= white) continue; // 가장 밝은 단계 = 종이, 선 없음
+    tone[i] = clamp(Math.round(((white - L) / white) * (levels - 1) + 0.35), 1, levels - 1);
+  }
+
+  // 2) 층마다 선 간격·굵기·각도. 어두운 층일수록 촘촘하고 굵으며, 셋째 층부터 각도를 튼다
+  const sets = levels - 1;
+  const spread = Math.max(1, sets - 1);
+  const S0 = Math.max(lw * 2.2, minSide * (0.032 - 0.021 * clamp(p.detail, 0, 100) / 100));
+  const ANGLE_OFF = [0, 0, 52, -41, 88, 24]; // 1·2층은 같은 방향(간격만 반 칸), 3층부터 교차
+  const alphaBase = 0.42 + 0.5 * clamp(p.ink, 0, 100) / 100;
+  const j = c.rnd;
+
+  for (let k = 1; k <= sets; k++) {
+    const t = (k - 1) / spread;
+    const spacing = S0 * (1 - 0.4 * t);
+    const width = lw * (0.75 + 0.85 * t);
+    const angle = c.p.baseAngle + (ANGLE_OFF[Math.min(k - 1, ANGLE_OFF.length - 1)] ?? 0);
+    const th = (angle * Math.PI) / 180;
+    const dx = Math.cos(th), dy = Math.sin(th);
+    const nx = -dy, ny = dx;
+    const cx = w / 2, cy = h / 2;
+    const diag = Math.hypot(w, h);
+    const r = width / 2;
+    const phase = k === 2 ? 0.5 : rng(); // 2층은 1층 사이에 끼워 넣어 선 갯수를 두 배로
+    let done = 0;
+    const total = Math.max(1, Math.ceil(diag / spacing));
+
+    for (let o = -diag / 2 + phase * spacing; o <= diag / 2; o += spacing) {
+      if (onLevel && (done & 15) === 0) onLevel(k - 1, done / total);
+      done++;
+      const bx = cx + nx * o, by = cy + ny * o;
+      // 손으로 그은 선: 완만한 흔들림과 필압 변화
+      const wobA = (0.3 + 1.5 * j) * Math.max(1, lw * 0.7);
+      const wobF = 0.006 + rng() * 0.012, wobP = rng() * 6.28;
+      const pressure = 0.85 + rng() * 0.3;
+      const seg: number[] = [];
+      const flush = () => {
+        if (seg.length >= 8) {
+          const n = seg.length / 2;
+          for (let q = 0; q < n; q++) {
+            const taper = Math.min(1, (q + 1) / 4, (n - q) / 4);
+            cv.dot(seg[q * 2], seg[q * 2 + 1], r * (0.55 + 0.45 * taper) * pressure, 0.8 + 0.2 * taper);
+          }
+          cv.end(clamp(alphaBase * (0.85 + rng() * 0.3), 0, 0.97), c.colorAt((seg[1] | 0) * w + (seg[0] | 0)));
+        } else cv.end(0, [0, 0, 0]); // 너무 짧으면 버린다 (모아 둔 자국도 지운다)
+        seg.length = 0;
+      };
+      let skip = 0;
+      for (let u = -diag / 2; u <= diag / 2; u += 0.8) {
+        const wob = Math.sin(u * wobF + wobP) * wobA;
+        const px = bx + dx * u + nx * wob, py = by + dy * u + ny * wob;
+        const xi = px | 0, yi = py | 0;
+        const inside = xi >= 0 && yi >= 0 && xi < w && yi < h && tone[yi * w + xi] >= k;
+        if (!inside) { if (seg.length) flush(); continue; }
+        // 가끔 펜을 떼었다 놓는다 (손그림 느낌). 무작위성이 클수록 자주
+        if (skip > 0) { skip -= 0.8; if (seg.length) flush(); continue; }
+        if (j > 0.05 && rng() < 0.0015 * j) { skip = 2 + rng() * 6 * j; continue; }
+        seg.push(px, py);
+      }
+      if (seg.length) flush();
+    }
+    if (onLevel) onLevel(k - 1, 1);
+  }
+}
+
 /** 붓별 훑기 구성. 층마다 이 순서대로 돈다 */
 function sweepsFor(p: PaintProfile): Sweep[] {
   const q = Math.PI / 2;
   switch (p.brush) {
     case 'pen': return [{ rot: 0 }, { rot: q, minRef: 0.5, offset: 0.5 }];
-    case 'hatch': return [{ rot: 0 }, { rot: 0, offset: 0.5 }];
-    case 'cross': return [{ rot: 0 }, { rot: q, offset: 0.5 }, { rot: q / 2, minRef: 0.55 }];
     case 'contour': return [{ rot: 0, minRef: 0.6, gMul: 1.6 }];
-    case 'scribble': return [{ kind: 'scribble' }, { kind: 'scribble', offset: 0.5 }];
     case 'stipple': return [{ kind: 'stipple' }];
-    case 'wash': case 'oil': case 'impasto': return [];
+    case 'tone': case 'wash': case 'oil': case 'impasto': return [];
   }
 }
 
@@ -1019,7 +1076,14 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   };
 
   // 2) 층: 큰 획 → 작은 획. 층마다 목표를 획 크기만큼 뭉갠 참조를 본다 (큰 획은 큰 형태만).
-  if (p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto') {
+  if (p.brush === 'tone') {
+    // 명암 단계 해칭: 층 수 슬라이더가 단계 수 (기본 5단계)
+    const levels = clamp(Math.round(p.passes), 2, 6);
+    toneHatch(c, lum, white, bgMask, levels, minSide, (k, f) => {
+      stageLabel = `${k + 1}/${levels - 1}층 · ${k === 0 ? '가장 밝은 톤부터' : k === 1 ? '선 사이 채우기' : '교차선'}`;
+      report(Math.min(passes - 1, k), f);
+    });
+  } else if (p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto') {
     const oil = p.brush !== 'wash';
     const want0 = washTarget(img, lum, white, w, h, paper, opts.color, oil);
     for (let k = 0; k < passes; k++) {
@@ -1049,6 +1113,17 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
         }
       }
       report(k, 1, true);
+    }
+    // 세부 마무리: 아주 작은 붓으로 원본과 아직 다른 곳만 다시 짚는다 (화가가 마지막에 세부를 찍듯).
+    // 뭉개지 않은 목표 색(want0)을 보므로 창틀·나뭇가지·얼굴처럼 작은 것들이 살아난다. 세밀함이 낮으면 건너뛴다.
+    const fineSteps = p.brush === 'impasto' ? (p.detail >= 70 ? 1 : 0) : p.detail >= 75 ? 2 : p.detail >= 45 ? 1 : 0;
+    for (let f = 0; f < fineSteps; f++) {
+      const dt = clamp(p.detail, 0, 100) / 100;
+      const Rf = Math.max(2.5, minSide * (0.015 - 0.010 * dt) * (fineSteps === 2 && f === 0 ? 1.7 : 1) * (p.brush === 'impasto' ? 1.6 : 1));
+      stageLabel = fineSteps === 2 && f === 0 ? '세부 (작은 붓)' : '마무리 (가장 작은 붓)';
+      washSweep(c, blurRGB(want0, w, h, f === 0 && fineSteps === 2 ? 1 : 0), Rf, Math.max(3, 8 * (1 - acc)), false,
+        (fr) => report(passes - 1, (f + fr) / fineSteps), { alpha: 1, len: 0.45, tip: oil ? 'bristle' : 'chalk' });
+      report(passes - 1, (f + 1) / fineSteps, true);
     }
     // 물감이 마르며 가장자리에 고이는 안료: 캔버스 밝기의 경계를 조금 어둡게
     if (!oil) pigmentEdges(cv, 0.34, mulberry32(77));

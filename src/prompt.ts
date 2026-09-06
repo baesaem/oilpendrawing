@@ -15,6 +15,10 @@ const LEVEL_TEXT = {
 };
 
 const STYLE_TEXT: Record<PenStyle, string> = {
+  tonehatch:
+    'Style: textbook value hatching. Divide the picture into five clear value zones and fill each with parallel pen lines in one ' +
+    'direction: the lightest zone left as bare white paper, then progressively thicker and more closely spaced lines, with a second ' +
+    'and third set of lines crossing at an angle in the two darkest zones. Straight, evenly spaced, deliberate lines a student can copy.',
   richeon:
     'Style: Korean urban sketchbook pen drawing with a fine black liner. Thin uniform lines; hatching follows each surface ' +
     '(vertical strokes on walls, strokes receding along the perspective on roads and floors, long sweeping diagonals in the sky ' +
@@ -101,11 +105,9 @@ export function paintText(s: PaintProfile): string {
     : s.featureFollow >= 30 ? 'strokes mostly follow the form, falling back to one dominant direction on flat areas' : `strokes keep one dominant direction at roughly ${angle}`;
   switch (s.brush) {
     case 'pen': parts.push(`short pen strokes that ${follow.replace('strokes ', '')}, foliage as small looping scribbles, cross-hatching only in the shadows`); break;
-    case 'hatch': parts.push(`parallel hatching; ${follow}`); break;
-    case 'cross': parts.push(`cross-hatching, first layer at roughly ${angle}, darker areas with more crossing layers; ${follow}`); break;
     case 'contour': parts.push('contour lines first, hatching reserved for the deepest shadows'); break;
-    case 'scribble': parts.push('loose looping scribble strokes piled up for tone'); break;
     case 'stipple': parts.push('stippled dots instead of lines, density for tone'); break;
+    case 'tone': parts.push('parallel pen lines filling five clear value zones, thicker and denser in the darker zones, crossing lines in the darkest, lightest zone left as bare paper'); break;
     case 'wash': parts.push('ink outlines with transparent watercolor washes for tone, hatching only in the deepest shadows'); break;
     case 'oil': parts.push('opaque impressionist oil brush strokes from large to small covering the whole canvas, no outlines'); break;
     case 'impasto': parts.push('long curving impasto strokes following the flow of each surface, hue varying stroke to stroke, dark contour strokes'); break;

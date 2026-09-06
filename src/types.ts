@@ -9,7 +9,7 @@ export type PenStyle =
   | 'richeon' | 'fineink'
   | 'hatching' | 'crosshatch' | 'contour' | 'scribble' | 'stipple'
   | 'engraving' | 'urban' | 'realistic' | 'comic' | 'architectural'
-  | 'ghibli' | 'webtoon' | 'manga' | 'watercolor' | 'oil' | 'vangogh' | 'carver';
+  | 'tonehatch' | 'ghibli' | 'webtoon' | 'manga' | 'watercolor' | 'oil' | 'vangogh' | 'carver';
 
 /** 결과를 만든 엔진: 브라우저 로컬 렌더러 또는 AI 제공사 */
 /** 결과를 만든 엔진: 브라우저 로컬 렌더러, AI 제공사, 또는 밖에서 만든 그림(Dynamic Auto-Painter 등)을 불러온 것 */
@@ -25,15 +25,17 @@ export interface DirectionGuide {
 }
 
 /** 로컬 엔진의 붓 (획의 모양) */
-export type BrushKind = 'pen' | 'hatch' | 'cross' | 'contour' | 'scribble' | 'stipple' | 'wash' | 'oil' | 'impasto';
+export type BrushKind = 'tone' | 'pen' | 'contour' | 'stipple' | 'wash' | 'oil' | 'impasto';
 export const BRUSH_LABEL: Record<BrushKind, string> = {
-  pen: '펜 획 (면을 따라 흐르는 짧은 획, 나뭇잎은 고리 선, 그림자는 교차)',
-  hatch: '평행 해칭', cross: '교차 해칭', contour: '윤곽선 위주 (깊은 그림자만 해칭)', scribble: '스크리블 (고리 선)', stipple: '점묘',
-  wash: '수채 담채 (붓 자국을 겹쳐 얹고 펜은 윤곽과 깊은 그림자만)',
-  oil: '유화 붓터치 (불투명한 짧은 붓 자국을 큰 것부터 작은 것까지 겹쳐 종이를 다 덮는다)',
-  impasto: '임파스토 (고흐풍: 길고 굽은 붓 자국, 자국마다 색이 조금씩 다르고 가장자리는 어둡게, 가운데는 밝게 도드라진다)',
+  tone: '펜화 — 밝기를 몇 단계로 나눠 한 방향 펜선. 어두울수록 굵고 촘촘하게, 셋째 층부터 교차선, 가장 밝은 곳은 선 없음',
+  pen: '리천 — 면을 따라 흐르는 짧은 획, 나뭇잎은 고리 선, 그림자는 교차',
+  contour: '윤곽 — 윤곽선 위주, 깊은 그림자만 해칭',
+  stipple: '점묘 — 점의 밀도로 명암',
+  wash: '담채 — 수채 붓 자국을 겹쳐 얹고 펜은 윤곽과 깊은 그림자만',
+  oil: '유화 — 불투명한 짧은 붓 자국을 큰 것부터 작은 것까지 겹쳐 화면을 다 덮음',
+  impasto: '고흐 — 길고 굽은 두꺼운 붓 자국, 자국마다 색이 조금씩 다르고 가장자리는 어둡게',
 };
-export const BRUSH_SHORT: Record<BrushKind, string> = { pen: '펜 획', hatch: '해칭', cross: '교차', contour: '윤곽', scribble: '낙서', stipple: '점묘', wash: '담채', oil: '유화', impasto: '고흐' };
+export const BRUSH_SHORT: Record<BrushKind, string> = { tone: '펜화', pen: '리천', contour: '윤곽', stipple: '점묘', wash: '담채', oil: '유화', impasto: '고흐' };
 
 /** 브러시 팁 (포토샵 브러시 도구의 팁 모양에 해당). 담채·유화·임파스토 붓이 쓴다. 펜 붓은 늘 둥근 펜촉 */
 export type TipKind = 'round' | 'bristle' | 'wet' | 'chalk';
@@ -101,23 +103,24 @@ export const FINE_PAINT: PaintProfile = {
 };
 /** 클래식: 굵은 펜의 한 방향 해칭 */
 export const CLASSIC_PAINT: PaintProfile = {
-  brush: 'hatch', tip: 'round', passes: 4, brushSize: 50, detail: 70, accuracy: 65, strokeLength: 70, featureFollow: 40, baseAngle: 35, randomness: 30,
+  brush: 'tone', tip: 'round', passes: 5, brushSize: 50, detail: 62, accuracy: 65, strokeLength: 70, featureFollow: 40, baseAngle: 35, randomness: 30,
   lineWidth: 1.8, ink: 80, paperKeep: 55, edges: 50, vignette: 0, paperColor: '#f5f0e6', inkColor: '#221e1b',
 };
 export const DEFAULT_PAINT: PaintProfile = RICHEON_PAINT;
 
 /** 화풍마다 완전한 그리기 설정 (DAP 의 프리셋). 갤러리에서 화풍을 고르면 이 값이 그대로 들어간다 */
 export const PAINT_FOR_STYLE: Record<PenStyle, PaintProfile> = {
+  tonehatch: { ...CLASSIC_PAINT, brush: 'tone', passes: 5, brushSize: 50, detail: 62, accuracy: 70, strokeLength: 70, featureFollow: 0, baseAngle: 35, randomness: 22, lineWidth: 1.4, ink: 82, paperKeep: 58, edges: 45, vignette: 0 },
   richeon: RICHEON_PAINT,
   fineink: FINE_PAINT,
   hatching: CLASSIC_PAINT,
-  crosshatch: { ...CLASSIC_PAINT, brush: 'cross', passes: 5, detail: 75, accuracy: 70, strokeLength: 65, randomness: 25, lineWidth: 1.5, paperKeep: 50, edges: 55 },
+  crosshatch: { ...CLASSIC_PAINT, brush: 'tone', passes: 6, detail: 75, accuracy: 70, strokeLength: 65, randomness: 25, lineWidth: 1.5, paperKeep: 50, edges: 55 },
   contour: { ...CLASSIC_PAINT, brush: 'contour', passes: 2, brushSize: 40, detail: 60, accuracy: 50, strokeLength: 60, featureFollow: 70, baseAngle: 45, randomness: 25, ink: 85, paperKeep: 65, edges: 95 },
-  scribble: { ...CLASSIC_PAINT, brush: 'scribble', passes: 4, brushSize: 45, detail: 75, accuracy: 60, strokeLength: 60, featureFollow: 30, baseAngle: 0, randomness: 70, lineWidth: 1.3, ink: 75, edges: 45 },
+  scribble: { ...CLASSIC_PAINT, brush: 'pen', passes: 4, brushSize: 45, detail: 75, accuracy: 60, strokeLength: 60, featureFollow: 30, baseAngle: 0, randomness: 70, lineWidth: 1.3, ink: 75, edges: 45 },
   stipple: { ...CLASSIC_PAINT, brush: 'stipple', passes: 4, brushSize: 40, detail: 85, accuracy: 65, strokeLength: 0, featureFollow: 0, randomness: 50, lineWidth: 1.6, ink: 90, edges: 30 },
   engraving: { ...CLASSIC_PAINT, passes: 5, brushSize: 40, detail: 85, accuracy: 75, strokeLength: 90, featureFollow: 90, baseAngle: 0, randomness: 10, lineWidth: 1.4, ink: 82, paperKeep: 45, edges: 60 },
   urban: { ...RICHEON_PAINT, passes: 3, brushSize: 50, detail: 65, accuracy: 55, strokeLength: 60, featureFollow: 75, baseAngle: 60, randomness: 45, lineWidth: 1.5, paperKeep: 62, edges: 60, vignette: 55 },
-  realistic: { ...CLASSIC_PAINT, brush: 'cross', passes: 6, brushSize: 35, detail: 100, accuracy: 95, strokeLength: 45, featureFollow: 70, baseAngle: 30, randomness: 15, lineWidth: 1, ink: 85, paperKeep: 35, edges: 75 },
+  realistic: { ...CLASSIC_PAINT, brush: 'tone', passes: 6, brushSize: 35, detail: 100, accuracy: 95, strokeLength: 45, featureFollow: 70, baseAngle: 30, randomness: 15, lineWidth: 1, ink: 85, paperKeep: 35, edges: 75 },
   comic: { ...CLASSIC_PAINT, brush: 'contour', passes: 3, brushSize: 45, detail: 70, accuracy: 55, strokeLength: 55, featureFollow: 60, baseAngle: 45, randomness: 20, lineWidth: 2.4, ink: 95, paperKeep: 60, edges: 100 },
   architectural: { ...CLASSIC_PAINT, passes: 3, brushSize: 50, detail: 70, accuracy: 60, strokeLength: 95, featureFollow: 90, baseAngle: 90, randomness: 5, lineWidth: 1.2, ink: 80, paperKeep: 65, edges: 85 },
   ghibli: { ...CLASSIC_PAINT, passes: 3, brushSize: 55, detail: 60, accuracy: 50, strokeLength: 65, featureFollow: 60, baseAngle: 30, randomness: 20, lineWidth: 1.4, ink: 70, paperKeep: 60, edges: 65 },
@@ -170,7 +173,9 @@ export function migrateStrokes(s: Record<string, unknown> | undefined): PaintPro
   if (!s || typeof s !== 'object' || !('fill' in s)) return null;
   const num = (k: string, d: number) => (typeof s[k] === 'number' ? (s[k] as number) : d);
   const fill = String(s.fill);
-  const brush: BrushKind = fill === 'sketch' ? 'pen' : (['hatch', 'cross', 'contour', 'scribble', 'stipple', 'wash'].includes(fill) ? (fill as BrushKind) : 'hatch');
+  // 옛 채우기 방식 → 지금의 붓 (해칭·교차는 명암 단계 해칭으로, 스크리블은 리천 획으로)
+  const MAP: Record<string, BrushKind> = { sketch: 'pen', hatch: 'tone', cross: 'tone', contour: 'contour', scribble: 'pen', stipple: 'stipple', wash: 'wash' };
+  const brush: BrushKind = MAP[fill] ?? 'tone';
   const spacing = num('hatchSpacing', 6);
   return {
     ...DEFAULT_PAINT,
@@ -245,6 +250,10 @@ export function mergeParams(p: Partial<DrawingParams> | undefined): DrawingParam
   const style = (p?.style as string) === 'parkyongsoon' ? 'fineink' : p?.style;
   // 옛 레코드(선·톤 프로필)는 옮기고, 아주 옛 레코드(둘 다 없음)는 화풍의 프리셋으로
   const paint = p?.paint ? { ...(style ? PAINT_FOR_STYLE[style] : DEFAULT_PAINT), ...p.paint } : migrateStrokes(old) ?? (style ? PAINT_FOR_STYLE[style] : DEFAULT_PAINT);
+  // 옛 레코드가 지금은 없는 붓을 가리킬 수 있다
+  const OLD_BRUSH: Record<string, PaintProfile['brush']> = { hatch: 'tone', cross: 'tone', scribble: 'pen' };
+  const fixed = OLD_BRUSH[paint.brush as string];
+  if (fixed) paint.brush = fixed;
   const merged: DrawingParams = { ...DEFAULT_PARAMS, ...p, paint };
   delete (merged as unknown as { strokes?: unknown }).strokes;
   if (style) merged.style = style;
@@ -316,10 +325,11 @@ export const LIGHT_LABEL: Record<LightDir, string> = {
 export const LIGHT_DIRS: LightDir[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
 export const PEN_STYLES: PenStyle[] = [
-  'richeon', 'fineink', 'hatching', 'crosshatch', 'contour', 'scribble', 'stipple', 'engraving', 'urban', 'realistic', 'comic', 'architectural',
+  'tonehatch', 'richeon', 'fineink', 'hatching', 'crosshatch', 'contour', 'scribble', 'stipple', 'engraving', 'urban', 'realistic', 'comic', 'architectural',
   'ghibli', 'webtoon', 'manga', 'watercolor', 'oil', 'vangogh', 'carver',
 ];
 export const STYLE_LABEL: Record<PenStyle, string> = {
+  tonehatch: '명암 5단계 해칭 (교본식)',
   richeon: '리천 스타일 (어반 펜 스케치)',
   fineink: '세밀 펜화',
   hatching: '클래식 해칭',
@@ -341,6 +351,7 @@ export const STYLE_LABEL: Record<PenStyle, string> = {
   carver: '조각·판각 느낌 (새긴 선)',
 };
 export const STYLE_DESC: Record<PenStyle, string> = {
+  tonehatch: '사진을 밝기 5단계로 나누고 단계마다 한 방향 펜선을 얹습니다. 가장 밝은 단계는 흰 종이로 비우고, 어두운 단계일수록 선이 굵고 촘촘해지며 셋째 단계부터 교차선이 됩니다. 스케치북에 그대로 따라 그리기 가장 쉬운 방식입니다.',
   richeon: '가는 검정 펜으로 면의 방향을 따라 해칭(벽은 세로, 바닥은 원근 방향). 나뭇잎은 뭉게구름처럼 둘러 그리고 안을 고리 선으로 채웁니다. 하늘과 밝은 곳은 흰 종이로 비우고 가장자리는 미완성으로 둡니다. @richeons_drawing_journey',
   fineink: '아주 가늘고 고른 선으로 종이 끝까지 빈틈없이 완성하는 전문 펜화. 하늘은 수평 해칭 속에 구름을 흰 여백으로 남기고, 깊은 그림자는 먹으로 채웁니다. 낡은 벽·기와·나뭇잎의 잔결 질감이 핵심.',
   hatching: '한 방향 평행선으로 명암을 쌓는 정석 펜 드로잉. 가장 무난하고 사진 재현이 안정적입니다.',

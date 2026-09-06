@@ -17,7 +17,7 @@ interface Props {
   onApplyPreset: (p: UserPreset) => void;
 }
 
-const BRUSHES: BrushKind[] = ['pen', 'hatch', 'cross', 'contour', 'scribble', 'stipple', 'wash', 'oil', 'impasto'];
+const BRUSHES: BrushKind[] = ['tone', 'pen', 'contour', 'stipple', 'wash', 'oil', 'impasto'];
 const TIPS: TipKind[] = ['round', 'bristle', 'wet', 'chalk'];
 
 /** 브러시 팁 미리보기 (포토샵 브러시 선택기처럼 획 하나를 보여 준다). 엔진의 같은 팁 코드로 그린다 */
@@ -82,7 +82,7 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
 
       <div className="field">
         <div className="field-row"><b>붓</b><span className="muted small">{BRUSH_SHORT[s.brush]}</span></div>
-        <div className="seg" style={{ gridTemplateColumns: 'repeat(9, minmax(0, 1fr))' }} role="radiogroup" aria-label="붓">
+        <div className="seg" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }} role="radiogroup" aria-label="붓">
           {BRUSHES.map((b) => (
             <button key={b} className={s.brush === b ? 'on' : ''} role="radio" aria-checked={s.brush === b} onClick={() => onChange({ brush: b })} title={BRUSH_LABEL[b]} style={{ fontSize: 11 }}>
               {BRUSH_SHORT[b]}
@@ -106,14 +106,23 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
         </div>
       )}
 
-      <Range label="세밀함" value={s.detail} min={0} max={100} note={detailNote(s.detail)}
-        hint="낮으면 큰 형태만, 높으면 작은 획으로 세부까지" onChange={(detail) => onChange({ detail })} />
+      {s.brush === 'tone' && (
+        <Range label="명암 단계" value={s.passes} min={3} max={6} unit="단계" note={`${s.passes}단계 · 선 ${s.passes - 1}겹`}
+          hint="밝기를 몇 단계로 나눌지. 가장 밝은 단계는 선이 없습니다" onChange={(passes) => onChange({ passes })} />
+      )}
+      <Range label={s.brush === 'tone' ? '선 간격' : '세밀함'} value={s.detail} min={0} max={100}
+        note={s.brush === 'tone' ? (s.detail < 35 ? '성글게' : s.detail < 70 ? '보통' : '촘촘하게') : detailNote(s.detail)}
+        hint="낮으면 큰 형태만·선이 성글고, 높으면 세부까지·선이 촘촘합니다" onChange={(detail) => onChange({ detail })} />
       <Range label="여백" value={s.paperKeep} min={0} max={100} note={keepNote(s.paperKeep)}
         hint="높을수록 밝은 곳을 넓게 종이로 남깁니다" onChange={(paperKeep) => onChange({ paperKeep })} />
       <Range label={isPaint ? '물감 진하기' : '잉크 진하기'} value={s.ink} min={0} max={100} note={inkNote(s.ink)}
         hint="획 하나의 진하기. 아주 진하면 깊은 그림자를 먹으로 채웁니다" onChange={(ink) => onChange({ ink })} />
       <Range label={isPaint ? '붓 굵기' : '선 굵기'} value={s.lineWidth} min={1} max={6} step={0.5} note={widthNote(s.lineWidth)}
         onChange={(lineWidth) => onChange({ lineWidth })} />
+      {s.brush === 'tone' && (
+        <Range label="선 방향" value={s.baseAngle} min={0} max={179} unit="°" note={`${s.baseAngle}° ${s.baseAngle < 20 || s.baseAngle > 160 ? '(가로)' : s.baseAngle > 70 && s.baseAngle < 110 ? '(세로)' : '(사선)'}`}
+          hint="모든 단계가 이 방향으로 그어집니다. 셋째 단계부터는 여기서 각도를 틀어 교차선이 됩니다" onChange={(baseAngle) => onChange({ baseAngle })} />
+      )}
 
       <div className="field">
         <div className="field-row">
