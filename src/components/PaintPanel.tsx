@@ -67,10 +67,10 @@ const wetNote = (v: number) => (v < 25 ? '마른 붓' : v < 50 ? '조금 마르�
 
 /**
  * 붓을 바꿀 때의 보정. 펜화 붓의 `passes` 는 층 수가 아니라 **명암 단계**라, 다른 붓의 층 수(2~4)를 그대로 물려받으면
- * 3단계짜리 성긴 해칭이 된다. 펜화로 들어올 때만 교본대로 10단계를 넣어 준다 (그 뒤엔 슬라이더가 권한).
+ * 3단계짜리 성긴 해칭이 된다. 펜화로 들어올 때는 기본 5단계를 넣어 준다 (그 뒤엔 슬라이더가 권한, 3~10).
  */
 function brushPatch(s: PaintProfile, b: BrushKind): Partial<PaintProfile> {
-  if (b === 'tone' && s.brush !== 'tone') return { brush: b, passes: Math.max(s.passes, 10) };
+  if (b === 'tone' && s.brush !== 'tone') return { brush: b, passes: 5 };
   if (b !== 'tone' && s.brush === 'tone') return { brush: b, passes: Math.min(s.passes, 4) };
   return { brush: b };
 }

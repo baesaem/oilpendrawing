@@ -27,30 +27,14 @@ const STYLE_TEXT: Record<PenStyle, string> = {
     'Style: cross-hatching. Layers of strokes at two to four angles build smooth, continuous mid-tones; darkest areas have the most layers.',
   contour:
     'Style: pure contour line drawing. Only outlines and a few interior form lines, almost no shading, large areas of untouched paper.',
-  scribble:
-    'Style: scribble hatching. Loose, looping, energetic circular strokes pile up to make tone; edges stay lively and slightly rough.',
   stipple:
     'Style: stippling. Tone is made entirely of dots of varying density instead of lines; contours are implied by dot clusters.',
   engraving:
     'Style: engraving / etching look. Regular, precisely spaced lines that swell and taper to follow form, like a banknote illustration.',
-  urban:
-    'Style: urban sketchbook. Quick, loose, slightly wobbly lines, selective detail, deliberately unfinished edges fading into the paper.',
   realistic:
     'Style: hyper-realistic pen rendering. Extremely fine, dense strokes reproducing every value and texture almost photographically.',
   comic:
     'Style: comic ink illustration. Bold, confident outlines, solid black spot-shadows, simplified mid-tones, high graphic contrast.',
-  architectural:
-    'Style: architectural drafting. Ruler-straight lines, accurate perspective, uniform line weight, restrained hatching only in shadows.',
-  ghibli:
-    'Style: hand-drawn Japanese animation look reminiscent of classic Studio Ghibli films, rendered in pen: soft clean outlines, ' +
-    'simplified gentle shapes, cel-shading with two or three flat tone steps made of even hatching, warm nostalgic atmosphere, ' +
-    'no photographic detail.',
-  webtoon:
-    'Style: Korean webtoon line art in pen: crisp digital-looking outlines of uniform weight, simple cel shading with clean flat ' +
-    'shadow shapes, subjects drawn sharply while the background is simplified, modern and clean.',
-  manga:
-    'Style: Japanese manga ink page in pen: thin sharp linework, screentone-like regular dot and line patterns for mid-tones, ' +
-    'bold spot blacks for emphasis, expressive line weight variation, black-and-white graphic clarity.',
   watercolor:
     'Style: urban-sketch pen and wash. Confident ink outlines drawn first, then loose, transparent watercolor washes in a few ' +
     'flat value steps laid over them; highlights left as untouched white paper, washes bleeding softly past the lines, ' +
@@ -63,9 +47,7 @@ const STYLE_TEXT: Record<PenStyle, string> = {
     'Style: post-impressionist oil painting in the manner of Van Gogh instead of pen: long curving thick impasto strokes that swirl ' +
     'along the flow of every surface, each stroke a slightly different hue so yellows, oranges and greens stripe together, dark blue ' +
     'contour strokes around the forms, saturated color, no bare canvas.',
-  carver:
-    'Style: carved relief look instead of pen: fine long grooves flowing along every surface as if cut into wood, each groove with a ' +
-    'dark edge and a light ridge so the picture reads as a shallow relief, nearly monochrome with a faint tint, high detail.',
+
 };
 
 const LIGHT_TEXT: Record<LightDir, string> = {

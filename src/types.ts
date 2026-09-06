@@ -8,10 +8,10 @@ export type { ArtistId } from './artists';
 
 export type ProviderId = 'gemini' | 'openai' | 'xai';
 export type PenStyle =
-  | 'richeon' | 'fineink'
-  | 'hatching' | 'crosshatch' | 'contour' | 'scribble' | 'stipple'
-  | 'engraving' | 'urban' | 'realistic' | 'comic' | 'architectural'
-  | 'tonehatch' | 'ghibli' | 'webtoon' | 'manga' | 'watercolor' | 'oil' | 'vangogh' | 'carver';
+  | 'tonehatch' | 'richeon' | 'fineink'
+  | 'hatching' | 'crosshatch' | 'contour' | 'stipple'
+  | 'engraving' | 'realistic' | 'comic'
+  | 'watercolor' | 'oil' | 'vangogh';
 
 /** 결과를 만든 엔진: 브라우저 로컬 렌더러 또는 AI 제공사 */
 /** 결과를 만든 엔진: 브라우저 로컬 렌더러, AI 제공사, 또는 밖에서 만든 그림(Dynamic Auto-Painter 등)을 불러온 것 */
@@ -141,26 +141,20 @@ export const DEFAULT_PAINT: PaintProfile = RICHEON_PAINT;
 
 /** 화풍마다 완전한 그리기 설정 (DAP 의 프리셋). 갤러리에서 화풍을 고르면 이 값이 그대로 들어간다 */
 export const PAINT_FOR_STYLE: Record<PenStyle, PaintProfile> = {
-  tonehatch: { ...CLASSIC_PAINT, brush: 'tone', passes: 10, brushSize: 50, detail: 62, accuracy: 70, strokeLength: 70, featureFollow: 0, baseAngle: 35, randomness: 22, lineWidth: 1.4, ink: 82, paperKeep: 58, edges: 45, vignette: 0 },
+  tonehatch: { ...CLASSIC_PAINT, brush: 'tone', passes: 5, brushSize: 50, detail: 62, accuracy: 70, strokeLength: 70, featureFollow: 0, baseAngle: 35, randomness: 22, lineWidth: 1.4, ink: 82, paperKeep: 58, edges: 45, vignette: 0 },
   richeon: RICHEON_PAINT,
   fineink: FINE_PAINT,
   hatching: CLASSIC_PAINT,
   crosshatch: { ...CLASSIC_PAINT, brush: 'tone', passes: 6, detail: 75, accuracy: 70, strokeLength: 65, randomness: 25, lineWidth: 1.5, paperKeep: 50, edges: 55 },
   contour: { ...CLASSIC_PAINT, brush: 'contour', passes: 2, brushSize: 40, detail: 60, accuracy: 50, strokeLength: 60, featureFollow: 70, baseAngle: 45, randomness: 25, ink: 85, paperKeep: 65, edges: 95 },
-  scribble: { ...CLASSIC_PAINT, brush: 'pen', passes: 4, brushSize: 45, detail: 75, accuracy: 60, strokeLength: 60, featureFollow: 30, baseAngle: 0, randomness: 70, lineWidth: 1.3, ink: 75, edges: 45 },
   stipple: { ...CLASSIC_PAINT, brush: 'stipple', passes: 4, brushSize: 40, detail: 85, accuracy: 65, strokeLength: 0, featureFollow: 0, randomness: 50, lineWidth: 1.6, ink: 90, edges: 30 },
   engraving: { ...CLASSIC_PAINT, passes: 5, brushSize: 40, detail: 85, accuracy: 75, strokeLength: 90, featureFollow: 90, baseAngle: 0, randomness: 10, lineWidth: 1.4, ink: 82, paperKeep: 45, edges: 60 },
-  urban: { ...RICHEON_PAINT, passes: 3, brushSize: 50, detail: 65, accuracy: 55, strokeLength: 60, featureFollow: 75, baseAngle: 60, randomness: 45, lineWidth: 1.5, paperKeep: 62, edges: 60, vignette: 55 },
   realistic: { ...CLASSIC_PAINT, brush: 'tone', passes: 6, brushSize: 35, detail: 100, accuracy: 95, strokeLength: 45, featureFollow: 70, baseAngle: 30, randomness: 15, lineWidth: 1, ink: 85, paperKeep: 35, edges: 75 },
   comic: { ...CLASSIC_PAINT, brush: 'contour', passes: 3, brushSize: 45, detail: 70, accuracy: 55, strokeLength: 55, featureFollow: 60, baseAngle: 45, randomness: 20, lineWidth: 2.4, ink: 95, paperKeep: 60, edges: 100 },
-  architectural: { ...CLASSIC_PAINT, passes: 3, brushSize: 50, detail: 70, accuracy: 60, strokeLength: 95, featureFollow: 90, baseAngle: 90, randomness: 5, lineWidth: 1.2, ink: 80, paperKeep: 65, edges: 85 },
-  ghibli: { ...CLASSIC_PAINT, passes: 3, brushSize: 55, detail: 60, accuracy: 50, strokeLength: 65, featureFollow: 60, baseAngle: 30, randomness: 20, lineWidth: 1.4, ink: 70, paperKeep: 60, edges: 65 },
-  webtoon: { ...CLASSIC_PAINT, brush: 'contour', passes: 3, brushSize: 50, detail: 65, accuracy: 55, strokeLength: 60, featureFollow: 60, baseAngle: 45, randomness: 10, lineWidth: 1.8, ink: 90, paperKeep: 62, edges: 95 },
-  manga: { ...CLASSIC_PAINT, passes: 4, brushSize: 40, detail: 90, accuracy: 70, strokeLength: 60, featureFollow: 20, baseAngle: 45, randomness: 5, lineWidth: 1, ink: 90, paperKeep: 55, edges: 85 },
   watercolor: { ...RICHEON_PAINT, brush: 'wash', tip: 'auto', palette: 'match2', wet: 72, passes: 4, brushSize: 78, detail: 80, accuracy: 72, strokeLength: 50, featureFollow: 55, baseAngle: 40, randomness: 50, lineWidth: 1.6, ink: 60, paperKeep: 62, edges: 45, vignette: 15 },
   oil: { ...RICHEON_PAINT, brush: 'oil', tip: 'auto', palette: 'match2', wet: 30, passes: 4, brushSize: 68, detail: 95, accuracy: 80, strokeLength: 40, featureFollow: 65, baseAngle: 0, randomness: 55, lineWidth: 1, ink: 0, paperKeep: 0, edges: 0, vignette: 0 },
   vangogh: { ...RICHEON_PAINT, brush: 'impasto', tip: 'auto', palette: 'match', wet: 18, passes: 4, brushSize: 62, detail: 85, accuracy: 75, strokeLength: 85, featureFollow: 100, baseAngle: 20, randomness: 45, lineWidth: 1.4, ink: 0, paperKeep: 0, edges: 55, vignette: 0 },
-  carver: { ...RICHEON_PAINT, brush: 'impasto', tip: 'chalk', palette: 'mono', wet: 0, passes: 4, brushSize: 30, detail: 100, accuracy: 90, strokeLength: 100, featureFollow: 100, baseAngle: 0, randomness: 12, lineWidth: 1, ink: 0, paperKeep: 0, edges: 70, vignette: 0 },
+
 };
 
 /** 기본값과 측정값을 반영도(0~100)로 섞습니다 */
@@ -235,8 +229,6 @@ export interface DrawingParams {
   contrast: number;
   /** 0~100 견본 반영도 */
   referenceWeight: number;
-  /** 입력을 흑백으로 변환해서 보냄 */
-  grayscaleInput: boolean;
   /** 로컬 엔진의 그리기 설정 */
   paint: PaintProfile;
   /** AI 로 그릴 때 로컬 결과를 견본 이미지로 함께 보낼지 (같은 구도라 해칭 방향·톤 배치를 잘 따름) */
@@ -259,7 +251,6 @@ export const DEFAULT_PARAMS: DrawingParams = {
   brightness: 0,
   contrast: 0,
   referenceWeight: 60,
-  grayscaleInput: false,
   paint: DEFAULT_PAINT,
   aiRefFromLocal: true,
   aiRefFromPreset: true,
@@ -270,7 +261,12 @@ export const DEFAULT_PARAMS: DrawingParams = {
 /** 이력에서 불러온 옛 레코드에 새 필드가 없을 수 있으므로 기본값과 병합합니다 */
 export function mergeParams(p: Partial<DrawingParams> | undefined): DrawingParams {
   const old = (p as { strokes?: Record<string, unknown> } | undefined)?.strokes;
-  const style = (p?.style as string) === 'parkyongsoon' ? 'fineink' : p?.style;
+  // 없앤 화풍(스크리블·어반·건축 제도·지브리·웹툰·망가·판각)과 옛 ID 는 가장 가까운 화풍으로 옮긴다
+  const OLD_STYLE: Record<string, PenStyle> = {
+    parkyongsoon: 'fineink', scribble: 'richeon', urban: 'richeon', architectural: 'hatching',
+    ghibli: 'comic', webtoon: 'comic', manga: 'comic', carver: 'vangogh',
+  };
+  const style = p?.style ? OLD_STYLE[p.style as string] ?? p.style : undefined;
   // 옛 레코드(선·톤 프로필)는 옮기고, 아주 옛 레코드(둘 다 없음)는 화풍의 프리셋으로
   const paint = p?.paint ? { ...(style ? PAINT_FOR_STYLE[style] : DEFAULT_PAINT), ...p.paint } : migrateStrokes(old) ?? (style ? PAINT_FOR_STYLE[style] : DEFAULT_PAINT);
   // 옛 레코드가 지금은 없는 붓을 가리킬 수 있다
@@ -280,6 +276,7 @@ export function mergeParams(p: Partial<DrawingParams> | undefined): DrawingParam
   const merged: DrawingParams = { ...DEFAULT_PARAMS, ...p, paint };
   delete (merged as unknown as { strokes?: unknown }).strokes;
   delete (merged as unknown as { level?: unknown }).level; // 숙련도(초급·중급·상급)는 없앴다
+  delete (merged as unknown as { grayscaleInput?: unknown }).grayscaleInput; // 입력 흑백 변환 토글도 없앴다
   if (style) merged.style = style;
   return merged;
 }
@@ -344,30 +341,24 @@ export const LIGHT_LABEL: Record<LightDir, string> = {
 export const LIGHT_DIRS: CompassDir[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
 export const PEN_STYLES: PenStyle[] = [
-  'tonehatch', 'richeon', 'fineink', 'hatching', 'crosshatch', 'contour', 'scribble', 'stipple', 'engraving', 'urban', 'realistic', 'comic', 'architectural',
-  'ghibli', 'webtoon', 'manga', 'watercolor', 'oil', 'vangogh', 'carver',
+  'tonehatch', 'richeon', 'fineink', 'hatching', 'crosshatch', 'contour', 'stipple', 'engraving', 'realistic', 'comic',
+  'watercolor', 'oil', 'vangogh',
 ];
 export const STYLE_LABEL: Record<PenStyle, string> = {
-  tonehatch: '명암 5단계 해칭 (교본식)',
+  tonehatch: '펜화 · 명암 단계 해칭 (교본식)',
   richeon: '리천 스타일 (어반 펜 스케치)',
   fineink: '세밀 펜화',
   hatching: '클래식 해칭',
   crosshatch: '크로스 해칭',
   contour: '윤곽선 드로잉',
-  scribble: '스크리블',
   stipple: '점묘',
   engraving: '판화풍',
-  urban: '어반 스케치',
   realistic: '극사실 세밀화',
   comic: '잉크 일러스트',
-  architectural: '건축 제도풍',
-  ghibli: '지브리풍 애니메이션',
-  webtoon: '웹툰',
-  manga: '일본 만화(망가)',
   watercolor: '수채 담채 (펜 + 수채)',
   oil: '유화 붓터치 (인상주의)',
   vangogh: '고흐풍 유화 (임파스토)',
-  carver: '조각·판각 느낌 (새긴 선)',
+
 };
 export const STYLE_DESC: Record<PenStyle, string> = {
   tonehatch: '사진을 밝기 5단계로 나누고 단계마다 한 방향 펜선을 얹습니다. 가장 밝은 단계는 흰 종이로 비우고, 어두운 단계일수록 선이 굵고 촘촘해지며 셋째 단계부터 교차선이 됩니다. 스케치북에 그대로 따라 그리기 가장 쉬운 방식입니다.',
@@ -376,18 +367,12 @@ export const STYLE_DESC: Record<PenStyle, string> = {
   hatching: '한 방향 평행선으로 명암을 쌓는 정석 펜 드로잉. 가장 무난하고 사진 재현이 안정적입니다.',
   crosshatch: '여러 각도의 선을 교차시켜 부드러운 중간톤을 만듭니다. 입체감과 질감이 풍부합니다.',
   contour: '명암을 거의 넣지 않고 윤곽과 형태선만으로 그립니다. 여백이 많고 간결합니다.',
-  scribble: '둥글게 휘감는 낙서 같은 선을 겹쳐 톤을 만듭니다. 자유롭고 에너지가 느껴집니다.',
   stipple: '선 대신 점의 밀도로 명암을 표현합니다. 시간이 오래 걸린 듯한 정교한 인상입니다.',
   engraving: '굵기가 규칙적으로 변하는 선으로 동판화·지폐 삽화 같은 느낌을 냅니다.',
-  urban: '느슨하고 빠른 선, 일부러 남긴 미완성 여백. 여행 스케치북 느낌입니다.',
   realistic: '아주 촘촘한 선으로 사진처럼 세밀하게 묘사합니다. 가장 오래 그린 듯한 결과입니다.',
   comic: '굵은 외곽선과 검게 채운 그림자(스팟 블랙). 만화·잉크 일러스트 느낌입니다.',
-  architectural: '직선 위주의 정확한 원근과 균일한 선. 건축 도면·투시도 같은 인상입니다.',
-  ghibli: '손그림 애니메이션 배경화 느낌. 부드럽고 깨끗한 윤곽, 단순화한 형태, 셀 방식의 2~3단계 평면 명암, 따뜻하고 서정적인 분위기.',
-  webtoon: '한국 웹툰의 깔끔한 디지털 선화. 굵기가 일정한 외곽선, 단순한 셀 셰이딩, 인물은 또렷하고 배경은 간략하게.',
-  manga: '일본 만화 원고 느낌. 가늘고 날카로운 펜선, 스크린톤처럼 규칙적인 점·선 무늬로 명암, 강조 부분에 굵은 잉크.',
   watercolor: '펜으로 윤곽을 그리고 물을 많이 섞은 수채를 몇 단계의 옅은 담채로 얹는 어반 스케치 방식. 밝은 곳은 종이를 남기고 담채 가장자리는 안료가 고여 살짝 짙어집니다. 흑백이면 먹 담채가 됩니다.',
   oil: '불투명한 짧은 붓 자국을 큰 것부터 작은 것까지 겹쳐 종이를 다 덮는 인상주의 유화. 색은 사진보다 맑고 진하게, 붓은 면의 방향을 따르고, 빛 받는 곳은 밝은 붓 자국으로 살립니다. 컬러로 보는 것이 좋습니다.',
   vangogh: '고흐의 후기 풍경화처럼 길고 굽은 두꺼운 붓 자국이 면의 흐름을 따라 소용돌이칩니다. 자국마다 색이 조금씩 달라 노랑·주황·초록이 줄무늬로 섞이고, 형태는 짙은 윤곽 붓으로 둘러 잡습니다. 컬러로 보는 것이 좋습니다.',
-  carver: '나무나 판에 새긴 것처럼 가늘고 긴 홈이 면의 흐름을 따라 흐르고, 홈마다 어두운 가장자리와 밝은 능선이 있어 얕은 부조처럼 보입니다. 세피아나 흑백으로 보면 판각 느낌이 가장 잘 납니다.',
+
 };

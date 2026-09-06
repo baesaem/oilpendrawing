@@ -79,15 +79,6 @@ export function InputPanel({ input, reference, inputIsGray, params, onParams, on
             <button className="link" onClick={() => onInput(null)}>제거</button>
           </div>
         )}
-        <button
-          className="toggle" role="switch" aria-checked={params.grayscaleInput}
-          onClick={() => onParams({ grayscaleInput: !params.grayscaleInput })}
-          disabled={!!inputIsGray}
-          title={inputIsGray ? '이미 흑백 사진입니다' : undefined}
-        >
-          <span>흑백으로 변환하여 입력</span>
-          <span className={`switch ${params.grayscaleInput || inputIsGray ? 'on' : ''}`} />
-        </button>
       </div>
 
       <div className="field">

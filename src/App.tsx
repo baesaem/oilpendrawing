@@ -191,8 +191,7 @@ export function App() {
     abortRef.current = ac;
     try {
       setBusy('그리는 중…');
-      const gray = params.grayscaleInput && !inputIsGray;
-      const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: gray, relight: params.lightAuto ? undefined : params.light });
+      const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: false, relight: params.lightAuto ? undefined : params.light });
       const preparedRef = reference ? await prepareInput(reference, { maxSide: 1024, grayscale: false }) : undefined;
       const result = await renderLocalDrawing(
         preparedInput, { paint: params.paint, color: params.color, guides: params.guides, guideRadius: params.guideRadius }, ac.signal,
@@ -211,8 +210,7 @@ export function App() {
     setError(null);
     try {
       setBusy('불러오는 중…');
-      const gray = params.grayscaleInput && !inputIsGray;
-      const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: gray });
+      const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: false });
       const result = await prepareInput(file, { maxSide: 2048, grayscale: false });
       await commit({ id: newId(), createdAt: Date.now(), input: preparedInput, result, params: { ...params }, engine: 'external' });
     } catch (e) { fail(e); } finally { finish(); }
@@ -226,8 +224,7 @@ export function App() {
     abortRef.current = ac;
     try {
       setBusy('이미지 준비 중…');
-      const gray = params.grayscaleInput && !inputIsGray;
-      const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: gray, relight: params.lightAuto ? undefined : params.light });
+      const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: false, relight: params.lightAuto ? undefined : params.light });
       // 로컬 결과가 있고 스위치가 켜져 있으면 그것을 견본으로 (같은 구도라 올린 견본보다 정확히 따름)
       const localRef = params.aiRefFromLocal && (current?.engine === 'local' || current?.engine === 'external') ? current.base ?? current.result : null;
       // 둘 다 없으면 고른 화풍의 프리셋 예시 그림 (다른 사진이므로 기법만 따르라고 지시)
@@ -262,7 +259,7 @@ export function App() {
       setLive(true);
       try {
         const photo = lightChanged && input
-          ? await prepareInput(input, { maxSide: 1536, grayscale: params.grayscaleInput && !inputIsGray, relight: params.lightAuto ? undefined : params.light })
+          ? await prepareInput(input, { maxSide: 1536, grayscale: false, relight: params.lightAuto ? undefined : params.light })
           : current.input;
         const base = await renderLocalDrawing(photo, { paint: params.paint, color: params.color, guides: params.guides, guideRadius: params.guideRadius }, ac.signal);
         if (id !== liveRef.current) return;
@@ -274,7 +271,7 @@ export function App() {
       } catch { /* 중단·오류는 조용히 */ } finally { if (id === liveRef.current) setLive(false); }
     }, 350);
     return () => { window.clearTimeout(timer); ac.abort(); };
-  }, [params.paint, params.color, params.light, params.lightAuto, params.grayscaleInput, params.guides, params.guideRadius, inputIsGray, input, current, busy, stamps]);
+  }, [params.paint, params.color, params.light, params.lightAuto, params.guides, params.guideRadius, inputIsGray, input, current, busy, stamps]);
 
   // 낙관·사인 배치가 바뀌면 (끌어 놓기 끝, 크기 조절, 추가·제거) 결과에 다시 구워 넣습니다.
   const bakeRef = useRef(0);
@@ -319,7 +316,7 @@ export function App() {
     abortRef.current = ac;
     try {
       setBusy('이미지 준비 중…');
-      const photo = current?.input ?? (await prepareInput(input, { maxSide: 1536, grayscale: params.grayscaleInput && !inputIsGray }));
+      const photo = current?.input ?? (await prepareInput(input, { maxSide: 1536, grayscale: false }));
       const prompt = buildProcessPrompt(params, !!current);
       const sheet = await generateDrawing(settings, {
         input: photo, reference: current?.result, prompt, signal: ac.signal, onStatus: setBusy,
