@@ -36,7 +36,8 @@ const STYLE_TEXT: Record<PenStyle, string> = {
   realistic:
     'Style: hyper-realistic pen rendering. Extremely fine, dense strokes reproducing every value and texture almost photographically.',
   comic:
-    'Style: comic ink illustration. Bold, confident outlines, solid black spot-shadows, simplified mid-tones, high graphic contrast.',
+    'Style: illustration. Clean outlines of even weight describe the forms; shadows are simplified into a few flat shapes with ' +
+    'crisp edges (cel shading) rather than gradual shading, mid-tones are kept few and broad, and the result reads graphic and open.',
   watercolor:
     'Style: urban-sketch pen and wash. Confident ink outlines drawn first, then loose, transparent watercolor washes in a few ' +
     'flat value steps laid over them; highlights left as untouched white paper, washes bleeding softly past the lines, ' +
