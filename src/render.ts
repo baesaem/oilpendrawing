@@ -15,7 +15,7 @@
  * 붓(brush) 이 획의 모양을 정한다: tone(명암 단계 평행선·교차선), pen(면을 따르는 짧은 획·나뭇잎 고리선),
  * contour(윤곽 위주), stipple(점), wash(수채 담채), oil(유화), impasto(고흐풍 임파스토).
  */
-import type { ColorMode, DirectionGuide, PaintProfile, TipKind } from './types';
+import { PALETTE_12, type ColorMode, type DirectionGuide, type PaintProfile, type PaletteId, type TipKind } from './types';
 
 export interface RawImage { width: number; height: number; data: Uint8ClampedArray }
 export interface ProgressInfo { pass: number; passes: number; frac: number; strokes: number; /** 지금 단계 이름 (밑칠·중간·세부·윤곽) */ label?: string }
@@ -270,13 +270,69 @@ function smoothNoise1D(n: number, rng: () => number): Float32Array {
   return a;
 }
 
+/* ---------- 색 팔레트 ---------- */
+
+const PALETTE_RGB: RGB[] = PALETTE_12.map((h) => hexToRgb(h));
+
+/**
+ * 색 팔레트 (DAP 의 Palette). 입력·출력 모두 0..1 의 RGB.
+ * `match` 는 사진 색을 팔레트에서 가장 가까운 물감색으로 옮기되 원래 밝기는 지킨다 — 색 수가 줄어 그림다워지고 톤은 그대로 읽힌다.
+ * 회색에 가까운 색은 옮기지 않는다(채도가 낮을수록 원래 색을 남긴다) — 안 그러면 하늘·물이 원색으로 튄다.
+ */
+function applyPalette(r: number, g: number, b: number, pal: PaletteId, ink: RGB): [number, number, number] {
+  if (pal === 'photo') return [r, g, b];
+  const L = 0.299 * r + 0.587 * g + 0.114 * b;
+  if (pal === 'mono') {
+    const m = Math.max(ink[0], ink[1], ink[2]) || 1;
+    return [L * (0.45 + 0.55 * ink[0] / m), L * (0.45 + 0.55 * ink[1] / m), L * (0.45 + 0.55 * ink[2] / m)];
+  }
+  const mean = (r + g + b) / 3;
+  if (pal === 'bright') {
+    const k = 1.55;
+    return [clamp(mean + (r - mean) * k, 0, 1), clamp(mean + (g - mean) * k, 0, 1), clamp(mean + (b - mean) * k, 0, 1)];
+  }
+  // match / match2: 색도(밝기를 뺀 색)가 가장 가까운 물감색
+  const chroma = Math.max(Math.abs(r - mean), Math.abs(g - mean), Math.abs(b - mean));
+  const strength = clamp(chroma * 3.2, 0, 1) * (pal === 'match' ? 1 : 0.55);
+  if (strength < 0.02) return [r, g, b];
+  const sum = r + g + b + 0.03;
+  const cr = r / sum, cg = g / sum;
+  let best = 0, bd = 1e9;
+  for (let k = 0; k < PALETTE_RGB.length; k++) {
+    const p0 = PALETTE_RGB[k];
+    const ps = (p0[0] + p0[1] + p0[2]) / 255 + 0.03;
+    const d = Math.abs(p0[0] / 255 / ps - cr) + Math.abs(p0[1] / 255 / ps - cg);
+    if (d < bd) { bd = d; best = k; }
+  }
+  const p1 = PALETTE_RGB[best];
+  const pl = Math.max(0.06, (0.299 * p1[0] + 0.587 * p1[1] + 0.114 * p1[2]) / 255);
+  const sc = L / pl;
+  const mr = clamp((p1[0] / 255) * sc, 0, 1), mg = clamp((p1[1] / 255) * sc, 0, 1), mb = clamp((p1[2] / 255) * sc, 0, 1);
+  return [r + (mr - r) * strength, g + (mg - g) * strength, b + (mb - b) * strength];
+}
+
 /* ---------- 브러시 팁 ---------- */
 
 /** 획 하나 동안 유지되는 팁 상태: 붓털 프로필(가로지름 방향 24점)과 젖은 붓의 가장자리 흔들림(각도 16점) */
-interface TipState { kind: TipKind; prof: Float32Array; wob: Float32Array }
+interface TipState { kind: Exclude<TipKind, 'auto'>; prof: Float32Array; wob: Float32Array }
+
+/**
+ * 층별 붓 (DAP Main Painter 의 붓 3벌): 1~2층은 큰 평붓(수채는 젖은 붓), 3~4층은 중간 둥근 붓, 5~6층은 가는 붓.
+ * `tip` 이 'auto' 가 아니면 사용자가 고른 팁을 모든 층에 쓴다 (마지막 층의 담채만 마른 붓으로 바꾼다).
+ */
+function tipForStage(p: PaintProfile, stage: 0 | 1 | 2): Exclude<TipKind, 'auto'> {
+  const wash = p.brush === 'wash';
+  const wet = clamp(p.wet ?? 40, 0, 100) / 100;
+  if (p.tip !== 'auto') return stage === 2 && p.tip === 'wet' && wet < 0.7 ? 'chalk' : p.tip;
+  // 마를수록 마른 붓(chalk)·또렷한 둥근 붓으로, 젖을수록 번지는 붓으로
+  if (stage === 0) return wash ? (wet >= 0.4 ? 'wet' : 'round') : 'bristle';
+  if (stage === 1) return wash ? (wet >= 0.4 ? 'wet' : 'round') : p.brush === 'impasto' ? 'bristle' : 'round';
+  if (wash) return wet >= 0.75 ? 'wet' : wet >= 0.35 ? 'round' : 'chalk';
+  return p.brush === 'impasto' ? 'bristle' : wet >= 0.6 ? 'bristle' : 'round';
+}
 
 /** 획을 시작할 때 팁을 새로 만든다 — 붓털 배치와 번짐 모양이 획마다 다르다 */
-function makeTip(kind: TipKind, rng: () => number): TipState {
+function makeTip(kind: Exclude<TipKind, 'auto'>, rng: () => number): TipState {
   const prof = new Float32Array(24), wob = new Float32Array(16);
   if (kind === 'bristle' || kind === 'chalk') {
     // 붓털: chalk 는 털이 성글고 사이가 비고, bristle 은 촘촘하되 털마다 눌린 정도가 다르다
@@ -299,12 +355,24 @@ function makeTip(kind: TipKind, rng: () => number): TipState {
 /** 팁 미리보기 (그리기 설정 패널의 브러시 선택기): 밝은 종이 위에 짙은 획 하나 */
 export function tipPreview(kind: TipKind, w = 96, h = 30): RawImage {
   const cv = new Canvas(w, h, [246, 243, 236]);
-  const rng = mulberry32(5);
-  const tip = makeTip(kind, rng);
+  if (kind === 'auto') {
+    // 붓 3벌: 큰 평붓 → 중간 둥근 붓 → 가는 붓
+    const kinds: Array<Exclude<TipKind, 'auto'>> = ['bristle', 'round', 'round'];
+    const rs = [h * 0.34, h * 0.2, h * 0.1];
+    for (let k = 0; k < 3; k++) {
+      const x0 = 4 + k * (w - 8) / 3, x1 = x0 + (w - 8) / 3 - 4;
+      let q = 0;
+      for (let x = x0 + rs[k]; x <= x1; x += rs[k] * 2.1, q++) cv.dabTip(x, h / 2, rs[k], 1, 0, makeTip(kinds[k], mulberry32(11 + k * 37 + q)));
+      cv.end(0.9, [40, 60, 110], false);
+    }
+    return cv.toImage(3);
+  }
   const r = h * 0.28;
-  for (let x = r * 1.2; x <= w - r * 1.2; x += kind === 'wet' ? r * 0.35 : r * 0.25) {
+  // 자국 모양이 획마다 달라지는 것이 보이도록 미리보기도 자국마다 새 모양을 쓴다
+  let q = 0;
+  for (let x = r * 1.4; x <= w - r * 1.2; x += r * 2.2, q++) {
     const y = h / 2 + Math.sin((x / w) * 3.1) * h * 0.08;
-    if (kind === 'round') cv.dab(x, y, r, true); else cv.dabTip(x, y, r, 1, 0, tip);
+    cv.dabTip(x, y, r, 1, 0, makeTip(kind, mulberry32(5 + q * 13)));
   }
   cv.end(kind === 'wet' ? 0.55 : 0.9, [40, 60, 110], false);
   return cv.toImage(3);
@@ -462,6 +530,8 @@ interface Ctx {
   painty: boolean;
   /** 비워 두는 큰 어두운 배경 0..1 (펜 붓만). 획도 윤곽도 놓지 않는다 */
   bg: Float32Array | null;
+  /** 마른 붓 0 ↔ 젖은 붓 1 */
+  wet: number;
 }
 
 /**
@@ -793,9 +863,9 @@ function sweepsFor(p: PaintProfile): Sweep[] {
  * 다른 면(목표 색이 크게 다른 곳)으로 넘어가면 멈춘다.
  */
 /** 담채·유화 훑기의 단계 옵션: 불투명도 배율, 획 길이 배율, 팁 강제 (밑칠은 젖은 큰 붓, 세부는 마른 작은 붓) */
-interface WashStage { alpha?: number; len?: number; tip?: TipKind }
+interface WashStage { alpha?: number; len?: number; tip?: Exclude<TipKind, 'auto'> }
 
-function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boolean, onTick?: (frac: number) => void, st: WashStage = {}) {
+function washSweep(c: Ctx, want: Float32Array, R: number, T: number, onTick?: (frac: number) => void, st: WashStage = {}) {
   const { w, h, cv, rng, field } = c;
   // 유화: 불투명한 얇고 짧은 붓 자국 (담채는 넓고 옅음). 임파스토: 길고 굽은 자국, 자국마다 색이 다르고 테두리는 어둡게·가운데는 밝게
   const impasto = c.p.brush === 'impasto';
@@ -829,8 +899,8 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boole
     let [dx, dy] = dirAt(c, fi, 0);
     if (rng() < 0.5) { dx = -dx; dy = -dy; }
     // 브러시 팁: 획마다 붓털 배치가 새로 정해진다. 둥근 팁은 예전 원형 자국
-    const tipKind = st.tip ?? c.p.tip;
-    const tip = tipKind !== 'round' ? makeTip(tipKind, rng) : null;
+    const tipKind = st.tip ?? (c.p.tip === 'auto' ? tipForStage(c.p, 1) : c.p.tip);
+    const tip = makeTip(tipKind, rng);
     for (let s = 0; s < maxLen; s += step) {
       const xi = x | 0, yi = y | 0;
       if (xi < 0 || yi < 0 || xi >= w || yi >= h) break;
@@ -838,7 +908,7 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boole
       // 다른 면으로 넘어가면 멈춘다. 임파스토는 문턱을 크게 두어 긴 소용돌이 획이 되고, 최소 네 걸음은 간다
       if (s >= step * 4 && Math.abs(want[o] - col[0]) + Math.abs(want[o + 1] - col[1]) + Math.abs(want[o + 2] - col[2]) > (impasto ? 110 : 60)) break;
       const rad = oil ? R * 0.32 : R / 2;
-      if (impasto) path.push(x, y, dx, dy); else if (tip) cv.dabTip(x, y, rad, dx, dy, tip); else cv.dab(x, y, rad, soft);
+      if (impasto) path.push(x, y, dx, dy); else cv.dabTip(x, y, rad, dx, dy, tip);
       const i = yi * w + xi;
       if (field.coh[i] > 0.15 || field.man[i] > 0.1) {
         let [fx, fy] = dirAt(c, i, 0);
@@ -851,7 +921,7 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boole
     if (impasto) {
       // 테두리(어둡고 넓게) → 몸통 → 가운데 능선(밝고 좁게): 두꺼운 물감이 빛을 받는 느낌
       const rr = R * 0.3;
-      const stamp = (q: number, rad: number) => (tip ? cv.dabTip(path[q], path[q + 1], rad, path[q + 2], path[q + 3], tip) : cv.dab(path[q], path[q + 1], rad, false));
+      const stamp = (q: number, rad: number) => cv.dabTip(path[q], path[q + 1], rad, path[q + 2], path[q + 3], tip);
       for (let q = 0; q < path.length; q += 4) stamp(q, rr * 1.15);
       cv.end(0.85, [col[0] * 0.72, col[1] * 0.72, col[2] * 0.72], false);
       for (let q = 0; q < path.length; q += 4) stamp(q, rr * 0.85);
@@ -859,12 +929,12 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, soft: boole
       // 능선은 자국이 어느 정도 굵을 때만 (가는 홈에서는 보이지 않고 시간만 든다)
       if (rr >= 1.6) for (let q = 0; q < path.length; q += 8) stamp(q, rr * 0.4);
       cv.end(0.7, [Math.min(255, col[0] * 1.14 + 6), Math.min(255, col[1] * 1.14 + 6), Math.min(255, col[2] * 1.14 + 6)], false);
-    } else cv.end(clamp((oil ? 0.8 + rng() * 0.15 : 0.42 + 0.1 * (1 - c.rnd) + rng() * 0.15 * c.rnd) * (st.alpha ?? 1), 0, 0.97), col, false);
+    } else cv.end(clamp((oil ? 0.8 + rng() * 0.15 : 0.42 + 0.1 * (1 - c.rnd) + rng() * 0.15 * c.rnd) * (st.alpha ?? 1) * (1.18 - 0.36 * c.wet), 0, 0.97), col, false);
   }
 }
 
 /** 담채의 목표 색: 사진 색을 크게 뭉개고 물감처럼 밝게 띄운 뒤 목표 어둡기만큼 종이에 곱한다 */
-function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, h: number, paper: RGB, mode: ColorMode, oil = false): Float32Array {
+function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, h: number, paper: RGB, mode: ColorMode, oil = false, pal: PaletteId = 'photo', ink: RGB = [30, 30, 34], real = 0.5): Float32Array {
   const N = w * h;
   const want = new Float32Array(N * 3);
   const R0 = Math.max(2, Math.round(Math.min(w, h) / 220));
@@ -883,11 +953,18 @@ function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, 
     let tr: number, tg: number, tb: number;
     if (mode === 'color') {
       const r = chans[0][i], g = chans[1][i], b = chans[2][i], m = (r + g + b) / 3;
-      const sat = oil ? 1.35 : 1.6; // 참고 수채화처럼 채도는 높이고, 어두운 곳은 어둡게 남긴다. 유화는 조금만
+      // 사실 쪽으로 갈수록 채도·대비를 덜 건드려 원본 색에 가까워진다
+      const sat = 1 + ((oil ? 1.35 : 1.6) - 1) * (1.25 - 0.75 * real);
       const lo = oil ? 0.03 : 0.08, hi = 1 - lo;
       // 유화는 대비를 조금 키운다 (인상주의 유화의 밝은 빛)
-      const con = (v: number) => (oil ? clamp(0.5 + (v - 0.5) * 1.18 + 0.03, 0, 1) : v);
+      const ck = 1 + 0.18 * (1.25 - 0.75 * real);
+      const con = (v: number) => (oil ? clamp(0.5 + (v - 0.5) * ck + 0.03 * (1 - real), 0, 1) : v);
       tr = con(clamp(m + (r - m) * sat, 0, 1)) * hi + lo; tg = con(clamp(m + (g - m) * sat, 0, 1)) * hi + lo; tb = con(clamp(m + (b - m) * sat, 0, 1)) * hi + lo;
+      // 팔레트: 사진 색을 고른 물감색 쪽으로 옮긴다
+      // 사실 쪽에서는 팔레트 이동을 줄인다 (원본 색 그대로에 가깝게)
+      const pr = applyPalette(tr, tg, tb, pal, ink);
+      const pk = 1 - 0.65 * real;
+      tr += (pr[0] - tr) * pk; tg += (pr[1] - tg) * pk; tb += (pr[2] - tb) * pk;
     } else {
       const g = L * 0.8 + 0.2;
       if (mode === 'sepia') { tr = g * 0.92 + 0.08; tg = g * 0.82 + 0.1; tb = g * 0.66 + 0.1; } else { tr = g; tg = g; tb = g; }
@@ -911,14 +988,15 @@ function blurRGB(src: Float32Array, w: number, h: number, r: number): Float32Arr
 }
 
 /** 캔버스를 조금 뭉갠다 (DAP 의 Reactor 'Shock Smooth': 젖은 밑칠끼리 번져 하나로 이어지는 느낌) */
-function smoothCanvas(cv: Canvas, r: number) {
+function smoothCanvas(cv: Canvas, r: number, k = 0.65) {
   const { w, h } = cv;
   const N = w * h;
+  const kMix = clamp(k, 0, 1);
   for (let k = 0; k < 3; k++) {
     const ch = new Float32Array(N);
     for (let i = 0; i < N; i++) ch[i] = cv.rgb[i * 3 + k];
     const b = boxBlur(ch, w, h, r);
-    for (let i = 0; i < N; i++) cv.rgb[i * 3 + k] = ch[i] * 0.35 + b[i] * 0.65;
+    for (let i = 0; i < N; i++) cv.rgb[i * 3 + k] = ch[i] * (1 - kMix) + b[i] * kMix;
   }
 }
 
@@ -1046,7 +1124,10 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     // 펜: 사진 색을 잉크색과 섞어 누른 색. 담채 위의 어두운 붓: 그 자리 색을 더 진하게 (검정 펜이 아니라 짙은 물감)
     const painty = p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto';
     const ki = painty ? 0.45 : 0.35, kc = painty ? 0.5 : 0.45;
-    colorAt = (i) => [inkC[0] * ki + soft[0][i] * kc, inkC[1] * ki + soft[1][i] * kc, inkC[2] * ki + soft[2][i] * kc];
+    colorAt = (i) => {
+      const [r, g, b] = applyPalette(soft[0][i] / 255, soft[1][i] / 255, soft[2][i] / 255, p.palette, inkC);
+      return [inkC[0] * ki + r * 255 * kc, inkC[1] * ki + g * 255 * kc, inkC[2] * ki + b * 255 * kc];
+    };
   }
   const acc = clamp(p.accuracy, 0, 100) / 100;
   const c: Ctx = {
@@ -1059,6 +1140,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     colorAt,
     painty: p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto',
     bg: bgMask,
+    wet: clamp(p.wet ?? 40, 0, 100) / 100,
   };
   const T = 0.03 + 0.28 * (1 - acc);
   const sizes = passSizes(p, minSide);
@@ -1085,48 +1167,51 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     });
   } else if (p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto') {
     const oil = p.brush !== 'wash';
-    const want0 = washTarget(img, lum, white, w, h, paper, opts.color, oil);
+    const want0 = washTarget(img, lum, white, w, h, paper, opts.color, oil, opts.color === 'color' ? p.palette : 'photo', inkC, acc);
     for (let k = 0; k < passes; k++) {
       const R = Math.max(4, sizes[k] * 1.3);
       // 임파스토는 테두리·능선 때문에 목표와 늘 조금 다르므로 문턱을 높여 같은 칸을 끝없이 덧칠하지 않게 한다
       const Tk = (4 + 10 * (1 - acc)) * (p.brush === 'impasto' ? 2.4 : 1);
       // 층마다 목표를 붓 크기만큼 뭉갠 것을 본다 (Hertzmann): 큰 붓은 큰 색면만, 잎 하나하나에 걸려 짧게 끊기지 않는다
       const want = blurRGB(want0, w, h, Math.round(R * (p.brush === 'impasto' ? 0.5 : 0.35)));
+      const stage: 0 | 1 | 2 = passes <= 1 ? 0 : k / (passes - 1) < 0.34 ? 0 : k / (passes - 1) < 0.67 ? 1 : 2;
       if (oil) {
-        stageLabel = k === 0 ? '밑칠 (큰 붓)' : k === passes - 1 ? '세부 (작은 붓)' : '중간 붓';
-        washSweep(c, want, R, Tk, false, (f) => report(k, f));
+        stageLabel = stage === 0 ? '1~2층 · 큰 평붓' : stage === 1 ? '3~4층 · 중간 둥근 붓' : '5~6층 · 가는 붓';
+        washSweep(c, want, R, Tk, (f) => report(k, f), { tip: tipForStage(p, stage) });
       } else {
         // DAP Watercolor Wet on Wet 의 순서(사용자 영상): 밑칠 — 크고 젖은 붓을 옅게 두 번(색이 겹쳐 번짐) → 중간 붓 →
         // 매끄럽게(Reactor) → 마른 작은 붓으로 세부를 드러냄(Dry Reveal) → 가장 작은 붓
-        const stage = passes === 1 ? 1 : k / (passes - 1);
-        if (stage < 0.34) {
-          stageLabel = '밑칠 (큰 젖은 붓)';
-          washSweep(c, want, R, Tk, true, (f) => report(k, f * 0.5), { alpha: 0.7, len: 0.55, tip: 'wet' });
-          washSweep(c, want, R * 0.75, Tk, true, (f) => report(k, 0.5 + f * 0.5), { alpha: 0.8, len: 0.6, tip: 'wet' });
-        } else if (stage < 0.67) {
-          stageLabel = '중간 붓';
-          washSweep(c, want, R, Tk, true, (f) => report(k, f), { alpha: 0.95, len: 0.8 });
-          smoothCanvas(cv, 1); // Reactor: 젖은 밑칠이 서로 번져 매끄러워진다
+        const tip = tipForStage(p, stage);
+        if (stage === 0) {
+          stageLabel = '1~2층 · 큰 젖은 붓 (밑칠)';
+          washSweep(c, want, R, Tk, (f) => report(k, f * 0.5), { alpha: 0.7, len: 0.55, tip });
+          washSweep(c, want, R * 0.75, Tk, (f) => report(k, 0.5 + f * 0.5), { alpha: 0.8, len: 0.6, tip });
+        } else if (stage === 1) {
+          stageLabel = '3~4층 · 중간 붓';
+          washSweep(c, want, R, Tk, (f) => report(k, f), { alpha: 0.95, len: 0.8, tip });
+          // Reactor: 젖은 밑칠이 서로 번진다. 마른 붓이면 번지지 않는다
+          if (c.wet > 0.25) smoothCanvas(cv, Math.max(1, Math.round(1 + c.wet * 2)), 0.25 + 0.55 * c.wet);
         } else {
-          stageLabel = k === passes - 1 ? '세부 (가장 작은 붓)' : '마른 붓으로 세부 드러내기';
-          washSweep(c, want, R, Tk, false, (f) => report(k, f), { alpha: 1.1, len: 1, tip: p.tip === 'wet' ? 'chalk' : p.tip });
+          stageLabel = k === passes - 1 ? '5~6층 · 가는 마른 붓' : '5~6층 · 마른 붓으로 세부';
+          washSweep(c, want, R, Tk, (f) => report(k, f), { alpha: 1.1, len: 1, tip });
         }
       }
       report(k, 1, true);
     }
     // 세부 마무리: 아주 작은 붓으로 원본과 아직 다른 곳만 다시 짚는다 (화가가 마지막에 세부를 찍듯).
     // 뭉개지 않은 목표 색(want0)을 보므로 창틀·나뭇가지·얼굴처럼 작은 것들이 살아난다. 세밀함이 낮으면 건너뛴다.
-    const fineSteps = p.brush === 'impasto' ? (p.detail >= 70 ? 1 : 0) : p.detail >= 75 ? 2 : p.detail >= 45 ? 1 : 0;
+    const realD = Math.max(p.detail, clamp(p.accuracy, 0, 100));
+    const fineSteps = p.brush === 'impasto' ? (realD >= 70 ? 1 : 0) : realD >= 75 ? 2 : realD >= 45 ? 1 : 0;
     for (let f = 0; f < fineSteps; f++) {
-      const dt = clamp(p.detail, 0, 100) / 100;
+      const dt = clamp(realD, 0, 100) / 100;
       const Rf = Math.max(2.5, minSide * (0.015 - 0.010 * dt) * (fineSteps === 2 && f === 0 ? 1.7 : 1) * (p.brush === 'impasto' ? 1.6 : 1));
       stageLabel = fineSteps === 2 && f === 0 ? '세부 (작은 붓)' : '마무리 (가장 작은 붓)';
-      washSweep(c, blurRGB(want0, w, h, f === 0 && fineSteps === 2 ? 1 : 0), Rf, Math.max(3, 8 * (1 - acc)), false,
-        (fr) => report(passes - 1, (f + fr) / fineSteps), { alpha: 1, len: 0.45, tip: oil ? 'bristle' : 'chalk' });
+      washSweep(c, blurRGB(want0, w, h, f === 0 && fineSteps === 2 ? 1 : 0), Rf, Math.max(3, 8 * (1 - acc)),
+        (fr: number) => report(passes - 1, (f + fr) / fineSteps), { alpha: 1, len: 0.45, tip: tipForStage(p, 2) });
       report(passes - 1, (f + 1) / fineSteps, true);
     }
     // 물감이 마르며 가장자리에 고이는 안료: 캔버스 밝기의 경계를 조금 어둡게
-    if (!oil) pigmentEdges(cv, 0.34, mulberry32(77));
+    if (!oil) pigmentEdges(cv, 0.12 + 0.34 * c.wet, mulberry32(77));
     // 펜: 잉크 농도가 있을 때만 가장 어두운 곳에 성긴 획 (순수 수채는 ink 0)
     if (p.ink >= 30) {
       const ref = boxBlur(target, w, h, 1);

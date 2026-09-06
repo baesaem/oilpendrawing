@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PRESET_LIMIT, samePaint, type UserPreset } from '../presets';
-import { BRUSH_LABEL, BRUSH_SHORT, CLASSIC_PAINT, FINE_PAINT, RICHEON_PAINT, TIP_LABEL, TIP_SHORT, type BrushKind, type PaintProfile, type TipKind } from '../types';
+import { BRUSH_LABEL, BRUSH_SHORT, CLASSIC_PAINT, FINE_PAINT, PALETTE_12, PALETTE_LABEL, PALETTE_SHORT, RICHEON_PAINT, TIP_LABEL, TIP_SHORT, type BrushKind, type PaintProfile, type PaletteId, type TipKind } from '../types';
 import { tipPreview } from '../render';
 import { StarIcon, TrashIcon } from './Icons';
 
@@ -18,7 +18,16 @@ interface Props {
 }
 
 const BRUSHES: BrushKind[] = ['tone', 'pen', 'contour', 'stipple', 'wash', 'oil', 'impasto'];
-const TIPS: TipKind[] = ['round', 'bristle', 'wet', 'chalk'];
+const TIPS: TipKind[] = ['auto', 'round', 'bristle', 'wet', 'chalk'];
+const PALETTES: PaletteId[] = ['photo', 'bright', 'mono', 'match', 'match2'];
+
+/** 팔레트 색 띠 (12색 물감을 쓰는 팔레트만 색을 보여 준다) */
+function PaletteSwatch({ id }: { id: PaletteId }) {
+  if (id === 'photo') return <span className="pal-bar pal-photo" aria-hidden="true" />;
+  if (id === 'mono') return <span className="pal-bar" aria-hidden="true">{[0.1, 0.3, 0.5, 0.7, 0.9].map((v) => <i key={v} style={{ background: `rgb(${v * 230},${v * 228},${v * 224})` }} />)}</span>;
+  if (id === 'bright') return <span className="pal-bar" aria-hidden="true">{['#ff2d2d', '#ff9500', '#ffe000', '#12c46a', '#1e7bff', '#8a2be2'].map((c) => <i key={c} style={{ background: c }} />)}</span>;
+  return <span className="pal-bar" aria-hidden="true">{PALETTE_12.map((c) => <i key={c} style={{ background: c }} />)}</span>;
+}
 
 /** 브러시 팁 미리보기 (포토샵 브러시 선택기처럼 획 하나를 보여 준다). 엔진의 같은 팁 코드로 그린다 */
 function TipThumb({ kind }: { kind: TipKind }) {
@@ -49,6 +58,8 @@ const detailNote = (v: number) => (v < 35 ? '큰 형태만' : v < 70 ? '보통' 
 const keepNote = (v: number) => (v < 35 ? '거의 다 채움' : v < 65 ? '보통' : '흰 종이를 넓게');
 const inkNote = (v: number) => (v < 35 ? '연하게' : v < 70 ? '보통' : '진하게');
 const widthNote = (v: number) => (v <= 1.2 ? `가는 펜 ${v}px` : v <= 2.2 ? `보통 펜 ${v}px` : `굵은 펜 ${v}px`);
+const realNote = (v: number) => (v < 30 ? '표현적으로' : v < 55 ? '조금 표현적' : v < 80 ? '조금 사실적' : '원본과 같게');
+const wetNote = (v: number) => (v < 25 ? '마른 붓' : v < 50 ? '조금 마르게' : v < 75 ? '조금 젖게' : '젖은 붓');
 
 /**
  * 그리기 설정 (Dynamic Auto-Painter 의 파라미터 패널). 로컬 엔진이 보는 값의 전부이며, 화풍 프리셋을 고르면 채워지고
@@ -105,6 +116,29 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
           </div>
         </div>
       )}
+
+      <Range label="표현 ↔ 사실" value={s.accuracy} min={0} max={100} note={realNote(s.accuracy)}
+        hint="사실 쪽으로 갈수록 원본 사진과 같아집니다 — 색을 덜 바꾸고 세부를 더 그립니다"
+        onChange={(accuracy) => onChange({ accuracy })} />
+      {isPaint && (
+        <Range label="마른 붓 ↔ 젖은 붓" value={s.wet} min={0} max={100} note={wetNote(s.wet)}
+          hint="젖을수록 붓 자국이 서로 번지고 옅게 여러 겹 쌓이며 가장자리에 안료가 고입니다. 마르면 자국이 또렷하고 갈라집니다"
+          onChange={(wet) => onChange({ wet })} />
+      )}
+
+      <div className="field">
+        <div className="field-row"><b>색 팔레트</b><span className="muted small">컬러일 때</span></div>
+        <div className="pal-list" role="radiogroup" aria-label="색 팔레트">
+          {PALETTES.map((q) => (
+            <button key={q} type="button" className={s.palette === q ? 'on' : ''} role="radio" aria-checked={s.palette === q}
+              title={PALETTE_LABEL[q]} onClick={() => onChange({ palette: q })}>
+              <PaletteSwatch id={q} />
+              <span>{PALETTE_SHORT[q]}</span>
+            </button>
+          ))}
+        </div>
+        <div className="small faint">{PALETTE_LABEL[s.palette]}</div>
+      </div>
 
       {s.brush === 'tone' && (
         <Range label="명암 단계" value={s.passes} min={3} max={6} unit="단계" note={`${s.passes}단계 · 선 ${s.passes - 1}겹`}
@@ -168,7 +202,6 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
         <Range label="층 수" value={s.passes} min={1} max={6} unit="층" hint="획 크기를 줄여 가며 몇 번 겹쳐 그릴지" onChange={(passes) => onChange({ passes })} />
         <Range label="획 크기" value={s.brushSize} min={0} max={100} hint="첫 층의 획 길이·간격. 큰 형태를 잡는 획" onChange={(brushSize) => onChange({ brushSize })} />
         {!isStipple && <Range label="획 길이" value={s.strokeLength} min={0} max={100} hint="획 하나의 길이 (획 크기 배수)" onChange={(strokeLength) => onChange({ strokeLength })} />}
-        <Range label="정밀도" value={s.accuracy} min={0} max={100} hint="낮으면 큰 명암 차이만 메워 성글고, 높으면 사진의 명암에 가깝게" onChange={(accuracy) => onChange({ accuracy })} />
         {!isStipple && <Range label="형태 따라가기" value={s.featureFollow} min={0} max={100} hint="0 = 기준 각도로만, 100 = 면·경계의 방향을 그대로 따름" onChange={(featureFollow) => onChange({ featureFollow })} />}
         {!isStipple && <Range label="기준 각도" value={s.baseAngle} min={0} max={179} unit="°" hint="방향이 없는 곳(하늘·평면)의 해칭 방향" onChange={(baseAngle) => onChange({ baseAngle })} />}
         <Range label="무작위성" value={s.randomness} min={0} max={100} hint="시작점·각도·길이·필압의 흔들림" onChange={(randomness) => onChange({ randomness })} />
