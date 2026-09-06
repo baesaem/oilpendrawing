@@ -176,21 +176,3 @@ export const DESCRIBE_PROMPT =
   'background elements, materials and textures, and where light and shadow fall. ' +
   'Be concrete and visual; 120 to 200 words; no interpretation or mood words.';
 
-/** 4단계 과정을 한 장(2×2)으로 그려 달라는 지시문 */
-export function buildProcessPrompt(p: DrawingParams, hasFinal: boolean): string {
-  return [
-    'Create ONE image divided into a 2x2 grid of four equal panels with thin borders, numbered 1 to 4 in the top-left corner of each panel.',
-    'It teaches a student how to draw the provided photograph as an oil-based ballpoint pen drawing, step by step:',
-    '1) very light construction lines: simple boxes/ovals for the big shapes and a horizon or eye line, nothing else;',
-    '2) clean contour lines of every subject, still no shading;',
-    `3) first layer of hatching only in the shadow areas (light comes ${LIGHT_TEXT[p.light]}), mid-tones still open paper;`,
-    '4) the finished drawing with full tone.',
-    'Every panel shows the whole subject in exactly the same composition and size; white paper background; ' +
-      'strokes must look like real pen marks a person can make.',
-    STYLE_TEXT[p.style],
-    paintText(p.paint),
-    artistText(p),
-    colorText(p),
-    hasFinal ? 'The second image is the finished drawing: panel 4 must match it, and panels 1-3 are its earlier stages.' : '',
-  ].filter(Boolean).join('\n');
-}

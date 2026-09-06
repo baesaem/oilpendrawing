@@ -125,13 +125,14 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
 .gallery button:hover { border-color: var(--line-strong); color: var(--text); }
 /* 썸네일에 마우스를 올렸을 때 크게 보여 주는 예시 그림 */
 .preset-peek {
-  position: fixed; width: 300px; z-index: 8; pointer-events: none;
-  background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px; padding: 6px;
+  position: fixed; width: 300px; z-index: 8; pointer-events: none; overflow: hidden;
+  background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px;
   box-shadow: 0 12px 32px rgba(0,0,0,.5);
 }
-.preset-peek img { display: block; width: 100%; border-radius: 4px; background: #f2ece0; }
-.preset-peek b { display: block; padding: 6px 4px 2px; font-size: 12.5px; color: var(--text); text-align: center; font-weight: 700; }
-.preset-peek span { display: block; padding: 0 6px 4px; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+/* 그림이 상자를 가득 채운다 — 늘리지 않고 잘라서(cover) 채우므로 예시 그림의 종이색 여백이 보이지 않는다 */
+.preset-peek img { display: block; width: 100%; height: 300px; object-fit: cover; background: #f2ece0; }
+.preset-peek b { display: block; padding: 8px 8px 2px; font-size: 12.5px; color: var(--text); text-align: center; font-weight: 700; }
+.preset-peek span { display: block; padding: 0 10px 8px; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
 @media (max-width: 900px) { .preset-peek { display: none; } }
 .gallery button.on { border-color: var(--accent); color: var(--text); font-weight: 700; box-shadow: 0 0 0 1px var(--accent); }
 .swatches i { width: 7px; height: 7px; border-radius: 50%; display: block; }
@@ -238,29 +239,9 @@ input[type=range]:focus-visible { outline: 1px solid var(--accent); outline-offs
 }
 .error-toast .hint { color: #c9a7a0; font-size: 12px; margin-top: 4px; }
 
-/* ---------- 그리기 가이드 ---------- */
-.viewer.guide { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; align-items: center; gap: 12px; }
-.guide-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; max-width: 980px; flex-wrap: wrap; }
-.steps { display: flex; gap: 3px; padding: 3px; border-radius: 999px; background: #0f0e0d; border: 1px solid var(--line); }
-.steps button { height: 32px; padding: 0 14px; border-radius: 999px; color: var(--muted); font-size: 13px; display: flex; gap: 8px; align-items: center; }
-.steps button.on { background: #2a2825; color: var(--text); font-weight: 700; }
-.steps button.done { color: var(--text); }
-.steps button .n { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line-strong); align-items: center; justify-content: center; font-size: 11px; }
-.steps button.on .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.guide-opts { display: flex; gap: 8px; align-items: center; }
-.guide-opts select { height: 32px; width: auto; min-width: 110px; }
+/* ---------- 격자 ---------- */
 .toolbar .grid-select { height: 30px; width: auto; min-width: 88px; font-size: 12px; padding: 0 8px; }
-.guide-frame { position: relative; min-height: 0; height: 100%; display: flex; align-items: center; justify-content: center; width: 100%; overflow: hidden; }
-.guide-frame .frame img { max-height: 100%; }
 .grid-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.guide-tip { width: 100%; max-width: 980px; display: flex; flex-direction: column; gap: 6px; padding: 12px 16px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--panel); font-size: 13px; line-height: 1.6; }
-.guide-tip .tip-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.guide-tip .tip-head b { font-family: var(--serif); font-size: 15px; }
-.guide-tip p { margin: 0; color: var(--text); }
-.guide-tip p.sub { color: var(--muted); }
-.mode-seg { display: flex; gap: 2px; padding: 2px; border-radius: 999px; background: #0f0e0d; }
-.mode-seg button { height: 28px; padding: 0 12px; border-radius: 999px; color: var(--muted); font-size: 12px; white-space: nowrap; }
-.mode-seg button.on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 
 /* ---------- 전체화면 ---------- */
 .fullscreen { position: fixed; inset: 0; z-index: 20; background: #0b0a09; display: flex; align-items: center; justify-content: center; cursor: default; }

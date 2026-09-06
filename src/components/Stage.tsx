@@ -3,7 +3,7 @@ import { useObjectUrl } from '../hooks';
 import type { PlacedStamp, StampItem } from '../stamps';
 import type { DirectionGuide } from '../types';
 import type { ProgressInfo, RawImage } from '../render';
-import { Overlay, type GridSize } from './GuideView';
+import { Overlay, type GridSize } from './GridOverlay';
 
 export type ViewMode = 'compare' | 'result' | 'original';
 

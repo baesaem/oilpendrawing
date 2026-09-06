@@ -47,7 +47,7 @@ export function StylePanel({ params, onParams, paint, presets, onSavePreset, onD
   const [peek, setPeek] = useState<{ st: PenStyle; top: number; left: number } | null>(null);
   const showPeek = (st: PenStyle, el: HTMLElement) => {
     const r = el.getBoundingClientRect();
-    const W = 300, H = 330;
+    const W = 300, H = 380;
     setPeek({
       st,
       top: Math.max(12, Math.min(window.innerHeight - H - 12, r.top + r.height / 2 - H / 2)),
@@ -107,7 +107,7 @@ export function StylePanel({ params, onParams, paint, presets, onSavePreset, onD
 
       {/* 유명 화가 프리셋: 화풍 위에 얹는 해석. AI 로 그릴 때만 쓰이므로 그렇게 적어 둔다 */}
       <div className="field">
-        <div className="field-row"><b>화가 프리셋</b><span className="muted small">AI 전용 · {ARTISTS.length - 1}명</span></div>
+        <div className="field-row"><b>화가</b><span className="muted small">AI 전용 · {ARTISTS.length - 1}명</span></div>
         <select className="text-input select" value={params.artist} onChange={(e) => onParams({ artist: e.target.value as ArtistId })} aria-label="화가 화풍">
           {ARTISTS.map((a) => <option key={a.id} value={a.id}>{a.id === 'none' ? '없음 (화풍만)' : `${a.name} (${a.years})`}</option>)}
         </select>

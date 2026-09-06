@@ -29,31 +29,24 @@ UI 문구는 모두 한국어이고, 코드 주석도 한국어로 쓴다.
 
 ## 구조
 
-### 두 가지 모드
+### 화면 하나
 
-`App.tsx` 가 모든 상태를 들고 있고 `mode` 가 `'draw' | 'guide'` 로 갈린다.
-`Stage` 는 `guide` prop 이 오면 자기 내용 대신 그것을 렌더한다 — 즉 모드 분기는
-`App` 한 곳에만 있고 뷰어 컴포넌트는 그 사실을 모른다.
+`App.tsx` 가 모든 상태를 들고 있고 화면은 **원본/결과 비교 하나**다. `view` 가 `'compare' | 'result' | 'original'`.
+화면 위 한 줄(`.topbar`)이 [보기 전환(`ViewSeg`)] · 제목 · [그리기 버튼(`DrawActions`)] 이다 — 둘 다 `Toolbar.tsx` 에서
+내보내고 아래 툴바에는 없다. 가장 자주 누르는 버튼을 눈에 먼저 들어오는 자리에 둔 것.
+격자(`GridSize`·`Overlay`, `components/GridOverlay.tsx`)는 툴바 선택기로 켜고 사진·결과 위에 겹쳐 그린다 —
+칸을 보고 스케치북의 같은 칸에 옮겨 그리라는 것이다. `FullscreenView` 도 같은 그림과 격자를 전체화면으로 다시 그린다(G 키로 칸 수 전환).
 
-- **draw**: 원본/결과 분할 비교. `view` 가 `'compare' | 'result' | 'original'`.
-  화면 위 한 줄(`.topbar`)이 [보기 전환(`ViewSeg`)] · 제목 · [그리기 버튼(`DrawActions`)] 이다 — 둘 다 `Toolbar.tsx` 에서
-  내보내고 아래 툴바에는 없다. 가장 자주 누르는 버튼을 눈에 먼저 들어오는 자리에 둔 것.
-  격자(`GridSize`)는 가이드와 **같은 상태**를 쓰고 툴바의 선택기로 바꾼다 — `Stage` 가 `GuideView` 의 `Overlay` 를
-  용지 비율 없이(`aspect: null`) 겹쳐 그리므로, 드로잉 화면에서도 칸을 보고 옮겨 그릴 수 있다.
-- **guide**: 구도 → 큰 형태 → 명암 → 완성 참고 4단계 (`GuideStep`). 숙련도(초급·중급·상급)는 없앴다 —
-  윤곽 문턱과 명암 단계 수는 `guide.ts` 의 고정값(`EDGE_THRESHOLD` 45, `VALUE_LEVELS` 4)이다.
-
-`FullscreenView` 는 같은 두 모드를 전체화면으로 다시 그린다. 단계별 이미지 계산을
-중복하지 않으려고 `useGuideImage` 훅으로 뽑아 두었으니, 표시 이미지를 바꿀 때는
-`GuideView` 와 `FullscreenView` 양쪽이 아니라 그 훅을 고친다.
+**옛 "그리기 가이드"(구도 → 큰 형태 → 명암 → 완성 참고 4단계)는 없앴다** — `GuideView`·`guide.ts`·`tips.ts`·`useGuideImage`
+파일과 "과정 그림 만들기"(`buildProcessPrompt`)도 함께 지웠다. 격자만 드로잉 화면으로 옮겨 남겼다.
+`Drawing.process` 필드는 옛 이력 레코드를 읽기 위해서만 남아 있다.
 
 ### API 비용이 드는 곳과 안 드는 곳
 
-기본 경로는 전부 브라우저 계산이다. 가이드 1~3단계는 `guide.ts` 의 `edgeMap`, `valueMap`,
-"그리기 시작"은 `render.ts` 의 `renderDrawing`, 견본 분석은 `sampleStyle.ts` 의 `analyzeSample`.
+기본 경로는 전부 브라우저 계산이다. "그리기 시작"은 `render.ts` 의 `renderDrawing`, 견본 분석은 `sampleStyle.ts` 의 `analyzeSample`.
 뒤의 둘은 순수 함수(DOM 없음)라 `render.worker.ts` 에서 돌고, `local.ts` 가 Blob ↔ ImageData 변환과
 워커 호출을 맡는다. 워커 스크립트를 못 불러오거나 워커가 죽으면(`onerror`) 콘솔에 위치를 찍고 `workerBroken` 을 세워
-그 뒤로는 화면 스레드에서 같은 함수를 직접 돈다 — 그래서 "그리기 시작"은 어떤 환경에서도 결과를 낸다. API 를 쓰는 건 "AI로 그리기"와 "과정 그림 만들기" 두 가지뿐이고 둘 다 키가 있어야 켜진다.
+그 뒤로는 화면 스레드에서 같은 함수를 직접 돈다 — 그래서 "그리기 시작"은 어떤 환경에서도 결과를 낸다. API 를 쓰는 건 "AI로 그리기" 하나뿐이고 키가 있어야 켜진다.
 이 경계를 흐리지 않는다.
 
 ### 로컬 엔진 (Dynamic Auto-Painter 방식)
@@ -263,7 +256,7 @@ wash·oil·impasto 면 붓 화풍), `PaintPanel` 의 붓 선택기도 "펜으로
 
 **화풍 프리셋은 즐겨찾기 / 프리셋 두 탭**이다(`StylePanel` 의 `tab` 상태): 즐겨찾기 탭은 저장해 둔 그리기 설정
 (`PresetList` — 옛 `PaintPanel` 의 "즐겨찾기" 칸을 여기로 옮겼다), 프리셋 탭은 예시 그림 갤러리(펜 화풍·붓 화풍)다.
-**화가 프리셋**(유명 화가 10명 드롭다운, AI 전용)은 탭 밖 색 표현 바로 위에 있고, 강도는 접힌 "화풍 목록 · 밝기 · 대비"로 들어갔다 —
+**화가**(유명 화가 10명 드롭다운, AI 전용)는 탭 밖 색 표현 바로 위에 있고, 강도는 접힌 "화풍 목록 · 밝기 · 대비"로 들어갔다 —
 화풍·화가·색 표현·빛 방향은 로컬·AI 가 함께 보는 설정이라 탭에 넣지 않는다.
 
 오른쪽 패널은 초보자가 무엇을 만져야 할지 알 수 있게 **자주 쓰는 것만 밖에** 둔다. `StylePanel` 기본 화면에는 화풍 갤러리(로컬/AI 탭)·색 표현·
@@ -293,7 +286,7 @@ wash·oil·impasto 면 붓 화풍), `PaintPanel` 의 붓 선택기도 "펜으로
 localStorage `oilpen.stamps.v1` 에 둔다. 낙관 2개·사인 3개 한도. 항목마다 **적용/비적용 토글**(배치를 넣고 뺀다)과
 크기·**투명도** 슬라이더가 있고, 투명도는 `compositeStamps` 의 `globalAlpha` 와 끌기 중 오버레이 양쪽에 쓰인다
 (옛 레코드에는 없어 `STAMP_OPACITY` 0.95 를 기본으로 본다). `Drawing.base` 가 찍기 전 결과이고 `result` 는 배치를
-구워 넣은 것이라, 전체화면·가이드·저장은 `result` 를 그대로 쓴다. `Stage` 는 끌기 중 부드럽게 보이도록 `base` 위에
+구워 넣은 것이라, 전체화면·저장은 `result` 를 그대로 쓴다. `Stage` 는 끌기 중 부드럽게 보이도록 `base` 위에
 DOM 오버레이(`StampLayer`)로 그리고, 놓는 순간 `App.rebake` 가 `compositeStamps` 로 다시 굽는다.
 
 ### 제공사 (BYOK)
@@ -349,7 +342,7 @@ CORS 로 막을 때 코드 수정 없이 대응하기 위한 것이므로, 모�
 
 - 설정·API 키: `storage.ts` → `localStorage`(기억하기 켬) 또는 `sessionStorage`(끔).
   **서버로 보내지 않는다.** 요청은 브라우저에서 제공사로 직접 간다.
-- 이력: IndexedDB 에 최근 30개 (`Drawing` 레코드에 입력·견본·결과·과정 그림 Blob 포함).
+- 이력: IndexedDB 에 최근 30개 (`Drawing` 레코드에 입력·견본·결과 Blob 포함. 옛 레코드의 `process` 는 읽기만 한다).
 
 이력에서 불러온 `params` 는 `mergeParams` 로 기본값과 병합한다(`paint` 는 화풍 프리셋 위에 덧씌우고, 옛 `strokes` 는 `migrateStrokes` 로 옮긴다) —
 필드를 새로 추가하면 옛 레코드에 그 값이 없기 때문이다. `Drawing.engine` 이 없으면 옛 AI 레코드다.

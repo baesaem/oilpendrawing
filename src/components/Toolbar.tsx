@@ -1,14 +1,10 @@
 import { useObjectUrl } from '../hooks';
 import type { Drawing } from '../types';
 import type { ViewMode } from './Stage';
-import type { GridSize } from './GuideView';
+import type { GridSize } from './GridOverlay';
 import { DirectionIcon, DownloadIcon, ExpandIcon, KeyIcon, PenIcon, StopIcon } from './Icons';
 
-export type Mode = 'draw' | 'guide';
-
 interface Props {
-  mode: Mode;
-  onMode: (m: Mode) => void;
   hasPhoto: boolean;
   providerLabel: string;
   keyOk: boolean;
@@ -59,26 +55,15 @@ export function Toolbar(p: Props) {
       </button>
 
       <div className="sep" />
-
-      <div className="mode-seg" role="radiogroup" aria-label="모드">
-        <button className={p.mode === 'draw' ? 'on' : ''} role="radio" aria-checked={p.mode === 'draw'} onClick={() => p.onMode('draw')}>드로잉</button>
-        <button className={p.mode === 'guide' ? 'on' : ''} role="radio" aria-checked={p.mode === 'guide'} disabled={!p.hasPhoto} onClick={() => p.onMode('guide')} title="사진을 격자·윤곽·명암 단계로 나눠 보며 그립니다">그리기 가이드</button>
-      </div>
-
-      {p.mode === 'draw' && (
-        <>
-          <div className="sep" />
-          <button className={`btn btn-ghost btn-sm ${p.directionEditing ? 'on-accent' : ''}`} disabled={!p.hasPhoto} onClick={p.onToggleDirection}
-            title="사진 위에 해칭 방향을 직접 그립니다. 그 근처의 해칭이 그 방향을 따릅니다" aria-pressed={p.directionEditing}>
-            <DirectionIcon /> 방향 지시{p.guideCount > 0 && <span className="badge">{p.guideCount}</span>}
-          </button>
-          {/* 격자: 가이드 1단계와 같은 값. 사진·결과 위에 그대로 겹쳐 보여 칸을 보고 옮겨 그릴 수 있다 */}
-          <select className="text-input select grid-select" value={p.grid} disabled={!p.hasPhoto}
-            onChange={(e) => p.onGrid(Number(e.target.value) as GridSize)} aria-label="격자" title="사진·결과 위에 격자를 겹쳐 봅니다 (가이드의 격자와 같은 값)">
-            <option value={0}>격자 없음</option><option value={3}>3×3</option><option value={4}>4×4</option><option value={6}>6×6</option>
-          </select>
-        </>
-      )}
+      <button className={`btn btn-ghost btn-sm ${p.directionEditing ? 'on-accent' : ''}`} disabled={!p.hasPhoto} onClick={p.onToggleDirection}
+        title="사진 위에 해칭 방향을 직접 그립니다. 그 근처의 해칭이 그 방향을 따릅니다" aria-pressed={p.directionEditing}>
+        <DirectionIcon /> 방향 지시{p.guideCount > 0 && <span className="badge">{p.guideCount}</span>}
+      </button>
+      {/* 격자: 사진·결과 위에 겹쳐 보여 칸을 보고 스케치북에 옮겨 그릴 수 있다 */}
+      <select className="text-input select grid-select" value={p.grid} disabled={!p.hasPhoto}
+        onChange={(e) => p.onGrid(Number(e.target.value) as GridSize)} aria-label="격자" title="사진·결과 위에 격자를 겹쳐 봅니다">
+        <option value={0}>격자 없음</option><option value={3}>3×3</option><option value={4}>4×4</option><option value={6}>6×6</option>
+      </select>
 
       {p.history.length > 0 && (
         <>

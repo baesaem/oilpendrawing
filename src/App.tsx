@@ -6,16 +6,14 @@ import { Stage, type PaintProgress, type ViewMode } from './components/Stage';
 import { StylePanel } from './components/StylePanel';
 import { PaintPanel } from './components/PaintPanel';
 import { StampPanel } from './components/StampPanel';
-import { DrawActions, Toolbar, ViewSeg, type Mode } from './components/Toolbar';
-import { GuideView, type GridSize } from './components/GuideView';
+import { DrawActions, Toolbar, ViewSeg } from './components/Toolbar';
+import type { GridSize } from './components/GridOverlay';
 import { FullscreenView } from './components/FullscreenView';
-import type { PaperRatio } from './guide';
-import type { GuideStep } from './tips';
 import { applyTone, downloadBlob, estimateLight, isGrayscale, prepareInput, toneFilter } from './image';
 import { analyzeSampleBlob, renderLocalDrawing } from './local';
 import { compositeStamps, defaultPlacement, loadStamps, saveStamps, type PlacedStamp, type StampItem, type StampState } from './stamps';
 import { loadPresets, newPresetId, savePresets, PRESET_LIMIT, type UserPreset } from './presets';
-import { buildProcessPrompt, buildPrompt, type RefKind } from './prompt';
+import { buildPrompt, type RefKind } from './prompt';
 import { fetchPresetImage } from './presetGallery';
 import { EDITS_INPUT, generateDrawing } from './providers';
 import { listDrawings, loadSettings, putDrawing, saveSettings } from './storage';
@@ -71,11 +69,7 @@ export function App() {
   const [live, setLive] = useState(false);
   const [error, setError] = useState<UiError | null>(null);
   const [panelsHidden, setPanelsHidden] = useState(false);
-  const [mode, setMode] = useState<Mode>('draw');
-  const [step, setStep] = useState<GuideStep>('compose');
   const [grid, setGrid] = useState<GridSize>(3);
-  const [paper, setPaper] = useState<PaperRatio>('photo');
-  const [showProcess, setShowProcess] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   /** 이력에서 불러올 때는 그 레코드의 그리기 설정을 유지해야 하므로 자동 재설정을 한 번 건너뜁니다 */
@@ -87,11 +81,9 @@ export function App() {
   useEffect(() => {
     setCurrent(null);
     setView('original');
-    setStep('compose');
-    setShowProcess(false);
     setDirectionEditing(false);
     setParams((p) => (p.guides.length ? { ...p, guides: [] } : p));
-    if (!input) { setInputIsGray(null); setMode('draw'); return; }
+    if (!input) { setInputIsGray(null); return; }
     let alive = true;
     setInputIsGray(null);
     isGrayscale(input).then((g) => alive && setInputIsGray(g)).catch(() => alive && setInputIsGray(false));
@@ -180,7 +172,6 @@ export function App() {
     setHistory((h) => [drawing, ...h].slice(0, 30));
     setCurrent(drawing);
     setView('compare');
-    if (mode === 'guide') setStep('final');
   };
 
   /** 기본: 브라우저 로컬 렌더러로 그리기 (API 없음) */
@@ -290,41 +281,9 @@ export function App() {
 
   const toggleDirection = () => {
     setDirectionEditing((on) => {
-      if (!on) { setMode('draw'); setView('original'); }
+      if (!on) setView('original');
       return !on;
     });
-  };
-
-  /** 4단계 과정을 한 장으로 그려 달라고 요청 (API 1회) */
-  const makeProcess = async () => {
-    if (!input || busy) return;
-    setError(null);
-    const ac = new AbortController();
-    abortRef.current = ac;
-    try {
-      setBusy('이미지 준비 중…');
-      const photo = current?.input ?? (await prepareInput(input, { maxSide: 1536, grayscale: false }));
-      const prompt = buildProcessPrompt(params, !!current);
-      const sheet = await generateDrawing(settings, {
-        input: photo, reference: current?.result, prompt, signal: ac.signal, onStatus: setBusy,
-      });
-      if (current) {
-        const updated: Drawing = { ...current, process: sheet };
-        await putDrawing(updated);
-        setCurrent(updated);
-        setHistory((h) => h.map((d) => (d.id === updated.id ? updated : d)));
-      } else {
-        const drawing: Drawing = {
-          id: newId(), createdAt: Date.now(), input: photo, result: sheet, process: sheet, params: { ...params },
-          engine: 'ai', provider: settings.provider, model: settings.providers[settings.provider].model, prompt,
-        };
-        await putDrawing(drawing);
-        setHistory((h) => [drawing, ...h].slice(0, 30));
-        setCurrent(drawing);
-      }
-      setShowProcess(true);
-      setStep('final');
-    } catch (e) { fail(e); } finally { finish(); }
   };
 
   const download = async () => {
@@ -351,7 +310,7 @@ export function App() {
 
       <div className="topbar">
         <div className="top-actions">
-          {mode === 'draw' && <ViewSeg view={view} onView={setView} hasResult={!!current} />}
+          <ViewSeg view={view} onView={setView} hasResult={!!current} />
         </div>
         <div className="brand">
           <h1>리천 오일펜 드로잉 도우미</h1>
@@ -373,13 +332,6 @@ export function App() {
           guides: params.guides, editing: directionEditing, radius: params.guideRadius,
           onChange: setGuides, onRadius: (guideRadius) => setParams((p) => ({ ...p, guideRadius })), onDone: () => setDirectionEditing(false),
         }}
-        guide={mode === 'guide' && stageOriginal ? (
-          <GuideView
-            photo={stageOriginal} result={current?.result ?? null} process={current?.process ?? null} params={params}
-            step={step} onStep={setStep} grid={grid} onGrid={setGrid} paper={paper} onPaper={setPaper}
-            showProcess={showProcess} onShowProcess={setShowProcess} onMakeProcess={makeProcess} busy={busy} keyOk={keyOk}
-          />
-        ) : undefined}
       />
 
       <aside className={`panel panel-left ${panelsHidden ? 'panel-hidden' : ''}`} aria-label="입력">
@@ -427,7 +379,7 @@ export function App() {
       )}
 
       <Toolbar
-        mode={mode} onMode={(m) => { setMode(m); if (m === 'guide') setDirectionEditing(false); }} hasPhoto={!!stageOriginal}
+        hasPhoto={!!stageOriginal}
         providerLabel={providerLabel} keyOk={keyOk} onOpenKeys={() => setKeysOpen(true)}
         view={view} onView={setView} hasResult={!!current}
         history={history} currentId={current?.id ?? null} onSelect={selectHistory}
@@ -441,8 +393,7 @@ export function App() {
 
       {fullscreen && stageOriginal && (
         <FullscreenView
-          mode={mode} photo={stageOriginal} result={current?.result ?? null} process={current?.process ?? null} showProcess={showProcess}
-          params={params} step={step} onStep={setStep} grid={grid} onGrid={setGrid} paper={paper}
+          photo={stageOriginal} result={current?.result ?? null} grid={grid} onGrid={setGrid}
           showResult={view !== 'original'} onToggleResult={() => setView((v) => (v === 'original' ? 'result' : 'original'))}
           toneFilter={filter} onClose={() => setFullscreen(false)}
         />
