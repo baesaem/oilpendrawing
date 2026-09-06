@@ -32,6 +32,9 @@ UI 문구는 모두 한국어이고, 코드 주석도 한국어로 쓴다.
 ### 화면 하나
 
 `App.tsx` 가 모든 상태를 들고 있고 화면은 **원본/결과 비교 하나**다. `view` 가 `'compare' | 'result' | 'original'`.
+비교 화면의 분할선은 `.compare-grab` 덮개가 포인터를 직접 받아 **그림 위 어디를 잡아도** 끌린다 — 옛 `<input type="range">` 는
+브라우저가 손잡이를 요소 위쪽에만 그려서 가운데 원을 잡아도 안 움직였다(사용자 제보). 가운데 원은 지금 위치를 보여 주는 표시일 뿐이다.
+좌우 화살표(Shift 로 크게)로도 움직인다.
 화면 위 한 줄(`.topbar`)이 [보기 전환(`ViewSeg`)] · 제목 · [그리기 버튼(`DrawActions`)] 이다 — 둘 다 `Toolbar.tsx` 에서
 내보내고 아래 툴바에는 없다. 가장 자주 누르는 버튼을 눈에 먼저 들어오는 자리에 둔 것.
 격자(`GridSize`·`Overlay`, `components/GridOverlay.tsx`)는 툴바 선택기로 켜고 사진·결과 위에 겹쳐 그린다 —
@@ -300,6 +303,11 @@ wash·oil·impasto 면 붓 화풍), `PaintPanel` 의 붓 선택기도 "펜으로
 `migrateStrokes` 로 옮긴다. 저장·적용·삭제 UI 는 `components/PresetList.tsx` 이고 **화풍 프리셋의 "즐겨찾기" 탭**에 있다.
 현재 값과 같은 프리셋을 `samePaint` 로 표시한다 (내장 3개는 `PaintPanel` 의 접힌 "기본 프리셋" 줄에 그대로 있다).
 적용은 `patchPaint` 로 `paint` 만 바꾸므로 화풍(`PenStyle`)은 그대로다.
+
+**갤러리 프리셋 덮어쓰기**(`StylePaints`, localStorage `oilpen.stylePaint.v1`): 갤러리 썸네일 모서리의 ＋(또는 썸네일 오른쪽 단추)를
+누르면 지금 그리기 설정을 그 화풍의 설정으로 저장한다 — 프리셋을 자기 손에 맞게 길들이는 것이다. 저장해 두면 `App.paintFor` 가
+`PAINT_FOR_STYLE[style]` 대신 이 값을 쓰고, 그 칸의 단추가 ↺(원래 프리셋으로) 로 바뀌며 늘 보인다. 즐겨찾기와 달리 이름이 없고
+화풍 하나에 하나뿐이다.
 
 ### 외부 결과 불러오기 (삭제됨)
 

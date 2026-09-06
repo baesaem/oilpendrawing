@@ -12,7 +12,7 @@ import { FullscreenView } from './components/FullscreenView';
 import { applyTone, downloadBlob, estimateLight, imageSize, isGrayscale, prepareInput, toneFilter } from './image';
 import { analyzeSampleBlob, renderLocalDrawing } from './local';
 import { compositeStamps, defaultPlacement, loadStamps, saveStamps, type PlacedStamp, type StampItem, type StampState } from './stamps';
-import { loadPresets, newPresetId, savePresets, PRESET_LIMIT, type UserPreset } from './presets';
+import { loadPresets, loadStylePaints, newPresetId, savePresets, saveStylePaints, PRESET_LIMIT, type StylePaints, type UserPreset } from './presets';
 import { buildPrompt, type RefKind } from './prompt';
 import { fetchPresetImage } from './presetGallery';
 import { EDITS_INPUT, generateDrawing } from './providers';
@@ -20,7 +20,7 @@ import { listDrawings, loadSettings, putDrawing, saveSettings } from './storage'
 import { IS_PREVIEW, PREVIEW_NOTE } from './env';
 import {
   DEFAULT_PARAMS, PAINT_FOR_STYLE, PROVIDER_LABEL, blendPaint, mergeParams,
-  type DirectionGuide, type Drawing, type DrawingParams, type PaintProfile, type Settings,
+  type DirectionGuide, type Drawing, type DrawingParams, type PaintProfile, type PenStyle, type Settings,
 } from './types';
 
 interface UiError { message: string; hint?: string }
@@ -52,6 +52,9 @@ export function App() {
   /** 즐겨찾기 프리셋 (이 브라우저에 저장) */
   const [presets, setPresets] = useState<UserPreset[]>(() => loadPresets());
   useEffect(() => { savePresets(presets); }, [presets]);
+  // 화풍마다 덮어쓴 그리기 설정 (갤러리에서 "현재 설정 넣기" 로 저장한 것)
+  const [stylePaints, setStylePaints] = useState<StylePaints>(() => loadStylePaints());
+  useEffect(() => { saveStylePaints(stylePaints); }, [stylePaints]);
   const savePreset = (name: string) => setPresets((ps) => [{ id: newPresetId(), name, paint: { ...params.paint }, createdAt: Date.now() }, ...ps].slice(0, PRESET_LIMIT));
   const deletePreset = (id: string) => setPresets((ps) => ps.filter((p) => p.id !== id));
   const applyPreset = (p: UserPreset) => patchPaint({ ...p.paint });
@@ -110,16 +113,21 @@ export function App() {
 
   // 화풍 프리셋·견본·반영도가 바뀌면 그리기 설정을 다시 채웁니다: 화풍 프리셋에 견본 측정값을 섞는다.
   const paintFor = (p: DrawingParams) => {
-    const base = PAINT_FOR_STYLE[p.style];
+    // 사용자가 그 화풍에 자기 설정을 얹어 두었으면 코드의 기본 설정 대신 그것을 쓴다
+    const base = stylePaints[p.style] ?? PAINT_FOR_STYLE[p.style];
     return measured ? blendPaint(base, measured, p.referenceWeight) : base;
   };
   useEffect(() => {
     if (keepStrokesRef.current) { keepStrokesRef.current = false; return; }
     setParams((p) => ({ ...p, paint: paintFor(p) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [measured, params.referenceWeight, params.style]);
+  }, [measured, params.referenceWeight, params.style, stylePaints]);
 
   const resetPaint = () => setParams((p) => ({ ...p, paint: paintFor(p) }));
+
+  // 갤러리 프리셋 갱신: 지금 슬라이더 값을 그 화풍의 설정으로 저장한다 (지우면 원래 프리셋으로 돌아간다)
+  const saveStylePaint = (st: PenStyle) => setStylePaints((o) => ({ ...o, [st]: { ...params.paint } }));
+  const resetStylePaint = (st: PenStyle) => setStylePaints((o) => { const n = { ...o }; delete n[st]; return n; });
 
   // 스페이스: 결과 ↔ 원본 전환, H: 패널 숨기기
   useEffect(() => {
@@ -354,6 +362,7 @@ export function App() {
         <StylePanel
           params={params} onParams={patchParams} paint={params.paint}
           presets={presets} onSavePreset={savePreset} onDeletePreset={deletePreset} onApplyPreset={applyPreset}
+          stylePaints={stylePaints} onSaveStylePaint={saveStylePaint} onResetStylePaint={resetStylePaint}
         >
           <PaintPanel paint={params.paint} onChange={patchPaint} fromSample={!!measured} onReset={resetPaint} />
         </StylePanel>

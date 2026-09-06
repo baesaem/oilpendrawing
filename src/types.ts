@@ -266,7 +266,7 @@ export const DEFAULT_PARAMS: DrawingParams = {
   contrast: 0,
   referenceWeight: 60,
   paint: DEFAULT_PAINT,
-  aiRefFromLocal: true,
+  aiRefFromLocal: false,
   guides: [],
   guideRadius: 18,
 };

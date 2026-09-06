@@ -123,6 +123,19 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .gallery button:hover { border-color: var(--line-strong); color: var(--text); }
+/* 썸네일 한 칸: 그림 단추 + 모서리의 프리셋 갱신 단추 */
+.preset-cell { position: relative; display: flex; }
+.preset-cell > button:first-child { flex: 1; min-width: 0; }
+.preset-edit {
+  position: absolute; top: 3px; right: 3px; width: 17px; height: 17px; padding: 0; border-radius: 5px;
+  border: 1px solid var(--line-strong); background: rgba(20,19,17,.72); color: var(--muted);
+  font-size: 11px; line-height: 1; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; opacity: 0; transition: opacity .12s;
+}
+.preset-cell:hover .preset-edit, .preset-edit:focus-visible, .preset-edit.on { opacity: 1; }
+.preset-edit:hover { color: var(--text); border-color: var(--accent); }
+/* 내 설정이 얹힌 프리셋은 늘 보이게 두고 강조색으로 표시한다 */
+.preset-edit.on { color: var(--accent); border-color: var(--accent); }
 /* 썸네일에 마우스를 올렸을 때 크게 보여 주는 예시 그림 */
 .preset-peek {
   position: fixed; width: 240px; z-index: 8; pointer-events: none; overflow: hidden;
@@ -216,7 +229,9 @@ input[type=range]:focus-visible { outline: 1px solid var(--accent); outline-offs
   content: ''; position: absolute; top: 50%; left: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px;
   border-radius: 50%; border: 2px solid var(--text); background: rgba(22,21,19,.8);
 }
-.compare-range { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize; margin: 0; }
+/* 분할선 끌기 덮개: 그림 위 어디를 잡아도 끌린다 (옛 range 입력은 손잡이가 위쪽에만 있었다) */
+.compare-grab { position: absolute; inset: 0; cursor: ew-resize; touch-action: none; }
+.compare-grab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .tag { position: absolute; top: 12px; padding: 3px 8px; border-radius: 4px; font-size: 11px; letter-spacing: .04em; pointer-events: none; }
 .tag-left { left: 12px; background: rgba(22,21,19,.85); color: var(--text); }
 .tag-right { right: 12px; background: rgba(232,228,220,.9); color: var(--accent-ink); }

@@ -5,7 +5,7 @@ import { LightDial } from './LightDial';
 import { ARTISTS, ARTIST_BY_ID, type ArtistId } from '../artists';
 import { presetImageUrl, presetShortLabel } from '../presetGallery';
 import { PresetList } from './PresetList';
-import type { UserPreset } from '../presets';
+import type { StylePaints, UserPreset } from '../presets';
 import type { PaintProfile } from '../types';
 
 /** 화풍을 펜으로 그리는 것과 붓으로 그리는 것으로 나눈다 (그리기 설정 패널의 붓 구분과 같은 기준) */
@@ -34,11 +34,15 @@ interface Props {
   onSavePreset: (name: string) => void;
   onDeletePreset: (id: string) => void;
   onApplyPreset: (p: UserPreset) => void;
+  /** 화풍마다 덮어쓴 그리기 설정 (갤러리에서 "현재 설정 넣기" 로 저장한 것) */
+  stylePaints: StylePaints;
+  onSaveStylePaint: (st: PenStyle) => void;
+  onResetStylePaint: (st: PenStyle) => void;
   /** 공통 설정 다음, AI 전용 설정 앞에 끼워 넣을 내용 (선·톤 패널) */
   children?: ReactNode;
 }
 
-export function StylePanel({ params, onParams, paint, presets, onSavePreset, onDeletePreset, onApplyPreset, children }: Props) {
+export function StylePanel({ params, onParams, paint, presets, onSavePreset, onDeletePreset, onApplyPreset, stylePaints, onSaveStylePaint, onResetStylePaint, children }: Props) {
   // 화풍 프리셋은 두 탭이다: 저장해 둔 "즐겨찾기"와 화풍 예시 그림 갤러리인 "프리셋".
   // 화가 접목·색·빛은 로컬·AI 가 함께 쓰므로 탭 밖에 둔다.
   const [tab, setTab] = useState<'fav' | 'preset'>('preset');
@@ -77,20 +81,39 @@ export function StylePanel({ params, onParams, paint, presets, onSavePreset, onD
               <div key={title} className="gallery-group">
                 <div className="group-title">{title}</div>
                 <div className="gallery" role="radiogroup" aria-label={`${title} 프리셋`}>
-                  {list.map((st) => (
-                    <button
-                      key={st} type="button" className={params.style === st ? 'on' : ''} role="radio" aria-checked={params.style === st}
-                      title={STYLE_LABEL[st]} onClick={() => onParams({ style: st })}
-                      onMouseEnter={(e) => showPeek(st, e.currentTarget)} onFocus={(e) => showPeek(st, e.currentTarget)}
-                      onMouseLeave={() => setPeek(null)} onBlur={() => setPeek(null)}
-                    >
-                      <img src={presetImageUrl(st)} alt="" loading="lazy" draggable={false} />
-                      <span>{presetShortLabel(st)}</span>
-                    </button>
-                  ))}
+                  {list.map((st) => {
+                    const mine = !!stylePaints[st];
+                    return (
+                      <div key={st} className="preset-cell">
+                        <button
+                          type="button" className={params.style === st ? 'on' : ''} role="radio" aria-checked={params.style === st}
+                          title={STYLE_LABEL[st]} onClick={() => onParams({ style: st })}
+                          // 오른쪽 단추로도 지금 설정을 이 프리셋에 넣는다 (모서리 단추와 같은 일)
+                          onContextMenu={(e) => { e.preventDefault(); onSaveStylePaint(st); }}
+                          onMouseEnter={(e) => showPeek(st, e.currentTarget)} onFocus={(e) => showPeek(st, e.currentTarget)}
+                          onMouseLeave={() => setPeek(null)} onBlur={() => setPeek(null)}
+                        >
+                          <img src={presetImageUrl(st)} alt="" loading="lazy" draggable={false} />
+                          <span>{mine ? `${presetShortLabel(st)} ·` : presetShortLabel(st)}</span>
+                        </button>
+                        {/* 프리셋 업그레이드: 지금 슬라이더 값을 이 프리셋에 넣어 둔다. 넣어 둔 뒤에는 되돌리기로 바뀐다 */}
+                        <button
+                          type="button" className={`preset-edit${mine ? ' on' : ''}`}
+                          title={mine ? `${STYLE_LABEL[st]}: 내 설정 지우고 원래 프리셋으로` : `${STYLE_LABEL[st]}: 현재 설정을 이 프리셋에 넣기`}
+                          aria-label={mine ? `${STYLE_LABEL[st]} 프리셋을 원래대로` : `${STYLE_LABEL[st]} 프리셋에 현재 설정 넣기`}
+                          onClick={() => (mine ? onResetStylePaint(st) : onSaveStylePaint(st))}
+                        >
+                          {mine ? '↺' : '＋'}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
+            <div className="small muted">
+              썸네일 모서리의 ＋ (또는 오른쪽 단추)를 누르면 지금 그리기 설정을 그 프리셋에 넣어 둡니다. ↺ 로 원래대로.
+            </div>
             {/* 화풍 설명은 갤러리 아래에 늘 띄우지 않고, 썸네일에 마우스를 올렸을 때 그 화풍의 것만 보여 준다 */}
             {/* 패널에 backdrop-filter 가 걸려 있어 그 안에서는 position:fixed 가 패널 기준이 된다 — body 로 내보낸다 */}
             {peek && createPortal(

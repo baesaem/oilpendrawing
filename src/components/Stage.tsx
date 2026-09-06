@@ -150,6 +150,11 @@ export function Stage({ original, result, view, busy, toneFilter, wide, guide, l
   const oUrl = useObjectUrl(original);
   const rUrl = useObjectUrl(result);
   const [split, setSplit] = useState(55);
+  // 포인터가 있는 가로 위치를 분할선으로 (덮개 전체가 손잡이다)
+  const setSplitAt = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    if (r.width > 0) setSplit(Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)));
+  };
 
   const showCompare = view === 'compare' && oUrl && rUrl;
   const showResult = view === 'result' && rUrl;
@@ -174,9 +179,21 @@ export function Stage({ original, result, view, busy, toneFilter, wide, guide, l
               <div className="divider" style={{ left: `${split}%` }} />
               <span className="tag tag-left">드로잉</span>
               <span className="tag tag-right">원본</span>
-              <input
-                className="compare-range" type="range" min={0} max={100} value={split}
-                onChange={(e) => setSplit(Number(e.target.value))} aria-label="비교 분할 위치"
+              {/*
+                분할선 끌기. 옛 <input type=range> 는 브라우저가 손잡이를 요소 위쪽에 그려서
+                가운데 원을 잡아도 안 움직였다 (사용자 제보). 직접 포인터를 받아 **화면 어디를 잡아도**
+                끌리게 한다 — 가운데 원은 지금 위치를 보여 주는 표시일 뿐이다.
+              */}
+              <div
+                className="compare-grab" role="slider" tabIndex={0} aria-label="비교 분할 위치"
+                aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(split)}
+                onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setSplitAt(e); }}
+                onPointerMove={(e) => { if (e.buttons & 1) setSplitAt(e); }}
+                onKeyDown={(e) => {
+                  const step = e.shiftKey ? 10 : 2;
+                  if (e.key === 'ArrowLeft') { setSplit((v) => Math.max(0, v - step)); e.preventDefault(); }
+                  if (e.key === 'ArrowRight') { setSplit((v) => Math.min(100, v + step)); e.preventDefault(); }
+                }}
               />
             </>
           )}
