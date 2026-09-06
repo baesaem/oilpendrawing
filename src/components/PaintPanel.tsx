@@ -12,7 +12,7 @@ interface Props {
 }
 
 const PEN_BRUSHES: BrushKind[] = ['tone', 'pen', 'contour', 'stipple'];
-const PAINT_BRUSHES: BrushKind[] = ['wash', 'oil', 'impasto'];
+const PAINT_BRUSHES: BrushKind[] = ['inkwash', 'wash', 'oil', 'impasto'];
 const TIPS: TipKind[] = ['auto', 'round', 'bristle', 'wet', 'chalk', 'swirl'];
 const PALETTES: PaletteId[] = ['photo', 'bright', 'mono', 'match', 'match2', 'vangogh'];
 
@@ -80,7 +80,7 @@ function brushPatch(s: PaintProfile, b: BrushKind): Partial<PaintProfile> {
 export function PaintPanel({ paint: s, onChange, fromSample, onReset }: Props) {
   const [palOpen, setPalOpen] = useState(false);
   const isStipple = s.brush === 'stipple';
-  const isPaint = s.brush === 'wash' || s.brush === 'oil' || s.brush === 'impasto';
+  const isPaint = s.brush === 'inkwash' || s.brush === 'wash' || s.brush === 'oil' || s.brush === 'impasto';
   // 탭을 오갈 때 그쪽에서 마지막으로 쓰던 붓으로 돌아가게 기억해 둔다
   const lastPen = useRef<BrushKind>('pen');
   const lastPaint = useRef<BrushKind>('wash');

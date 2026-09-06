@@ -11,6 +11,7 @@ export type PenStyle =
   | 'tonehatch' | 'richeon' | 'fineink'
   | 'hatching' | 'crosshatch' | 'contour' | 'stipple'
   | 'engraving' | 'realistic' | 'comic' | 'carver'
+  | 'inkwash'
   | 'watercolor' | 'oil' | 'vangogh';
 
 /** 결과를 만든 엔진: 브라우저 로컬 렌더러 또는 AI 제공사 */
@@ -28,17 +29,18 @@ export interface DirectionGuide {
 }
 
 /** 로컬 엔진의 붓 (획의 모양) */
-export type BrushKind = 'tone' | 'pen' | 'contour' | 'stipple' | 'wash' | 'oil' | 'impasto';
+export type BrushKind = 'tone' | 'pen' | 'contour' | 'stipple' | 'inkwash' | 'wash' | 'oil' | 'impasto';
 export const BRUSH_LABEL: Record<BrushKind, string> = {
   tone: '펜화 — 밝기를 몇 단계로 나눠 한 방향 펜선. 어두울수록 굵고 촘촘하게, 셋째 층부터 교차선, 가장 밝은 곳은 선 없음',
   pen: '리천 — 면을 따라 흐르는 짧은 획, 나뭇잎은 고리 선, 그림자는 교차',
   contour: '윤곽 — 윤곽선 위주, 깊은 그림자만 해칭',
   stipple: '점묘 — 점의 밀도로 명암',
+  inkwash: '수묵담채 — 뼈대를 짙은 먹선으로 먼저 세우고 그 사이를 옅은 색으로 가볍게. 번지지 않는 마른 담채',
   wash: '담채 — 수채 붓 자국을 겹쳐 얹고 펜은 윤곽과 깊은 그림자만',
   oil: '유화 — 불투명한 짧은 붓 자국을 큰 것부터 작은 것까지 겹쳐 화면을 다 덮음',
   impasto: '고흐 — 길고 굽은 두꺼운 붓 자국, 자국마다 색이 조금씩 다르고 가장자리는 어둡게',
 };
-export const BRUSH_SHORT: Record<BrushKind, string> = { tone: '펜화', pen: '리천', contour: '윤곽', stipple: '점묘', wash: '담채', oil: '유화', impasto: '고흐' };
+export const BRUSH_SHORT: Record<BrushKind, string> = { tone: '펜화', pen: '리천', contour: '윤곽', stipple: '점묘', inkwash: '수묵', wash: '담채', oil: '유화', impasto: '고흐' };
 
 /**
  * 색 팔레트 (DAP Main Painter 의 Palette 에 해당). 컬러로 그릴 때만 뜻이 있다.
@@ -163,7 +165,8 @@ export const PAINT_FOR_STYLE: Record<PenStyle, PaintProfile> = {
   engraving: { ...CLASSIC_PAINT, passes: 5, brushSize: 40, detail: 85, accuracy: 75, strokeLength: 90, featureFollow: 90, baseAngle: 0, randomness: 10, lineWidth: 1.4, ink: 82, paperKeep: 45, edges: 60 },
   realistic: { ...CLASSIC_PAINT, brush: 'tone', passes: 6, brushSize: 35, detail: 100, accuracy: 95, strokeLength: 45, featureFollow: 70, baseAngle: 30, randomness: 15, lineWidth: 1, ink: 85, paperKeep: 35, edges: 75 },
   comic: { ...CLASSIC_PAINT, brush: 'contour', passes: 3, brushSize: 45, detail: 70, accuracy: 55, strokeLength: 55, featureFollow: 60, baseAngle: 45, randomness: 20, lineWidth: 2.4, ink: 95, paperKeep: 60, edges: 100 },
-  carver: { ...CLASSIC_PAINT, brush: 'pen', tip: 'round', palette: 'mono', depth: 30, passes: 3, brushSize: 50, detail: 45, accuracy: 45, strokeLength: 100, featureFollow: 100, baseAngle: 0, randomness: 10, lineWidth: 1.4, ink: 92, paperKeep: 68, edges: 100, vignette: 0, paperColor: '#f4f2ee', inkColor: '#0f0f10' },
+  carver: { ...CLASSIC_PAINT, brush: 'tone', tip: 'round', palette: 'mono', depth: 30, passes: 6, brushSize: 45, detail: 45, accuracy: 55, strokeLength: 90, featureFollow: 100, baseAngle: 0, randomness: 6, lineWidth: 2, ink: 95, paperKeep: 68, edges: 100, vignette: 0, paperColor: '#f4f2ee', inkColor: '#0f0f10' },
+  inkwash: { ...RICHEON_PAINT, brush: 'inkwash', tip: 'auto', palette: 'match2', wet: 25, depth: 55, passes: 3, brushSize: 60, detail: 65, accuracy: 32, strokeLength: 55, featureFollow: 80, baseAngle: 90, randomness: 45, lineWidth: 2.2, ink: 78, paperKeep: 84, edges: 72, vignette: 20, paperColor: '#f4f2ee', inkColor: '#2a2622' },
   watercolor: { ...RICHEON_PAINT, brush: 'wash', tip: 'auto', palette: 'match2', wet: 72, passes: 4, brushSize: 78, detail: 80, accuracy: 72, strokeLength: 50, featureFollow: 55, baseAngle: 40, randomness: 50, lineWidth: 1.6, ink: 60, paperKeep: 62, edges: 45, vignette: 15 },
   oil: { ...RICHEON_PAINT, brush: 'oil', tip: 'auto', palette: 'match2', wet: 30, passes: 4, brushSize: 68, detail: 95, accuracy: 80, strokeLength: 40, featureFollow: 65, baseAngle: 0, randomness: 55, lineWidth: 1, ink: 0, paperKeep: 0, edges: 0, vignette: 0 },
   vangogh: { ...RICHEON_PAINT, brush: 'impasto', tip: 'swirl', palette: 'vangogh', wet: 18, passes: 4, brushSize: 62, detail: 85, accuracy: 75, strokeLength: 85, featureFollow: 100, baseAngle: 20, randomness: 45, lineWidth: 1.4, ink: 0, paperKeep: 0, edges: 55, vignette: 0 },
@@ -354,7 +357,7 @@ export const LIGHT_DIRS: CompassDir[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', '
 
 export const PEN_STYLES: PenStyle[] = [
   'tonehatch', 'richeon', 'fineink', 'hatching', 'crosshatch', 'contour', 'stipple', 'engraving', 'realistic', 'comic', 'carver',
-  'watercolor', 'oil', 'vangogh',
+  'inkwash', 'watercolor', 'oil', 'vangogh',
 ];
 export const STYLE_LABEL: Record<PenStyle, string> = {
   tonehatch: '고대비 (명암 단계 해칭)',
@@ -368,6 +371,7 @@ export const STYLE_LABEL: Record<PenStyle, string> = {
   realistic: '세밀화',
   comic: '일러 (선 + 평면 채색)',
   carver: '카버 (새긴 듯한 홈 · 강한 대비)',
+  inkwash: '수묵담채 (먹선 + 옅은 색)',
   watercolor: '수채 담채 (펜 + 수채)',
   oil: '유화 붓터치 (인상주의)',
   vangogh: '고흐 (임파스토 유화)',
@@ -385,6 +389,7 @@ export const STYLE_DESC: Record<PenStyle, string> = {
   realistic: '아주 촘촘한 선으로 사진처럼 세밀하게 묘사합니다. 가장 오래 그린 듯한 결과입니다.',
   carver: '나무를 파낸 듯 형태를 따라 흐르는 가늘고 긴 홈으로 면을 채우고, 경계는 굵고 검게 파 놓습니다. 밝은 곳은 아예 비워 흑백 대비가 강한 부조 느낌이 납니다.',
   comic: '깨끗하고 굵기가 고른 외곽선으로 형태를 잡고, 그림자는 경계가 또렷한 덩어리로 평평하게 칠하는 일러스트 방식입니다. 중간톤을 잘게 쪼개지 않아 화면이 시원합니다.',
+  inkwash: '동양화 수묵담채처럼 나뭇가지·바위 같은 뼈대를 짙은 먹선으로 먼저 세우고, 그 사이를 옅은 색으로 가볍게 칠합니다. 잎과 꽃은 작은 점을 흩어 찍고, 하늘과 물길은 흰 종이로 크게 비웁니다. 색은 몇 가지로 줄이되 한 곳만 노랑처럼 진하게 둡니다.',
   watercolor: '펜으로 윤곽을 그리고 물을 많이 섞은 수채를 몇 단계의 옅은 담채로 얹는 어반 스케치 방식. 밝은 곳은 종이를 남기고 담채 가장자리는 안료가 고여 살짝 짙어집니다. 흑백이면 먹 담채가 됩니다.',
   oil: '불투명한 짧은 붓 자국을 큰 것부터 작은 것까지 겹쳐 종이를 다 덮는 인상주의 유화. 색은 사진보다 맑고 진하게, 붓은 면의 방향을 따르고, 빛 받는 곳은 밝은 붓 자국으로 살립니다. 컬러로 보는 것이 좋습니다.',
   vangogh: '고흐의 후기 풍경화처럼 길고 굽은 두꺼운 붓 자국이 면의 흐름을 따라 소용돌이칩니다. 자국마다 색이 조금씩 달라 노랑·주황·초록이 줄무늬로 섞이고, 형태는 짙은 윤곽 붓으로 둘러 잡습니다. 컬러로 보는 것이 좋습니다.',

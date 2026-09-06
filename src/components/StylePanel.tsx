@@ -9,7 +9,7 @@ import type { UserPreset } from '../presets';
 import type { PaintProfile } from '../types';
 
 /** 화풍을 펜으로 그리는 것과 붓으로 그리는 것으로 나눈다 (그리기 설정 패널의 붓 구분과 같은 기준) */
-const isBrushStyle = (st: PenStyle) => ['wash', 'oil', 'impasto'].includes(PAINT_FOR_STYLE[st].brush);
+const isBrushStyle = (st: PenStyle) => ['inkwash', 'wash', 'oil', 'impasto'].includes(PAINT_FOR_STYLE[st].brush);
 const PEN_ONLY = PEN_STYLES.filter((st) => !isBrushStyle(st));
 const BRUSH_ONLY = PEN_STYLES.filter(isBrushStyle);
 const COLORS: Array<{ id: ColorMode; sw: string[] }> = [

@@ -42,6 +42,8 @@ const STYLE_TEXT: Record<PenStyle, string> = {
     'Style: relief carving. The image looks cut into a block: forms are filled with long, thin, closely spaced grooves that follow ' +
     'the direction of each surface, boundaries are gouged as thick solid black lines, and the lit planes are left completely bare. ' +
     'Contrast is extreme — near-white and near-black with few mid-tones — and every line is deliberate, as if carved with a knife.',
+  inkwash:
+    'Style: East Asian ink-and-light-colour painting (수묵담채). The skeleton of the picture is drawn first in dark ink: trunks, branches, rock cracks and stems as confident tapering brush lines of varying thickness. Colour is then laid thinly and flatly between those lines in a few muted washes, never covering them, with one area kept vivid (a mass of yellow blossom, a patch of green) against everything else being subdued. Leaves and blossom are small separate dabs scattered in clusters, not solid shapes. Sky, water and paths are left as large areas of bare white paper.',
   watercolor:
     'Style: urban-sketch pen and wash. Confident ink outlines drawn first, then loose, transparent watercolor washes in a few ' +
     'flat value steps laid over them; highlights left as untouched white paper, washes bleeding softly past the lines, ' +
@@ -73,6 +75,7 @@ const STYLE_AVOID: Record<PenStyle, string> = {
   realistic: 'No visible stylisation, no bare white shapes where the photo has tone, no outlines — only dense strokes reproducing the photograph.',
   comic: 'No hatching, no stippling, no gradual shading — shadows are flat shapes with hard edges.',
   carver: 'No soft grey mid-tones, no loose sketchy lines, no dots — only carved grooves, solid blacks and bare whites.',
+  inkwash: 'No hatching, no dense shading, no fully covered sheet, no photographic colour — dark ink lines plus a few thin flat washes on bare paper.',
   watercolor: 'No dense hatching, no opaque paint, no covering the whole sheet — washes stay transparent and white paper shows.',
   oil: 'No outlines, no pen lines, no white paper, no flat areas — everything is opaque brush strokes.',
   vangogh: 'No smooth blending, no thin flat paint, no white canvas, no pen lines — every area is a visible curving impasto stroke.',
@@ -109,13 +112,14 @@ export function paintText(s: PaintProfile): string {
     case 'contour': parts.push('contour lines first, hatching reserved for the deepest shadows'); break;
     case 'stipple': parts.push('stippled dots instead of lines, density for tone'); break;
     case 'tone': parts.push('parallel pen lines filling five clear value zones, thicker and denser in the darker zones, crossing lines in the darkest, lightest zone left as bare paper'); break;
+    case 'inkwash': parts.push('dark tapering ink lines for the skeleton of every form, then a few thin flat colour washes laid between them'); break;
     case 'wash': parts.push('ink outlines with transparent watercolor washes for tone, hatching only in the deepest shadows'); break;
     case 'oil': parts.push('opaque impressionist oil brush strokes from large to small covering the whole canvas, no outlines'); break;
     case 'impasto': parts.push('long curving impasto strokes following the flow of each surface, hue varying stroke to stroke, dark contour strokes'); break;
   }
   // 붓마다 말이 다르다 — 점묘에 "펜 굵기", 유화에 "먹으로 채운 그림자" 같은 문장이 섞이면 화풍이 흐려진다
   const dot = s.brush === 'stipple';
-  const paint = s.brush === 'wash' || s.brush === 'oil' || s.brush === 'impasto';
+  const paint = s.brush === 'inkwash' || s.brush === 'wash' || s.brush === 'oil' || s.brush === 'impasto';
   const ground = paint ? 'canvas' : 'paper';
   parts.push(`${s.passes} layers of marks from large shapes down to ${s.detail >= 75 ? 'fine' : s.detail >= 45 ? 'medium' : 'coarse'} detail`);
   parts.push(s.accuracy >= 75 ? 'values matched closely to the photograph' : s.accuracy >= 45 ? 'values simplified into a few clear steps' : 'only the main darks indicated, everything else left open');
@@ -168,6 +172,12 @@ function toneText(p: DrawingParams): string {
 
 /** 붓에 따라 매체가 다르다 — 담채·유화·임파스토는 펜 그림이 아니므로 지시문의 첫 줄부터 달라야 한다 */
 function mediumText(s: PaintProfile): { open: string; hand: string } {
+  if (s.brush === 'inkwash') {
+    return {
+      open: 'Repaint the provided photograph as a hand-made East Asian ink-and-light-colour painting on paper.',
+      hand: 'Visible brush hairs at the end of each ink line and visible paper, no digital smoothing, no photographic texture.',
+    };
+  }
   if (s.brush === 'wash') {
     return {
       open: 'Repaint the provided photograph as a hand-made ink-and-watercolour painting on watercolour paper.',
@@ -215,7 +225,7 @@ export function buildPrompt(p: DrawingParams, ref: RefKind, aspect?: { width: nu
     `Within that style: ${paintText(p.paint)}`,
     artistText(p),
     `Stroke density and pressure: ${intensityText(p.intensity)}.`,
-    colorText(p, p.paint.brush === 'wash' || p.paint.brush === 'oil' || p.paint.brush === 'impasto'),
+    colorText(p, p.paint.brush === 'inkwash' || p.paint.brush === 'wash' || p.paint.brush === 'oil' || p.paint.brush === 'impasto'),
     // 빛: 자동이면 사진의 명암을 그대로, 수동이면 사진이 이미 그 방향으로 다시 조명되어 있음
     (p.lightAuto
       ? 'Keep the lighting exactly as it appears in the photograph. '

@@ -355,7 +355,7 @@ interface TipState { kind: Exclude<TipKind, 'auto'>; prof: Float32Array; wob: Fl
  * `tip` 이 'auto' 가 아니면 사용자가 고른 팁을 모든 층에 쓴다 (마지막 층의 담채만 마른 붓으로 바꾼다).
  */
 function tipForStage(p: PaintProfile, stage: 0 | 1 | 2): Exclude<TipKind, 'auto'> {
-  const wash = p.brush === 'wash';
+  const wash = p.brush === 'wash' || p.brush === 'inkwash';
   const wet = clamp(p.wet ?? 40, 0, 100) / 100;
   if (p.tip !== 'auto') return stage === 2 && p.tip === 'wet' && wet < 0.7 ? 'chalk' : p.tip;
   // 마를수록 마른 붓(chalk)·또렷한 둥근 붓으로, 젖을수록 번지는 붓으로
@@ -1015,7 +1015,7 @@ function sweepsFor(p: PaintProfile): Sweep[] {
     case 'pen': return [{ rot: 0 }, { rot: 0, offset: 0.5 }, { rot: q, minRef: 0.5, offset: 0.25 }];
     case 'contour': return [{ rot: 0, minRef: 0.55, gMul: 1.2 }, { rot: q, minRef: 0.75, gMul: 1.4, offset: 0.5 }];
     case 'stipple': return [{ kind: 'stipple', gMul: 0.7, tMul: 0.3 }, { kind: 'stipple', gMul: 0.7, offset: 0.5, tMul: 0.3 }];
-    case 'tone': case 'wash': case 'oil': case 'impasto': return [];
+    case 'tone': case 'inkwash': case 'wash': case 'oil': case 'impasto': return [];
   }
 }
 
@@ -1102,7 +1102,7 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, onTick?: (f
 }
 
 /** 담채의 목표 색: 사진 색을 크게 뭉개고 물감처럼 밝게 띄운 뒤 목표 어둡기만큼 종이에 곱한다 */
-function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, h: number, paper: RGB, mode: ColorMode, oil = false, pal: PaletteId = 'photo', ink: RGB = [30, 30, 34], real = 0.5): Float32Array {
+function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, h: number, paper: RGB, mode: ColorMode, oil = false, pal: PaletteId = 'photo', ink: RGB = [30, 30, 34], real = 0.5, ramp = 0.16): Float32Array {
   const N = w * h;
   const want = new Float32Array(N * 3);
   const R0 = Math.max(2, Math.round(Math.min(w, h) / 220));
@@ -1116,7 +1116,7 @@ function washTarget(img: RawImage, lum: Float32Array, white: number, w: number, 
     const L = softL[i];
     const o = i * 3;
     // 여백 문턱 위는 종이, 그 아래는 사진 색을 물감처럼 조금 띄우고 채도를 살려 종이에 곱한다. 문턱 근처는 부드럽게 이어진다
-    const op = oil ? 1 : clamp((white + 0.08 - L) / 0.16, 0, 1) * 0.95;
+    const op = oil ? 1 : clamp((white + 0.08 - L) / ramp, 0, 1) * 0.95;
     if (op <= 0.01) { want[o] = paper[0]; want[o + 1] = paper[1]; want[o + 2] = paper[2]; continue; }
     let tr: number, tg: number, tb: number;
     if (mode === 'color') {
@@ -1282,6 +1282,33 @@ export function passSizes(p: PaintProfile, minSide: number): number[] {
 
 /* ---------- 메인 ---------- */
 
+/**
+ * 로우키(전체가 어두운) 사진 자동 노출.
+ * 엔진의 여백 문턱은 밝기 0~1 의 절대값이라, 밝은 곳이 0.2 뿐인 밤·역광·검은 배경 사진은
+ * 화면 전체가 문턱 아래로 들어가 통째로 새까만 해칭 덩어리가 된다 (사용자 제보).
+ * 사람이 어두운 사진을 보고 그릴 때도 종이의 흰색부터 검정까지 다 쓰므로, 사진의 밝은 쪽 4%가
+ * 0.9 근처에 오도록 한 번만 밝기를 늘린다. **밝기 분포에 따라 문턱을 움직이는 것이 아니라**
+ * (그건 실패했다 — CLAUDE.md) 사진 자체를 정상 노출로 되돌리는 것이라, 보통 사진에는 아무 일도 없다.
+ */
+function autoExpose(img: RawImage, lum: Float32Array): RawImage {
+  const n = lum.length;
+  // 96 퍼센타일 (히스토그램 256칸)
+  const hist = new Int32Array(256);
+  for (let i = 0; i < n; i++) hist[Math.min(255, Math.max(0, Math.round(lum[i] * 255)))]++;
+  let acc = 0, hi = 255;
+  for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc >= n * 0.04) { hi = v; break; } }
+  const top = hi / 255;
+  if (top >= 0.62 || top < 0.01) return img; // 보통 사진은 그대로
+  const gain = Math.min(3.6, 0.9 / top);
+  const out = new Uint8ClampedArray(img.data.length);
+  // 감마가 아니라 곱셈이라 어두운 곳끼리의 관계(그림자 안의 형태)가 그대로 살아난다
+  for (let i = 0; i < img.data.length; i += 4) {
+    out[i] = img.data[i] * gain; out[i + 1] = img.data[i + 1] * gain; out[i + 2] = img.data[i + 2] * gain;
+    out[i + 3] = img.data[i + 3];
+  }
+  return { width: img.width, height: img.height, data: out };
+}
+
 export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   const { width: w, height: h } = img;
   const N = w * h;
@@ -1290,6 +1317,8 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   const minSide = Math.min(w, h);
   const scale = Math.max(w, h) / 1000;
 
+  // 로우키 사진은 먼저 정상 노출로 되돌린다 — 안 그러면 화면 전체가 문턱 아래로 들어가 새까매진다
+  img = autoExpose(img, luminance01(img));
   const lum = luminance01(img);
   const grads = channelGradients(img, w, h);
   const mag = colorEdgeMag(grads, N);
@@ -1307,7 +1336,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     const d = (white - L) / white;
     target[i] = (0.06 + 0.84 * Math.pow(d, 1.1)) * (1 - texture[i] * 0.22);
   }
-  const painty = p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto';
+  const painty = p.brush === 'wash' || p.brush === 'inkwash' || p.brush === 'oil' || p.brush === 'impasto';
   let bgMask: Float32Array | null = null;
   if (!painty) {
     // 큰 어두운 배경(스튜디오 인물 사진의 검은 배경, 밤 하늘): 펜 화가는 비워 두고 인물의 윤곽만 남긴다.
@@ -1362,7 +1391,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     // 펜: 사진 색을 잉크색과 섞어 누른 색. 담채 위의 어두운 붓: 그 자리 색을 더 진하게 (검정 펜이 아니라 짙은 물감)
     // 점묘: 점 하나가 곧 물감 한 점이다 — **그 자리 사진 색 그대로**(뭉개지 않은 원본 화소) 찍고 잉크색을 섞지 않는다.
     //       색의 범위는 팔레트가 정한다 (사진 색·선명하게·물감 12색 등). 펜처럼 잉크색을 섞으면 컬러로 골라도 회색 점만 남는다.
-    const painty = p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto';
+    const painty = p.brush === 'wash' || p.brush === 'inkwash' || p.brush === 'oil' || p.brush === 'impasto';
     const dotty = p.brush === 'stipple';
     const raw = [0, 1, 2].map((k) => { const a = new Float32Array(N); for (let i = 0, q = 0; i < img.data.length; i += 4, q++) a[q] = img.data[i + k]; return a; });
     const src = dotty ? raw : raw.map((a) => boxBlur(a, w, h, 3));
@@ -1384,7 +1413,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     base: (p.baseAngle * Math.PI) / 180,
     tol: 0.10 + 0.25 * (1 - acc),
     colorAt,
-    painty: p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto',
+    painty: p.brush === 'wash' || p.brush === 'inkwash' || p.brush === 'oil' || p.brush === 'impasto',
     bg: bgMask,
     color: opts.color,
     wet: clamp(p.wet ?? 40, 0, 100) / 100,
@@ -1413,9 +1442,13 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
       stageLabel = `${k + 1}/${levels - 1}층 · ${k === 0 ? '가장 밝은 톤부터' : k === 1 ? '선 사이 채우기' : '교차선'}`;
       report(Math.min(passes - 1, k), f);
     });
-  } else if (p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto') {
-    const oil = p.brush !== 'wash';
-    const want0 = washTarget(img, lum, white, w, h, paper, opts.color, oil, opts.color === 'color' ? p.palette : 'photo', inkC, acc);
+  } else if (p.brush === 'wash' || p.brush === 'inkwash' || p.brush === 'oil' || p.brush === 'impasto') {
+    // 수묵담채는 담채와 같은 경로지만 번짐 없이 마른 채로 칠하고, 그 위에 먹선을 세게 얹는다
+    const inky = p.brush === 'inkwash';
+    const oil = p.brush !== 'wash' && !inky;
+    // 수묵담채는 색을 정말 어두운 곳에만 옅게 얹는다 — 문턱을 낮추고(0.72배) 경계를 넓게 풀어(0.42)
+    // 중간 밝기에서 종이가 그대로 비쳐야 동양화의 여백이 나온다
+    const want0 = washTarget(img, lum, inky ? white * 0.72 : white, w, h, paper, opts.color, oil, opts.color === 'color' ? p.palette : 'photo', inkC, acc, inky ? 0.42 : 0.16);
     for (let k = 0; k < passes; k++) {
       const R = Math.max(4, sizes[k] * 1.3);
       // 임파스토는 테두리·능선 때문에 목표와 늘 조금 다르므로 문턱을 높여 같은 칸을 끝없이 덧칠하지 않게 한다
@@ -1431,7 +1464,11 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
         // DAP Watercolor Wet on Wet 의 순서(사용자 영상): 밑칠 — 크고 젖은 붓을 옅게 두 번(색이 겹쳐 번짐) → 중간 붓 →
         // 매끄럽게(Reactor) → 마른 작은 붓으로 세부를 드러냄(Dry Reveal) → 가장 작은 붓
         const tip = tipForStage(p, stage);
-        if (stage === 0) {
+        if (inky) {
+          // 수묵담채: 물을 적게 써 번짐·되섞임이 없다. 층마다 한 벌만 또렷하게 얹어 색면이 겹치지 않는다
+          stageLabel = stage === 0 ? '1~2층 · 넓은 색면' : stage === 1 ? '3~4층 · 중간 붓' : '5~6층 · 잔붓';
+          washSweep(c, want, R, Tk, (f) => report(k, f), { alpha: stage === 0 ? 0.9 : 1.05, len: stage === 2 ? 0.5 : 0.75, tip });
+        } else if (stage === 0) {
           stageLabel = '1~2층 · 큰 젖은 붓 (밑칠)';
           washSweep(c, want, R, Tk, (f) => report(k, f * 0.5), { alpha: 0.7, len: 0.55, tip });
           washSweep(c, want, R * 0.75, Tk, (f) => report(k, 0.5 + f * 0.5), { alpha: 0.8, len: 0.6, tip });
@@ -1452,7 +1489,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     // 세부 마무리: 아주 작은 붓으로 원본과 아직 다른 곳만 다시 짚는다 (화가가 마지막에 세부를 찍듯).
     // 뭉개지 않은 목표 색(want0)을 보므로 창틀·나뭇가지·얼굴처럼 작은 것들이 살아난다. 세밀함이 낮으면 건너뛴다.
     const realD = Math.max(p.detail, clamp(p.accuracy, 0, 100));
-    const fineSteps = p.brush === 'impasto' ? (realD >= 70 ? 1 : 0) : realD >= 75 ? 2 : realD >= 45 ? 1 : 0;
+    const fineSteps = inky ? 0 : p.brush === 'impasto' ? (realD >= 70 ? 1 : 0) : realD >= 75 ? 2 : realD >= 45 ? 1 : 0;
     for (let f = 0; f < fineSteps; f++) {
       const dt = clamp(realD, 0, 100) / 100;
       const Rf = Math.max(3.2, minSide * (0.015 - 0.010 * dt) * (fineSteps === 2 && f === 0 ? 1.7 : 1) * (p.brush === 'impasto' ? 1.6 : 1));
@@ -1462,9 +1499,9 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
       report(passes - 1, (f + 1) / fineSteps, true);
     }
     // 물감이 마르며 가장자리에 고이는 안료: 캔버스 밝기의 경계를 조금 어둡게
-    if (!oil) pigmentEdges(cv, 0.12 + 0.34 * c.wet, mulberry32(77));
+    if (!oil) pigmentEdges(cv, inky ? 0.10 : 0.12 + 0.34 * c.wet, mulberry32(77));
     // 7층: 원본 사진 겹치기. 표현↔사실 슬라이더가 사실 쪽일수록 원본이 진하게 비친다 (DAP 의 마지막 레이어)
-    const photoMix = clamp((acc - 0.5) / 0.5, 0, 1) * 0.5;
+    const photoMix = inky ? 0 : clamp((acc - 0.5) / 0.5, 0, 1) * 0.5;
     if (photoMix > 0.01) {
       stageLabel = '7층 · 원본 겹치기';
       const soft = [0, 1, 2].map((ch) => {
@@ -1484,7 +1521,18 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     if (p.ink >= 30) {
       const ref = boxBlur(target, w, h, 1);
       const R = sizes[passes - 1];
-      sweep(c, ref, R, { rot: 0, minRef: 0.6, gMul: 1.8 }, T + 0.08, R * 3);
+      if (inky) {
+        // 수묵담채의 먹선은 담채 위의 덧칠이 아니라 그림의 뼈대다 — 굵게, 짙은 곳에만.
+        // 길게 그으면 결이 되어 흰 종이를 메우므로 획은 짧게 두고 뼈대는 아래 윤곽선이 맡는다
+        stageLabel = '먹선 (뼈대)';
+        const lw0 = c.lw;
+        c.lw = lw0 * 1.35;
+        sweep(c, ref, R, { rot: 0, minRef: 0.66, gMul: 2.2 }, T + 0.06, R * 2.5, (f) => report(passes - 1, f));
+        c.lw = lw0;
+        report(passes - 1, 1, true);
+      } else {
+        sweep(c, ref, R, { rot: 0, minRef: 0.6, gMul: 1.8 }, T + 0.08, R * 3);
+      }
     }
   } else {
     const sweeps = sweepsFor(p);
@@ -1506,8 +1554,9 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   // 3) 윤곽선: 색 경계를 따라가는 획
   const edges = clamp(p.edges, 0, 100);
   if (edges > 0) {
-    const th = (0.30 - 0.20 * edges / 100) * (p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto' ? 1.5 : 1);
-    const widthMul = p.brush === 'contour' ? 1.15 : 1;
+    // 수묵담채의 윤곽은 뼈대라 문턱을 낮춰(1.0배) 담채보다 훨씬 많이 긋는다
+    const th = (0.30 - 0.20 * edges / 100) * (p.brush === 'inkwash' ? 1 : p.brush === 'wash' || p.brush === 'oil' || p.brush === 'impasto' ? 1.5 : 1);
+    const widthMul = p.brush === 'contour' ? 1.15 : p.brush === 'inkwash' ? 1.4 : 1;
     // 덩어리 윤곽: 펜은 단순화한 톤 지도의 경계(나무 덩어리의 뭉게구름 윤곽), 그림붓은 뭉갠 밝기의 경계
     const mass = sobel(boxBlur(painty ? lum : target, w, h, painty ? Math.max(3, Math.round(minSide / 60)) : 2), w, h);
     stageLabel = '윤곽선';

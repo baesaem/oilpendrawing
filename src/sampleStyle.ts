@@ -195,4 +195,4 @@ export function analyzeSample(img: RawImage): SampleAnalysis {
   return { profile, summary };
 }
 
-const BRUSH_TEXT: Record<BrushKind, string> = { tone: '명암 단계 해칭', pen: '리천 획', contour: '윤곽선 위주', stipple: '점묘', wash: '펜 선 + 담채', oil: '유화 붓터치', impasto: '임파스토' };
+const BRUSH_TEXT: Record<BrushKind, string> = { tone: '명암 단계 해칭', pen: '리천 획', contour: '윤곽선 위주', stipple: '점묘', inkwash: '먹선 + 옅은 색', wash: '펜 선 + 담채', oil: '유화 붓터치', impasto: '임파스토' };
