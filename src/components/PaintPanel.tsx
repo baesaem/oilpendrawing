@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { PRESET_LIMIT, samePaint, type UserPreset } from '../presets';
+import { useEffect, useMemo, useRef } from 'react';
+import { samePaint } from '../presets';
 import { BRUSH_LABEL, BRUSH_SHORT, CLASSIC_PAINT, FINE_PAINT, PALETTE_12, PALETTE_LABEL, PALETTE_SHORT, RICHEON_PAINT, TIP_LABEL, TIP_SHORT, type BrushKind, type PaintProfile, type PaletteId, type TipKind } from '../types';
 import { tipPreview } from '../render';
-import { StarIcon, TrashIcon } from './Icons';
 
 interface Props {
   paint: PaintProfile;
@@ -10,11 +9,6 @@ interface Props {
   /** 견본 분석 결과가 반영된 상태인지 */
   fromSample: boolean;
   onReset: () => void;
-  /** 즐겨찾기 프리셋 (이 브라우저에 저장) */
-  presets: UserPreset[];
-  onSavePreset: (name: string) => void;
-  onDeletePreset: (id: string) => void;
-  onApplyPreset: (p: UserPreset) => void;
 }
 
 const PEN_BRUSHES: BrushKind[] = ['tone', 'pen', 'contour', 'stipple'];
@@ -82,17 +76,7 @@ function brushPatch(s: PaintProfile, b: BrushKind): Partial<PaintProfile> {
  * 자주 쓰는 넷(세밀함·여백·진하기·선 굵기)만 밖에 두고 나머지는 "세부 조정"에 접어 둔다 —
  * 이 앱은 드로잉 초보자용이라 슬라이더가 많으면 무엇을 만져야 할지 알 수 없다.
  */
-export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, onSavePreset, onDeletePreset, onApplyPreset }: Props) {
-  const [saving, setSaving] = useState(false);
-  const [name, setName] = useState('');
-  const full = presets.length >= PRESET_LIMIT;
-  const submit = () => {
-    const n = name.trim();
-    if (!n) return;
-    onSavePreset(n);
-    setName('');
-    setSaving(false);
-  };
+export function PaintPanel({ paint: s, onChange, fromSample, onReset }: Props) {
   const isStipple = s.brush === 'stipple';
   const isPaint = s.brush === 'wash' || s.brush === 'oil' || s.brush === 'impasto';
   // 탭을 오갈 때 그쪽에서 마지막으로 쓰던 붓으로 돌아가게 기억해 둔다
@@ -185,35 +169,6 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
           hint="0 이면 화풍이 정한 한 방향으로만 긋고, 100 이면 면·경계의 방향을 그대로 따릅니다"
           onChange={(featureFollow) => onChange({ featureFollow })} />
       )}
-
-      <div className="field">
-        <div className="field-row">
-          <b>즐겨찾기</b>
-          {!saving && <button className="link" onClick={() => setSaving(true)} disabled={full} title={full ? `최대 ${PRESET_LIMIT}개까지 저장됩니다` : '지금 설정을 이름 붙여 저장합니다'}>현재 설정 저장</button>}
-        </div>
-        {saving && (
-          <div className="preset-save">
-            <input className="text-input" value={name} autoFocus placeholder="예: 벽돌 골목, 나무 많은 풍경" maxLength={24}
-              onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setSaving(false); }} aria-label="프리셋 이름" />
-            <button className="btn btn-sm btn-primary" onClick={submit} disabled={!name.trim()}>저장</button>
-            <button className="btn btn-sm btn-ghost" onClick={() => setSaving(false)}>취소</button>
-          </div>
-        )}
-        {presets.length === 0 && !saving ? (
-          <div className="small faint">마음에 드는 설정이 나오면 저장해 두고 다음 사진에 바로 적용하세요.</div>
-        ) : (
-          <div className="preset-list">
-            {presets.map((p) => (
-              <div key={p.id} className={`preset-item ${samePaint(s, p.paint) ? 'on' : ''}`}>
-                <button className="preset-apply" onClick={() => onApplyPreset(p)} title={`${BRUSH_SHORT[p.paint.brush]} · ${p.paint.passes}층 · 세밀함 ${p.paint.detail} · 굵기 ${p.paint.lineWidth}px`}>
-                  <StarIcon width={13} height={13} /><span>{p.name}</span>
-                </button>
-                <button className="preset-del" onClick={() => onDeletePreset(p.id)} aria-label={`${p.name} 삭제`} title="삭제"><TrashIcon width={13} height={13} /></button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       <details className="advanced">
         <summary>세부 조정 · 획 · 방향 · 색</summary>

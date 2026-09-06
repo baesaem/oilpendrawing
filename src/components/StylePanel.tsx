@@ -3,6 +3,9 @@ import { COLOR_LABEL, PAINT_FOR_STYLE, PEN_STYLES, STYLE_DESC, STYLE_LABEL, type
 import { LightDial } from './LightDial';
 import { ARTISTS, ARTIST_BY_ID, type ArtistId } from '../artists';
 import { presetImageUrl, presetShortLabel } from '../presetGallery';
+import { PresetList } from './PresetList';
+import type { UserPreset } from '../presets';
+import type { PaintProfile } from '../types';
 
 /** 화풍을 펜으로 그리는 것과 붓으로 그리는 것으로 나눈다 (그리기 설정 패널의 붓 구분과 같은 기준) */
 const isBrushStyle = (st: PenStyle) => ['wash', 'oil', 'impasto'].includes(PAINT_FOR_STYLE[st].brush);
@@ -24,26 +27,38 @@ function intensityHint(v: number) {
 interface Props {
   params: DrawingParams;
   onParams: (p: Partial<DrawingParams>) => void;
+  /** 즐겨찾기 탭: 이 브라우저에 저장한 그리기 설정 */
+  paint: PaintProfile;
+  presets: UserPreset[];
+  onSavePreset: (name: string) => void;
+  onDeletePreset: (id: string) => void;
+  onApplyPreset: (p: UserPreset) => void;
   /** 공통 설정 다음, AI 전용 설정 앞에 끼워 넣을 내용 (선·톤 패널) */
   children?: ReactNode;
 }
 
-export function StylePanel({ params, onParams, children }: Props) {
-  // 화풍 프리셋을 두 탭으로 나눈다: 브라우저가 그리는 "로컬"(예시 그림 갤러리)과 키가 있어야 켜지는 "AI"(AI 전용 설정).
-  // 화풍·색·빛은 두 경로가 함께 쓰므로 탭 밖에 둔다.
-  const [tab, setTab] = useState<'local' | 'ai'>('local');
+export function StylePanel({ params, onParams, paint, presets, onSavePreset, onDeletePreset, onApplyPreset, children }: Props) {
+  // 화풍 프리셋을 세 탭으로 나눈다: 저장해 둔 "즐겨찾기", 브라우저가 그리는 "로컬"(예시 그림 갤러리),
+  // 키가 있어야 켜지는 "AI"(AI 전용 설정). 화풍·색·빛은 세 경로가 함께 쓰므로 탭 밖에 둔다.
+  const [tab, setTab] = useState<'fav' | 'local' | 'ai'>('local');
   return (
     <>
       <div className="panel-head"><h2>표현 설정</h2></div>
 
       <div className="field">
-        <div className="field-row"><b>화풍 프리셋</b><span className="muted small">{tab === 'local' ? '예시를 눌러 고르기' : 'API 키 필요'}</span></div>
+        <div className="field-row">
+          <b>화풍 프리셋</b>
+          <span className="muted small">{tab === 'local' ? '예시를 눌러 고르기' : tab === 'ai' ? 'API 키 필요' : `${presets.length}개 저장됨`}</span>
+        </div>
         <div className="seg engine-tabs" role="tablist" aria-label="화풍 프리셋 구분">
+          <button role="tab" aria-selected={tab === 'fav'} className={tab === 'fav' ? 'on' : ''} onClick={() => setTab('fav')}>즐겨찾기</button>
           <button role="tab" aria-selected={tab === 'local'} className={tab === 'local' ? 'on' : ''} onClick={() => setTab('local')}>로컬</button>
           <button role="tab" aria-selected={tab === 'ai'} className={tab === 'ai' ? 'on' : ''} onClick={() => setTab('ai')}>AI</button>
         </div>
 
-        {tab === 'local' ? (
+        {tab === 'fav' ? (
+          <PresetList paint={paint} presets={presets} onSavePreset={onSavePreset} onDeletePreset={onDeletePreset} onApplyPreset={onApplyPreset} />
+        ) : tab === 'local' ? (
           <>
             {/* Dynamic Auto-Painter 의 프리셋 탭처럼: 같은 사진을 화풍마다 그린 예시를 보고 고른다 */}
             {([['펜 화풍', PEN_ONLY], ['붓 화풍', BRUSH_ONLY]] as const).map(([title, list]) => (

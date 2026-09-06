@@ -386,11 +386,11 @@ export function App() {
       </aside>
 
       <aside className={`panel panel-right ${panelsHidden ? 'panel-hidden' : ''}`} aria-label="표현 설정">
-        <StylePanel params={params} onParams={patchParams}>
-          <PaintPanel
-            paint={params.paint} onChange={patchPaint} fromSample={!!measured} onReset={resetPaint}
-            presets={presets} onSavePreset={savePreset} onDeletePreset={deletePreset} onApplyPreset={applyPreset}
-          />
+        <StylePanel
+          params={params} onParams={patchParams} paint={params.paint}
+          presets={presets} onSavePreset={savePreset} onDeletePreset={deletePreset} onApplyPreset={applyPreset}
+        >
+          <PaintPanel paint={params.paint} onChange={patchPaint} fromSample={!!measured} onReset={resetPaint} />
         </StylePanel>
         <StampPanel
           items={stamps.items} placed={stamps.placed} hasResult={!!current}
