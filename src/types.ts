@@ -10,7 +10,7 @@ export type ProviderId = 'gemini' | 'openai' | 'xai';
 export type PenStyle =
   | 'tonehatch' | 'richeon' | 'fineink'
   | 'hatching' | 'crosshatch' | 'contour' | 'stipple'
-  | 'engraving' | 'realistic' | 'comic'
+  | 'engraving' | 'realistic' | 'comic' | 'carver'
   | 'watercolor' | 'oil' | 'vangogh';
 
 /** 결과를 만든 엔진: 브라우저 로컬 렌더러 또는 AI 제공사 */
@@ -163,6 +163,7 @@ export const PAINT_FOR_STYLE: Record<PenStyle, PaintProfile> = {
   engraving: { ...CLASSIC_PAINT, passes: 5, brushSize: 40, detail: 85, accuracy: 75, strokeLength: 90, featureFollow: 90, baseAngle: 0, randomness: 10, lineWidth: 1.4, ink: 82, paperKeep: 45, edges: 60 },
   realistic: { ...CLASSIC_PAINT, brush: 'tone', passes: 6, brushSize: 35, detail: 100, accuracy: 95, strokeLength: 45, featureFollow: 70, baseAngle: 30, randomness: 15, lineWidth: 1, ink: 85, paperKeep: 35, edges: 75 },
   comic: { ...CLASSIC_PAINT, brush: 'contour', passes: 3, brushSize: 45, detail: 70, accuracy: 55, strokeLength: 55, featureFollow: 60, baseAngle: 45, randomness: 20, lineWidth: 2.4, ink: 95, paperKeep: 60, edges: 100 },
+  carver: { ...CLASSIC_PAINT, brush: 'pen', tip: 'round', palette: 'mono', depth: 30, passes: 3, brushSize: 50, detail: 45, accuracy: 45, strokeLength: 100, featureFollow: 100, baseAngle: 0, randomness: 10, lineWidth: 1.4, ink: 92, paperKeep: 68, edges: 100, vignette: 0, paperColor: '#f4f2ee', inkColor: '#0f0f10' },
   watercolor: { ...RICHEON_PAINT, brush: 'wash', tip: 'auto', palette: 'match2', wet: 72, passes: 4, brushSize: 78, detail: 80, accuracy: 72, strokeLength: 50, featureFollow: 55, baseAngle: 40, randomness: 50, lineWidth: 1.6, ink: 60, paperKeep: 62, edges: 45, vignette: 15 },
   oil: { ...RICHEON_PAINT, brush: 'oil', tip: 'auto', palette: 'match2', wet: 30, passes: 4, brushSize: 68, detail: 95, accuracy: 80, strokeLength: 40, featureFollow: 65, baseAngle: 0, randomness: 55, lineWidth: 1, ink: 0, paperKeep: 0, edges: 0, vignette: 0 },
   vangogh: { ...RICHEON_PAINT, brush: 'impasto', tip: 'swirl', palette: 'vangogh', wet: 18, passes: 4, brushSize: 62, detail: 85, accuracy: 75, strokeLength: 85, featureFollow: 100, baseAngle: 20, randomness: 45, lineWidth: 1.4, ink: 0, paperKeep: 0, edges: 55, vignette: 0 },
@@ -273,7 +274,7 @@ export function mergeParams(p: Partial<DrawingParams> | undefined): DrawingParam
   // 없앤 화풍(스크리블·어반·건축 제도·지브리·웹툰·망가·판각)과 옛 ID 는 가장 가까운 화풍으로 옮긴다
   const OLD_STYLE: Record<string, PenStyle> = {
     parkyongsoon: 'fineink', scribble: 'richeon', urban: 'richeon', architectural: 'hatching',
-    ghibli: 'comic', webtoon: 'comic', manga: 'comic', carver: 'vangogh',
+    ghibli: 'comic', webtoon: 'comic', manga: 'comic',
   };
   const style = p?.style ? OLD_STYLE[p.style as string] ?? p.style : undefined;
   // 옛 레코드(선·톤 프로필)는 옮기고, 아주 옛 레코드(둘 다 없음)는 화풍의 프리셋으로
@@ -352,7 +353,7 @@ export const LIGHT_LABEL: Record<LightDir, string> = {
 export const LIGHT_DIRS: CompassDir[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
 export const PEN_STYLES: PenStyle[] = [
-  'tonehatch', 'richeon', 'fineink', 'hatching', 'crosshatch', 'contour', 'stipple', 'engraving', 'realistic', 'comic',
+  'tonehatch', 'richeon', 'fineink', 'hatching', 'crosshatch', 'contour', 'stipple', 'engraving', 'realistic', 'comic', 'carver',
   'watercolor', 'oil', 'vangogh',
 ];
 export const STYLE_LABEL: Record<PenStyle, string> = {
@@ -366,6 +367,7 @@ export const STYLE_LABEL: Record<PenStyle, string> = {
   engraving: '판화',
   realistic: '세밀화',
   comic: '일러 (선 + 평면 채색)',
+  carver: '카버 (새긴 듯한 홈 · 강한 대비)',
   watercolor: '수채 담채 (펜 + 수채)',
   oil: '유화 붓터치 (인상주의)',
   vangogh: '고흐 (임파스토 유화)',
@@ -381,6 +383,7 @@ export const STYLE_DESC: Record<PenStyle, string> = {
   stipple: '선 대신 점의 밀도로 명암을 표현합니다. 시간이 오래 걸린 듯한 정교한 인상입니다.',
   engraving: '굵기가 규칙적으로 변하는 선으로 동판화·지폐 삽화 같은 느낌을 냅니다.',
   realistic: '아주 촘촘한 선으로 사진처럼 세밀하게 묘사합니다. 가장 오래 그린 듯한 결과입니다.',
+  carver: '나무를 파낸 듯 형태를 따라 흐르는 가늘고 긴 홈으로 면을 채우고, 경계는 굵고 검게 파 놓습니다. 밝은 곳은 아예 비워 흑백 대비가 강한 부조 느낌이 납니다.',
   comic: '깨끗하고 굵기가 고른 외곽선으로 형태를 잡고, 그림자는 경계가 또렷한 덩어리로 평평하게 칠하는 일러스트 방식입니다. 중간톤을 잘게 쪼개지 않아 화면이 시원합니다.',
   watercolor: '펜으로 윤곽을 그리고 물을 많이 섞은 수채를 몇 단계의 옅은 담채로 얹는 어반 스케치 방식. 밝은 곳은 종이를 남기고 담채 가장자리는 안료가 고여 살짝 짙어집니다. 흑백이면 먹 담채가 됩니다.',
   oil: '불투명한 짧은 붓 자국을 큰 것부터 작은 것까지 겹쳐 종이를 다 덮는 인상주의 유화. 색은 사진보다 맑고 진하게, 붓은 면의 방향을 따르고, 빛 받는 곳은 밝은 붓 자국으로 살립니다. 컬러로 보는 것이 좋습니다.',

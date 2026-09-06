@@ -38,6 +38,10 @@ const STYLE_TEXT: Record<PenStyle, string> = {
   comic:
     'Style: illustration. Clean outlines of even weight describe the forms; shadows are simplified into a few flat shapes with ' +
     'crisp edges (cel shading) rather than gradual shading, mid-tones are kept few and broad, and the result reads graphic and open.',
+  carver:
+    'Style: relief carving. The image looks cut into a block: forms are filled with long, thin, closely spaced grooves that follow ' +
+    'the direction of each surface, boundaries are gouged as thick solid black lines, and the lit planes are left completely bare. ' +
+    'Contrast is extreme — near-white and near-black with few mid-tones — and every line is deliberate, as if carved with a knife.',
   watercolor:
     'Style: urban-sketch pen and wash. Confident ink outlines drawn first, then loose, transparent watercolor washes in a few ' +
     'flat value steps laid over them; highlights left as untouched white paper, washes bleeding softly past the lines, ' +
@@ -51,6 +55,27 @@ const STYLE_TEXT: Record<PenStyle, string> = {
     'along the flow of every surface, each stroke a slightly different hue so yellows, oranges and greens stripe together, dark blue ' +
     'contour strokes around the forms, saturated color, no bare canvas.',
 
+};
+
+/**
+ * 화풍마다 "이것만은 하지 말 것". 지시문이 길면 모델이 모든 화풍을 평균 내어 비슷하게 그리므로,
+ * 화풍을 가르는 특징을 금지 형태로 한 번 더 못 박는다.
+ */
+const STYLE_AVOID: Record<PenStyle, string> = {
+  tonehatch: 'No outlines drawn as separate contour lines, no dots, no scribbles, no smooth gradients — tone exists only as countable parallel lines.',
+  richeon: 'No ruled or mechanical lines, no smooth gradients, no solid grey fills, no color — a fast hand-held liner only.',
+  fineink: 'No visible individual scribbles, no cross-hatching coarse enough to count from a distance, no color, no empty stylisation — the face must be fully modelled.',
+  hatching: 'No full-color painting, no washes over the whole sheet — color touches only a few small areas and the rest stays black line on white.',
+  crosshatch: 'No dots, no loops, no long contour outlines — tone is only layered straight strokes at several angles.',
+  contour: 'No hatching, no shading, no fills — line only.',
+  stipple: 'No lines, no hatching, no outlines at all — every mark is a dot.',
+  engraving: 'No loose or wobbly strokes, no dots, no washes — lines are regular, parallel and mechanically precise.',
+  realistic: 'No visible stylisation, no bare white shapes where the photo has tone, no outlines — only dense strokes reproducing the photograph.',
+  comic: 'No hatching, no stippling, no gradual shading — shadows are flat shapes with hard edges.',
+  carver: 'No soft grey mid-tones, no loose sketchy lines, no dots — only carved grooves, solid blacks and bare whites.',
+  watercolor: 'No dense hatching, no opaque paint, no covering the whole sheet — washes stay transparent and white paper shows.',
+  oil: 'No outlines, no pen lines, no white paper, no flat areas — everything is opaque brush strokes.',
+  vangogh: 'No smooth blending, no thin flat paint, no white canvas, no pen lines — every area is a visible curving impasto stroke.',
 };
 
 const LIGHT_TEXT: Record<LightDir, string> = {
@@ -88,15 +113,27 @@ export function paintText(s: PaintProfile): string {
     case 'oil': parts.push('opaque impressionist oil brush strokes from large to small covering the whole canvas, no outlines'); break;
     case 'impasto': parts.push('long curving impasto strokes following the flow of each surface, hue varying stroke to stroke, dark contour strokes'); break;
   }
+  // 붓마다 말이 다르다 — 점묘에 "펜 굵기", 유화에 "먹으로 채운 그림자" 같은 문장이 섞이면 화풍이 흐려진다
+  const dot = s.brush === 'stipple';
+  const paint = s.brush === 'wash' || s.brush === 'oil' || s.brush === 'impasto';
+  const ground = paint ? 'canvas' : 'paper';
   parts.push(`${s.passes} layers of marks from large shapes down to ${s.detail >= 75 ? 'fine' : s.detail >= 45 ? 'medium' : 'coarse'} detail`);
   parts.push(s.accuracy >= 75 ? 'values matched closely to the photograph' : s.accuracy >= 45 ? 'values simplified into a few clear steps' : 'only the main darks indicated, everything else left open');
-  parts.push(s.paperKeep > 65 ? 'well over half of the paper left untouched' : s.paperKeep >= 40 ? 'about half of the paper left untouched' : 'most of the sheet toned, only the highlights left white');
-  parts.push(s.lineWidth <= 1.3 ? 'a very fine 0.1-0.3 mm liner' : s.lineWidth <= 2.2 ? 'a fine 0.3-0.5 mm pen' : 'a bold 0.7-1 mm pen');
-  if (s.edges > 70) parts.push('every edge and detail outlined'); else if (s.edges < 40) parts.push('only the main outlines drawn');
-  if (s.ink >= 85) parts.push('the deepest shadows filled solid black');
-  parts.push(s.strokeLength >= 70 ? 'long confident strokes' : s.strokeLength <= 30 ? 'short stubby strokes' : 'medium-length strokes');
-  parts.push(s.randomness < 25 ? 'steady, almost ruled lines' : s.randomness > 60 ? 'loose, wobbly hand lines' : 'natural, slightly irregular hand lines');
-  if (s.vignette > 20) parts.push('the drawing fades out unfinished toward the edges of the paper');
+  if (s.brush !== 'oil' && s.brush !== 'impasto') {
+    parts.push(s.paperKeep > 65 ? `well over half of the ${ground} left untouched` : s.paperKeep >= 40 ? `about half of the ${ground} left untouched` : 'most of the sheet toned, only the highlights left white');
+  }
+  if (dot) parts.push(s.lineWidth <= 1.3 ? 'pin-point dots' : s.lineWidth <= 2.2 ? 'dots about half a millimetre across' : 'bold round dots about a millimetre across');
+  else if (paint) parts.push(s.brushSize >= 65 ? 'a broad brush for the first layers narrowing to a small one' : 'a medium brush throughout');
+  else parts.push(s.lineWidth <= 1.3 ? 'a very fine 0.1-0.3 mm liner' : s.lineWidth <= 2.2 ? 'a fine 0.3-0.5 mm pen' : 'a bold 0.7-1 mm pen');
+  if (!dot && s.brush !== 'oil' && s.brush !== 'impasto') {
+    if (s.edges > 70) parts.push('every edge and detail outlined');
+    else if (s.edges < 40) parts.push('only the main outlines drawn');
+  }
+  if (s.ink >= 85 && !paint) parts.push('the deepest shadows filled solid black');
+  if (dot) parts.push('dots packed tight in the darks and scattered wide in the lights');
+  else parts.push(s.strokeLength >= 70 ? 'long confident strokes' : s.strokeLength <= 30 ? 'short stubby strokes' : 'medium-length strokes');
+  parts.push(s.randomness < 25 ? `steady, almost ruled ${dot ? 'placement' : 'lines'}` : s.randomness > 60 ? `loose, irregular ${dot ? 'placement' : 'hand lines'}` : `natural, slightly irregular ${dot ? 'placement' : 'hand lines'}`);
+  if (s.vignette > 20) parts.push(`the work fades out unfinished toward the edges of the ${ground}`);
   return `Stroke and tone settings: ${parts.join('; ')}.`;
 }
 
@@ -108,14 +145,16 @@ function intensityText(v: number): string {
   return 'very dense, heavily layered strokes with saturated ink in the darkest areas';
 }
 
-function colorText(p: DrawingParams): string {
-  switch (p.color) {
-    case 'mono':
-      return 'Monochrome: black oil pen ink only on off-white paper.';
-    case 'color':
-      return 'Colored oil pens: a limited palette of five to seven pen colors layered by hatching, ' +
-        'keeping the drawn, hand-made look (not a painting).';
+function colorText(p: DrawingParams, paint: boolean): string {
+  if (p.color === 'mono') {
+    return paint
+      ? 'Monochrome: one dark pigment thinned to a full range of values, no other hue.'
+      : 'Monochrome: black oil pen ink only on off-white paper.';
   }
+  return paint
+    ? 'Color: a limited palette of six to eight mixed pigments, hues varying stroke to stroke, no muddy greys.'
+    : 'Colored oil pens: a limited palette of five to seven pen colors layered by hatching, ' +
+      'keeping the drawn, hand-made look (not a painting).';
 }
 
 function toneText(p: DrawingParams): string {
@@ -127,48 +166,86 @@ function toneText(p: DrawingParams): string {
   return parts.length ? parts.join('; ') + '.' : '';
 }
 
+/** 붓에 따라 매체가 다르다 — 담채·유화·임파스토는 펜 그림이 아니므로 지시문의 첫 줄부터 달라야 한다 */
+function mediumText(s: PaintProfile): { open: string; hand: string } {
+  if (s.brush === 'wash') {
+    return {
+      open: 'Repaint the provided photograph as a hand-made ink-and-watercolour painting on watercolour paper.',
+      hand: 'Visible paper grain and granulation, pigment pooling at the edge of each wash, no digital smoothing, no photographic texture.',
+    };
+  }
+  if (s.brush === 'oil' || s.brush === 'impasto') {
+    return {
+      open: 'Repaint the provided photograph as a hand-made oil painting on canvas.',
+      hand: 'Visible canvas weave and thick paint ridges catching the light, no digital smoothing, no photographic texture, no outlines.',
+    };
+  }
+  return {
+    open: 'Redraw the provided photograph as a hand-made oil-based ballpoint pen drawing on paper.',
+    hand: 'Visible paper grain, slight ink build-up where strokes overlap, no digital smoothing, no photographic textures.',
+  };
+}
+
 /** 두 번째 이미지의 정체: 없음 / 사용자가 올린 견본 / 같은 사진을 로컬 렌더러로 그린 결과 / 다른 사진으로 그린 화풍 프리셋 예시 */
 export type RefKind = 'none' | 'sample' | 'local' | 'preset';
 
-export function buildPrompt(p: DrawingParams, ref: RefKind): string {
+/** 원본 비율을 "가로:세로" 로. 결과가 정사각형으로 잘리지 않게 지시문에도 못 박는다 */
+function aspectText(a?: { width: number; height: number }): string {
+  if (!a || !a.width || !a.height) return '';
+  const g = (x: number, y: number): number => (y ? g(y, x % y) : x);
+  const d = g(Math.round(a.width), Math.round(a.height)) || 1;
+  const r = a.width / a.height;
+  const shape = r > 1.05 ? 'landscape' : r < 0.95 ? 'portrait' : 'square';
+  return `Output size: exactly the same ${shape} aspect ratio as the photograph, ` +
+    `${Math.round(a.width / d)}:${Math.round(a.height / d)} (${a.width} x ${a.height}). ` +
+    'Do not crop, pad, letterbox, add borders or change the framing — the drawn image fills the whole frame edge to edge.';
+}
+
+export function buildPrompt(p: DrawingParams, ref: RefKind, aspect?: { width: number; height: number }): string {
+  const m = mediumText(p.paint);
+  const w = p.referenceWeight;
+  const strength = w >= 70 ? 'closely' : w >= 40 ? 'moderately' : 'loosely';
   const lines = [
-    'Redraw the provided photograph as a hand-made oil-based ballpoint pen drawing on paper.',
+    m.open,
     'Keep the exact composition, proportions, perspective and every subject of the photo; change only the medium.',
-    STYLE_TEXT[p.style],
-    paintText(p.paint),
+    aspectText(aspect),
+    // 화풍이 결과를 가르는 값이므로 맨 앞에 두고, 나머지는 그 안에서의 조절임을 밝힌다
+    `PRIMARY STYLE — this decides how the whole picture looks; every other instruction below only fine-tunes it, and none of them may soften it.\n${STYLE_TEXT[p.style]}`,
+    `Must not appear: ${STYLE_AVOID[p.style]}`,
+    `Within that style: ${paintText(p.paint)}`,
     artistText(p),
     `Stroke density and pressure: ${intensityText(p.intensity)}.`,
-    colorText(p),
+    colorText(p, p.paint.brush === 'wash' || p.paint.brush === 'oil' || p.paint.brush === 'impasto'),
     // 빛: 자동이면 사진의 명암을 그대로, 수동이면 사진이 이미 그 방향으로 다시 조명되어 있음
     (p.lightAuto
       ? 'Keep the lighting exactly as it appears in the photograph. '
       : `The photograph has been relit so the key light comes ${LIGHT_TEXT[p.light]} and cast shadows fall ${SHADOW_TEXT[p.light]}; follow that lighting. `) +
-      'Hatching follows the form and turns away from the light; the lit side stays mostly open paper.',
+      'Marks follow the form and turn away from the light; the lit side stays the most open.',
     toneText(p),
-    'Visible paper grain, slight ink build-up where strokes overlap, no digital smoothing, no photographic textures.',
-    'This drawing is a reference that a human student will copy by hand into a sketchbook: every mark must read as a ' +
-      'real pen stroke a person could make, with no effects impossible by hand.',
+    m.hand,
+    'This picture is a reference that a human student will copy by hand: every mark must read as one a person could make, ' +
+      'with no effects impossible by hand.',
   ];
-  const w = p.referenceWeight;
-  const strength = w >= 70 ? 'closely' : w >= 40 ? 'moderately' : 'loosely';
   if (ref === 'sample') {
     lines.push(
-      `A second image is a style sample. Follow its line weight, hatching angle, tone steps and paper exposure ${strength} ` +
+      `A second image is a style sample. Follow its mark weight, direction, tone steps and how much ground it leaves bare ${strength} ` +
         '(do not copy its subject; the subject comes only from the photograph).',
     );
   } else if (ref === 'local') {
     lines.push(
-      'A second image is a rough pen-drawing rendering of the same photograph made with exactly the stroke settings above. ' +
-        `Follow its hatching directions, tone placement and paper exposure ${strength}, but redraw every mark by hand: ` +
+      'A second image is a rough rendering of the same photograph made with exactly the settings above. ' +
+        `Follow its mark directions, tone placement and bare ground ${strength}, but redraw every mark by hand: ` +
         'more skill, natural variation, and cleaner form than the rough version. Do not reproduce its mechanical regularity.',
     );
   } else if (ref === 'preset') {
     lines.push(
-      'A second image is an example of the target pen style drawn from a different, unrelated photograph. ' +
-        `Copy only its technique ${strength}: line weight, how hatching follows form, tone steps, and how much paper is left white. ` +
+      'A second image is an example of the target style drawn from a different, unrelated photograph. ' +
+        `Copy only its technique ${strength}: mark weight, how marks follow form, tone steps, and how much ground is left bare. ` +
         'Ignore its subject and composition completely; the subject comes only from the photograph.',
     );
   }
+  // 화풍을 마지막에 한 번 더 — 긴 지시문에서는 끝 문장이 가장 세게 남는다
+  lines.push(`Above all, the result must be unmistakably this style and no other: ${STYLE_TEXT[p.style].replace(/^Style: /, '')}`);
   return lines.filter(Boolean).join('\n');
 }
 

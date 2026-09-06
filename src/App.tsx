@@ -9,7 +9,7 @@ import { StampPanel } from './components/StampPanel';
 import { DrawActions, Toolbar, ViewSeg } from './components/Toolbar';
 import type { GridSize } from './components/GridOverlay';
 import { FullscreenView } from './components/FullscreenView';
-import { applyTone, downloadBlob, estimateLight, isGrayscale, prepareInput, toneFilter } from './image';
+import { applyTone, downloadBlob, estimateLight, imageSize, isGrayscale, prepareInput, toneFilter } from './image';
 import { analyzeSampleBlob, renderLocalDrawing } from './local';
 import { compositeStamps, defaultPlacement, loadStamps, saveStamps, type PlacedStamp, type StampItem, type StampState } from './stamps';
 import { loadPresets, newPresetId, savePresets, PRESET_LIMIT, type UserPreset } from './presets';
@@ -211,8 +211,10 @@ export function App() {
         : reference ? await prepareInput(reference, { maxSide: 1024, grayscale: false })
         : presetRef ? await prepareInput(presetRef, { maxSide: 1024, grayscale: false }) : undefined;
       const refKind: RefKind = localRef ? 'local' : reference ? 'sample' : preparedRef ? 'preset' : 'none';
-      const prompt = buildPrompt(params, refKind);
-      const result = await generateDrawing(settings, { input: preparedInput, reference: preparedRef, prompt, signal: ac.signal, onStatus: setBusy });
+      // 원본 비율을 지시문과 제공사 파라미터 양쪽에 넘긴다 — 안 그러면 정사각형으로 나온다
+      const aspect = await imageSize(preparedInput);
+      const prompt = buildPrompt(params, refKind, aspect);
+      const result = await generateDrawing(settings, { input: preparedInput, reference: preparedRef, prompt, aspect, signal: ac.signal, onStatus: setBusy });
       await commit({
         id: newId(), createdAt: Date.now(), input: preparedInput, reference: preparedRef, result, params: { ...params },
         engine: 'ai', provider: settings.provider, model: settings.providers[settings.provider].model, prompt,

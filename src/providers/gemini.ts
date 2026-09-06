@@ -1,6 +1,9 @@
 import { base64ToBlob, blobToBase64 } from '../image';
 import type { ProviderSettings } from '../types';
-import { callApi, joinUrl, ProviderError, type GenerateRequest, type ImageProvider, type ModelLists } from './common';
+import { callApi, joinUrl, nearestRatio, ProviderError, type GenerateRequest, type ImageProvider, type ModelLists } from './common';
+
+/** Gemini 이미지 모델이 받는 비율. 원본에 가장 가까운 것을 골라 정사각형으로 나오는 것을 막는다 */
+const RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'] as const;
 
 interface GeminiPart {
   text?: string;
@@ -30,19 +33,33 @@ export const geminiProvider: ImageProvider = {
     }
 
     req.onStatus?.('Gemini에 생성 요청 중…');
-    const res = await callApi(
-      joinUrl(s.baseUrl, `/v1beta/models/${encodeURIComponent(s.model)}:generateContent`),
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': s.apiKey },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts }],
-          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
-        }),
-        signal: req.signal,
-      },
-      'Gemini',
-    );
+    const aspectRatio = nearestRatio(req.aspect, RATIOS, '1:1');
+    const send = (withRatio: boolean) =>
+      callApi(
+        joinUrl(s.baseUrl, `/v1beta/models/${encodeURIComponent(s.model)}:generateContent`),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': s.apiKey },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts }],
+            generationConfig: {
+              responseModalities: ['TEXT', 'IMAGE'],
+              ...(withRatio ? { imageConfig: { aspectRatio } } : {}),
+            },
+          }),
+          signal: req.signal,
+        },
+        'Gemini',
+      );
+
+    let res: Response;
+    try {
+      res = await send(true);
+    } catch (e) {
+      // imageConfig 를 모르는 옛 모델이면 비율 지정 없이 다시 보낸다
+      if (e instanceof ProviderError && e.status === 400 && /imageConfig|aspect/i.test(e.message)) res = await send(false);
+      else throw e;
+    }
 
     const json = (await res.json()) as GeminiResponse;
     if (json.promptFeedback?.blockReason) {

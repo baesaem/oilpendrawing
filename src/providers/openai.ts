@@ -1,6 +1,9 @@
 import { base64ToBlob } from '../image';
 import type { ProviderSettings } from '../types';
-import { callApi, joinUrl, ProviderError, type GenerateRequest, type ImageProvider, type ModelLists } from './common';
+import { callApi, joinUrl, nearestRatio, ProviderError, type GenerateRequest, type ImageProvider, type ModelLists } from './common';
+
+/** gpt-image-1 이 내주는 크기. 원본 비율에 가장 가까운 것을 고른다 */
+const SIZES = ['1024x1024', '1536x1024', '1024x1536'] as const;
 
 /**
  * OpenAI Images API — POST /v1/images/edits (multipart).
@@ -16,7 +19,9 @@ export const openaiProvider: ImageProvider = {
     form.append('image[]', req.input, 'input.jpg');
     if (req.reference) form.append('image[]', req.reference, 'reference.png');
     form.append('n', '1');
-    form.append('size', 'auto');
+    // 'auto' 로 두면 정사각형으로 나오는 일이 많아 원본 비율에 가장 가까운 크기를 직접 고른다
+    const size = nearestRatio(req.aspect, SIZES, '1024x1024');
+    form.append('size', size);
 
     // gpt-image-1 계열은 input_fidelity=high 로 원본 구도를 더 잘 지킵니다. 미지원 모델이면 빼고 재시도.
     const wantsFidelity = /^gpt-image-1(\.|$)/.test(s.model) && !s.model.includes('mini');
@@ -36,6 +41,10 @@ export const openaiProvider: ImageProvider = {
     } catch (e) {
       if (e instanceof ProviderError && e.status === 400 && wantsFidelity && /input_fidelity/i.test(e.message)) {
         form.delete('input_fidelity');
+        res = await send(form);
+      } else if (e instanceof ProviderError && e.status === 400 && /size/i.test(e.message)) {
+        // 이 크기를 모르는 모델이면 제공사에 맡긴다
+        form.set('size', 'auto');
         res = await send(form);
       } else throw e;
     }

@@ -6,8 +6,28 @@ export interface GenerateRequest {
   input: Blob;
   reference?: Blob;
   prompt: string;
+  /** 입력 사진의 화소 크기. 제공사마다 결과 비율을 여기에 맞춘다 */
+  aspect?: { width: number; height: number };
   signal?: AbortSignal;
   onStatus?: (message: string) => void;
+}
+
+/**
+ * 주어진 후보 비율 중 사진과 가장 가까운 것을 고른다.
+ * 제공사가 정해 둔 몇 가지 비율 밖으로는 못 나가므로, 그 안에서 원본에 제일 가까운 것을 쓴다.
+ */
+export function nearestRatio<T extends string>(aspect: { width: number; height: number } | undefined, options: readonly T[], fallback: T): T {
+  if (!aspect || !aspect.width || !aspect.height) return fallback;
+  const r = aspect.width / aspect.height;
+  let best = fallback, bestD = Infinity;
+  for (const o of options) {
+    const [a, b] = o.split(/[:x]/).map(Number);
+    if (!a || !b) continue;
+    // 로그 거리로 재야 가로/세로가 대칭이다
+    const d = Math.abs(Math.log(a / b) - Math.log(r));
+    if (d < bestD) { bestD = d; best = o; }
+  }
+  return best;
 }
 
 /** 제공사 계정에서 쓸 수 있는 모델 ID 목록 (설정 화면의 드롭다운용) */

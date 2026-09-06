@@ -30,6 +30,12 @@ function toBlob(c: HTMLCanvasElement, type = 'image/png', quality?: number): Pro
   return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('이미지 인코딩 실패'))), type, quality));
 }
 
+/** 이미지의 화소 크기. AI 에 보낼 때 원본 비율을 그대로 요구하기 위해 잰다 */
+export async function imageSize(blob: Blob): Promise<{ width: number; height: number }> {
+  const img = await blobToImage(blob);
+  return { width: img.naturalWidth, height: img.naturalHeight };
+}
+
 /**
  * 긴 변을 maxSide 이하로 줄이고, 필요하면 흑백으로 변환합니다.
  * API 전송량을 줄이고 EXIF 회전 문제를 없애기 위해 항상 재인코딩합니다.
