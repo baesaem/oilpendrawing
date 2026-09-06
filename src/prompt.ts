@@ -15,12 +15,12 @@ const STYLE_TEXT: Record<PenStyle, string> = {
     'The drawing fades out unfinished toward the edges of the paper; nothing is filled to the border. ' +
     'Leave one lower corner clear for a seal.',
   fineink:
-    'Style: professional Korean pen-and-ink illustration with an ultra-fine liner, fully rendered edge to edge. ' +
-    'Extremely fine, even, closely spaced lines; tone built patiently with many layers; deep shadows filled solid black for ' +
-    'strong contrast. The sky is drawn with long horizontal hatching and clouds are left as soft white negative shapes inside it. ' +
-    'Weathered textures are lovingly described: corrugated roofs as parallel lines, old plaster and stone with stippled cracks, ' +
-    'dense foliage as clustered leaf marks with white sparkle highlights. Only the foreground ground may stay light. ' +
-    'Leave one lower corner clear for a signature.',
+    'Style: portrait drawing with an ultra-fine liner. Extremely fine, even, closely spaced lines follow the form of the face; ' +
+    'tone is built patiently in many light layers so skin reads smooth, with the small value changes around the eyes, nose, ' +
+    'lips and cheekbones carried all the way through. Hair is drawn as long continuous strokes in the direction it falls, ' +
+    'massed into dark shapes with a few white strands left open; the darkest shadows are filled solid for contrast. ' +
+    'The lit cheek, the bridge of the nose and the highlights stay untouched white paper, and the background is left ' +
+    'mostly empty with only light hatching behind the head. Leave one lower corner clear for a signature.',
   hatching:
     'Style: classic parallel hatching. Tone is built with straight, evenly spaced strokes in one dominant direction per plane.',
   crosshatch:
