@@ -15,6 +15,7 @@ export type PenStyle =
 
 /** 결과를 만든 엔진: 브라우저 로컬 렌더러 또는 AI 제공사 */
 /** 결과를 만든 엔진: 브라우저 로컬 렌더러, AI 제공사, 또는 밖에서 만든 그림(Dynamic Auto-Painter 등)을 불러온 것 */
+/** 'external' 은 없앤 "외부 결과 불러오기"가 남긴 옛 이력 값이다 — 새로 만들지 않는다 */
 export type Engine = 'local' | 'ai' | 'external';
 
 /**

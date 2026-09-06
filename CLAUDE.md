@@ -271,12 +271,11 @@ wash·oil·impasto 면 붓 화풍), `PaintPanel` 의 붓 선택기도 "펜으로
 `migrateStrokes` 로 옮긴다. `PaintPanel` 이 저장·적용·삭제 UI 를 갖고, 현재 값과 같은 프리셋(내장 3개 포함)을 `samePaint` 로 표시한다.
 적용은 `patchPaint` 로 `paint` 만 바꾸므로 화풍(`PenStyle`)은 그대로다.
 
-### 외부 결과 불러오기
+### 외부 결과 불러오기 (삭제됨)
 
-`Engine` 에 `'external'`. 입력 패널 "외부 결과" 칸에 넣은 파일(Dynamic Auto-Painter 등 다른 프로그램의 결과)을
-`App.importExternal` 이 이 사진의 완성 참고로 `commit` 한다. 로컬 결과와 같은 자격이라 비교·가이드·전체화면·낙관·저장이
-그대로 되고, `aiRefFromLocal` 이 켜져 있으면 AI 에 견본으로도 간다. 웹 앱은 PC 프로그램을 직접 부를 수 없으므로
-DAP 연동은 이 방식만 있다 (`docs/dap-workflow.md`). 실시간 재렌더는 `engine === 'local'` 에만 붙는다.
+입력 패널의 "외부 결과" 칸(다른 프로그램의 결과를 이 사진의 완성 참고로 불러오던 자리)과 `App.importExternal` 은 없앴다.
+`Engine` 의 `'external'` 값만 옛 이력 레코드를 읽기 위해 남아 있다 — 새로 만들지 않는다.
+`docs/dap-workflow.md` 의 불러오기 절차도 지금은 쓰이지 않는다.
 
 ### 낙관·사인
 

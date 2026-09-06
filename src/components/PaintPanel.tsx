@@ -95,6 +95,10 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
   };
   const isStipple = s.brush === 'stipple';
   const isPaint = s.brush === 'wash' || s.brush === 'oil' || s.brush === 'impasto';
+  // 탭을 오갈 때 그쪽에서 마지막으로 쓰던 붓으로 돌아가게 기억해 둔다
+  const lastPen = useRef<BrushKind>('pen');
+  const lastPaint = useRef<BrushKind>('wash');
+  if (isPaint) lastPaint.current = s.brush; else lastPen.current = s.brush;
   return (
     <>
       <div className="panel-head">
@@ -105,21 +109,17 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset, presets, o
         {fromSample ? '견본에서 읽은 값입니다. 움직이면 결과가 바로 다시 그려집니다.' : '화풍을 고르면 채워집니다. 네 가지만 만져도 충분합니다.'}
       </div>
 
+      {/* 펜 / 붓 탭. 지금 붓이 어느 쪽인지가 곧 탭이라, 탭을 누르면 그쪽에서 마지막에 쓰던 붓으로 바꾼다 */}
       <div className="field">
-        <div className="field-row"><b>펜으로 그리기</b>{!isPaint && <span className="muted small">{BRUSH_SHORT[s.brush]}</span>}</div>
-        <div className="seg" style={{ gridTemplateColumns: `repeat(${PEN_BRUSHES.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label="펜 붓">
-          {PEN_BRUSHES.map((b) => (
-            <button key={b} className={s.brush === b ? 'on' : ''} role="radio" aria-checked={s.brush === b} onClick={() => onChange(brushPatch(s, b))} title={BRUSH_LABEL[b]} style={{ fontSize: 11 }}>
-              {BRUSH_SHORT[b]}
-            </button>
+        <div className="seg brush-tabs" role="tablist" aria-label="그리기 방식">
+          {([['pen', '펜으로 그리기'], ['paint', '붓으로 그리기']] as const).map(([k, label]) => (
+            <button key={k} role="tab" aria-selected={isPaint === (k === 'paint')} className={isPaint === (k === 'paint') ? 'on' : ''}
+              onClick={() => onChange(brushPatch(s, k === 'paint' ? lastPaint.current : lastPen.current))}>{label}</button>
           ))}
         </div>
-      </div>
-
-      <div className="field">
-        <div className="field-row"><b>붓으로 그리기</b>{isPaint && <span className="muted small">{BRUSH_SHORT[s.brush]}</span>}</div>
-        <div className="seg" style={{ gridTemplateColumns: `repeat(${PAINT_BRUSHES.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label="그림 붓">
-          {PAINT_BRUSHES.map((b) => (
+        <div className="seg" style={{ gridTemplateColumns: `repeat(${(isPaint ? PAINT_BRUSHES : PEN_BRUSHES).length}, minmax(0, 1fr))`, marginTop: 6 }}
+          role="radiogroup" aria-label={isPaint ? '그림 붓' : '펜 붓'}>
+          {(isPaint ? PAINT_BRUSHES : PEN_BRUSHES).map((b) => (
             <button key={b} className={s.brush === b ? 'on' : ''} role="radio" aria-checked={s.brush === b} onClick={() => onChange(brushPatch(s, b))} title={BRUSH_LABEL[b]} style={{ fontSize: 11 }}>
               {BRUSH_SHORT[b]}
             </button>

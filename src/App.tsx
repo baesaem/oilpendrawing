@@ -201,21 +201,6 @@ export function App() {
     } catch (e) { fail(e); } finally { finish(); }
   };
 
-  /**
-   * 밖에서 만든 그림(Dynamic Auto-Painter 등)을 이 사진의 완성 참고로 불러온다.
-   * 앱은 그 그림에 격자·비교·전체화면·낙관·저장을 그대로 적용하고, AI 로 그릴 때 견본으로 보낼 수도 있다.
-   */
-  const importExternal = async (file: File | null) => {
-    if (!file || !input || busy) return;
-    setError(null);
-    try {
-      setBusy('불러오는 중…');
-      const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: false });
-      const result = await prepareInput(file, { maxSide: 2048, grayscale: false });
-      await commit({ id: newId(), createdAt: Date.now(), input: preparedInput, result, params: { ...params }, engine: 'external' });
-    } catch (e) { fail(e); } finally { finish(); }
-  };
-
   /** 선택: AI 제공사로 그리기 (API 비용) */
   const drawAi = async () => {
     if (!input || busy) return;
@@ -226,7 +211,7 @@ export function App() {
       setBusy('이미지 준비 중…');
       const preparedInput = await prepareInput(input, { maxSide: 1536, grayscale: false, relight: params.lightAuto ? undefined : params.light });
       // 로컬 결과가 있고 스위치가 켜져 있으면 그것을 견본으로 (같은 구도라 올린 견본보다 정확히 따름)
-      const localRef = params.aiRefFromLocal && (current?.engine === 'local' || current?.engine === 'external') ? current.base ?? current.result : null;
+      const localRef = params.aiRefFromLocal && (current?.engine === 'local') ? current.base ?? current.result : null;
       // 둘 다 없으면 고른 화풍의 프리셋 예시 그림 (다른 사진이므로 기법만 따르라고 지시)
       const presetRef = !localRef && !reference && params.aiRefFromPreset ? await fetchPresetImage(params.style) : null;
       const preparedRef = localRef
@@ -388,8 +373,8 @@ export function App() {
         <InputPanel
           input={input} reference={reference} inputIsGray={inputIsGray}
           params={params} onParams={patchParams}
-          onInput={setInput} onReference={setReference} onExternal={importExternal}
-          analysis={analysis} hasLocal={current?.engine === 'local' || current?.engine === 'external'} keyOk={keyOk}
+          onInput={setInput} onReference={setReference}
+          analysis={analysis} hasLocal={current?.engine === 'local'} keyOk={keyOk}
         />
         {keyOk && !EDITS_INPUT[settings.provider] && (
           <div className="note">
