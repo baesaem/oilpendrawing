@@ -61,10 +61,10 @@ const wetNote = (v: number) => (v < 25 ? '마른 붓' : v < 50 ? '조금 마르�
 
 /**
  * 붓을 바꿀 때의 보정. 펜화 붓의 `passes` 는 층 수가 아니라 **명암 단계**라, 다른 붓의 층 수(2~4)를 그대로 물려받으면
- * 3단계짜리 성긴 해칭이 된다. 펜화로 들어올 때는 기본 5단계를 넣어 준다 (그 뒤엔 슬라이더가 권한, 3~10).
+ * 3단계짜리 성긴 해칭이 된다. 펜화로 들어올 때는 기본 10단계를 넣어 준다 (그 뒤엔 슬라이더가 권한, 3~15).
  */
 function brushPatch(s: PaintProfile, b: BrushKind): Partial<PaintProfile> {
-  if (b === 'tone' && s.brush !== 'tone') return { brush: b, passes: 5 };
+  if (b === 'tone' && s.brush !== 'tone') return { brush: b, passes: 10 };
   if (b !== 'tone' && s.brush === 'tone') return { brush: b, passes: Math.min(s.passes, 4) };
   return { brush: b };
 }
@@ -148,7 +148,7 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset }: Props) {
       </div>
 
       {s.brush === 'tone' && (
-        <Range label="명암 단계" value={s.passes} min={3} max={10} unit="단계" note={`${s.passes}단계 · 선 ${s.passes - 1}겹`}
+        <Range label="명암 단계" value={s.passes} min={3} max={15} unit="단계" note={`${s.passes}단계 · 선 ${s.passes - 1}겹`}
           hint="밝기를 몇 단계로 나눌지. 가장 밝은 단계는 선이 없습니다" onChange={(passes) => onChange({ passes })} />
       )}
       <Range label={s.brush === 'tone' ? '선 간격' : '세밀함'} value={s.detail} min={0} max={100}

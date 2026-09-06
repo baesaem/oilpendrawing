@@ -923,7 +923,7 @@ function toneHatch(c: Ctx, lum: Float32Array, white: number, bg: Float32Array | 
   const sets = levels - 1;
   const spread = Math.max(1, sets - 1);
   const S0 = Math.max(lw * 1.35, minSide * (0.016 - 0.0115 * clamp(p.detail, 0, 100) / 100));
-  const ANGLE_OFF = [0, 0, 52, -41, 88, 24, -68, 14, 70]; // 1·2층은 같은 방향(간격만 반 칸), 3층부터 교차 (10단계까지)
+  const ANGLE_OFF = [0, 0, 52, -41, 88, 24, -68, 14, 70, -25, 105, 38, -52, 80]; // 1·2층은 같은 방향(간격만 반 칸), 3층부터 교차 (15단계까지)
   const alphaBase = (0.42 + 0.5 * clamp(p.ink, 0, 100) / 100) * 0.86;
   const j = c.rnd;
 
@@ -1391,7 +1391,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   // 2) 층: 큰 획 → 작은 획. 층마다 목표를 획 크기만큼 뭉갠 참조를 본다 (큰 획은 큰 형태만).
   if (p.brush === 'tone') {
     // 명암 단계 해칭: 층 수 슬라이더가 단계 수 (기본 5단계)
-    const levels = clamp(Math.round(p.passes), 2, 10);
+    const levels = clamp(Math.round(p.passes), 2, 15);
     toneHatch(c, lum, white, bgMask, levels, minSide, (k, f) => {
       stageLabel = `${k + 1}/${levels - 1}층 · ${k === 0 ? '가장 밝은 톤부터' : k === 1 ? '선 사이 채우기' : '교차선'}`;
       report(Math.min(passes - 1, k), f);

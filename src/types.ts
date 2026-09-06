@@ -142,7 +142,7 @@ export const DEFAULT_PAINT: PaintProfile = RICHEON_PAINT;
 
 /** 화풍마다 완전한 그리기 설정 (DAP 의 프리셋). 갤러리에서 화풍을 고르면 이 값이 그대로 들어간다 */
 export const PAINT_FOR_STYLE: Record<PenStyle, PaintProfile> = {
-  tonehatch: { ...CLASSIC_PAINT, brush: 'tone', passes: 5, brushSize: 50, detail: 62, accuracy: 70, strokeLength: 70, featureFollow: 0, baseAngle: 35, randomness: 22, lineWidth: 1.4, ink: 82, paperKeep: 58, edges: 45, vignette: 0 },
+  tonehatch: { ...CLASSIC_PAINT, brush: 'tone', passes: 10, brushSize: 50, detail: 62, accuracy: 70, strokeLength: 70, featureFollow: 0, baseAngle: 35, randomness: 22, lineWidth: 1.4, ink: 82, paperKeep: 58, edges: 45, vignette: 0 },
   richeon: RICHEON_PAINT,
   fineink: FINE_PAINT,
   hatching: CLASSIC_PAINT,
