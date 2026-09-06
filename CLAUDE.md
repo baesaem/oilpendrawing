@@ -245,7 +245,8 @@ A4 가로(297mm)로 볼 때의 값이다(1px ≈ 0.3mm).
 
 `presetGallery.ts` + `public/presets/<style>.jpg`. `StylePanel` 맨 위 `.gallery` 격자가 화풍마다 예시 그림을 보여 주고,
 누르면 `onParams({ style })` 만 한다 — 화풍이 바뀌면 `App` 의 효과가 `PAINT_FOR_STYLE` 의 완전한 그리기 설정을 넣는다 (위 로컬 엔진 절).
-썸네일에 마우스를 올리면 그 예시 그림을 300px 로 크게 띄운다(`.preset-peek`). `.panel` 에 `backdrop-filter` 가 걸려 있어
+썸네일에 마우스를 올리면 그 예시 그림을 300px 로 크게 띄우고 화풍 이름·설명(`STYLE_DESC`)을 함께 보여 준다(`.preset-peek`) —
+갤러리 아래에 늘 떠 있던 설명 줄은 지웠다. `.panel` 에 `backdrop-filter` 가 걸려 있어
 패널 안에서는 `position: fixed` 가 패널 기준이 되므로 **`createPortal` 로 body 에 내보내** 화면 기준으로 자리를 잡는다.
 예시 그림 13장 중 일부는 같은 사진(컵과 배)을 이 앱의 로컬 렌더러로 그린 것(480px JPEG)이고, 나머지는 **사용자가 올린 실제 그림**
 (리천·윤곽선·고대비·단순·점묘법·판화·세밀화·수채 담채·유화)으로 바꿔 두었다 — 화풍의 기준이 되는 그림이라 AI 견본으로 보낼 때도 이쪽이 낫다.

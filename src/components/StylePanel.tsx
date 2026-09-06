@@ -47,7 +47,7 @@ export function StylePanel({ params, onParams, paint, presets, onSavePreset, onD
   const [peek, setPeek] = useState<{ st: PenStyle; top: number; left: number } | null>(null);
   const showPeek = (st: PenStyle, el: HTMLElement) => {
     const r = el.getBoundingClientRect();
-    const W = 300, H = 240;
+    const W = 300, H = 330;
     setPeek({
       st,
       top: Math.max(12, Math.min(window.innerHeight - H - 12, r.top + r.height / 2 - H / 2)),
@@ -91,12 +91,13 @@ export function StylePanel({ params, onParams, paint, presets, onSavePreset, onD
                 </div>
               </div>
             ))}
-            <div className="small muted">{STYLE_DESC[params.style]}</div>
+            {/* 화풍 설명은 갤러리 아래에 늘 띄우지 않고, 썸네일에 마우스를 올렸을 때 그 화풍의 것만 보여 준다 */}
             {/* 패널에 backdrop-filter 가 걸려 있어 그 안에서는 position:fixed 가 패널 기준이 된다 — body 로 내보낸다 */}
             {peek && createPortal(
               <div className="preset-peek" style={{ top: peek.top, left: peek.left }} aria-hidden="true">
                 <img src={presetImageUrl(peek.st)} alt="" />
-                <span>{STYLE_LABEL[peek.st]}</span>
+                <b>{STYLE_LABEL[peek.st]}</b>
+                <span>{STYLE_DESC[peek.st]}</span>
               </div>,
               document.body,
             )}
