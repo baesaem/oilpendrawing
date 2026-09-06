@@ -89,7 +89,7 @@ h1, h2, h3 { margin: 0; font-weight: 700; }
 .seg button:hover:not(.on) { color: var(--text); }
 
 /* 화풍 프리셋의 로컬 / AI 탭, 그리기 설정의 펜 / 붓 탭 */
-.engine-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.engine-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .brush-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .engine-tabs button { font-size: 12px; }
 .engine-tabs { margin-bottom: 8px; }

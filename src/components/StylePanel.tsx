@@ -39,9 +39,9 @@ interface Props {
 }
 
 export function StylePanel({ params, onParams, paint, presets, onSavePreset, onDeletePreset, onApplyPreset, children }: Props) {
-  // 화풍 프리셋을 세 탭으로 나눈다: 저장해 둔 "즐겨찾기", 브라우저가 그리는 "로컬"(예시 그림 갤러리),
-  // 키가 있어야 켜지는 "AI"(AI 전용 설정). 화풍·색·빛은 세 경로가 함께 쓰므로 탭 밖에 둔다.
-  const [tab, setTab] = useState<'fav' | 'local' | 'ai'>('local');
+  // 화풍 프리셋은 두 탭이다: 저장해 둔 "즐겨찾기"와 화풍 예시 그림 갤러리인 "프리셋".
+  // 화가 접목·색·빛은 로컬·AI 가 함께 쓰므로 탭 밖에 둔다.
+  const [tab, setTab] = useState<'fav' | 'preset'>('preset');
   // 썸네일에 마우스를 올리면 그 예시 그림을 크게 띄운다 (패널이 좁아 썸네일만으로는 기법이 안 보인다).
   // 패널 왼쪽에 붙여 화면 밖으로 나가지 않게 자리를 잡고, 마우스 이벤트는 통과시킨다.
   const [peek, setPeek] = useState<{ st: PenStyle; top: number; left: number } | null>(null);
@@ -61,17 +61,16 @@ export function StylePanel({ params, onParams, paint, presets, onSavePreset, onD
       <div className="field">
         <div className="field-row">
           <b>화풍 프리셋</b>
-          <span className="muted small">{tab === 'local' ? '예시를 눌러 고르기' : tab === 'ai' ? 'API 키 필요' : `${presets.length}개 저장됨`}</span>
+          {tab === 'fav' && <span className="muted small">{presets.length}개 저장됨</span>}
         </div>
         <div className="seg engine-tabs" role="tablist" aria-label="화풍 프리셋 구분">
           <button role="tab" aria-selected={tab === 'fav'} className={tab === 'fav' ? 'on' : ''} onClick={() => setTab('fav')}>즐겨찾기</button>
-          <button role="tab" aria-selected={tab === 'local'} className={tab === 'local' ? 'on' : ''} onClick={() => setTab('local')}>로컬</button>
-          <button role="tab" aria-selected={tab === 'ai'} className={tab === 'ai' ? 'on' : ''} onClick={() => setTab('ai')}>AI</button>
+          <button role="tab" aria-selected={tab === 'preset'} className={tab === 'preset' ? 'on' : ''} onClick={() => setTab('preset')}>프리셋</button>
         </div>
 
         {tab === 'fav' ? (
           <PresetList paint={paint} presets={presets} onSavePreset={onSavePreset} onDeletePreset={onDeletePreset} onApplyPreset={onApplyPreset} />
-        ) : tab === 'local' ? (
+        ) : (
           <>
             {/* Dynamic Auto-Painter 의 프리셋 탭처럼: 같은 사진을 화풍마다 그린 예시를 보고 고른다 */}
             {([['펜 화풍', PEN_ONLY], ['붓 화풍', BRUSH_ONLY]] as const).map(([title, list]) => (
@@ -102,22 +101,16 @@ export function StylePanel({ params, onParams, paint, presets, onSavePreset, onD
               document.body,
             )}
           </>
-        ) : (
-          <>
-            <div className="small muted">고른 화풍({STYLE_LABEL[params.style]})·색·빛은 AI 로 그릴 때도 그대로 쓰입니다. 아래는 AI 로 그릴 때만 쓰는 설정입니다.</div>
-            <div className="field" style={{ marginTop: 10 }}>
-              <div className="field-row"><b>화가 화풍 접목</b></div>
-              <select className="text-input select" value={params.artist} onChange={(e) => onParams({ artist: e.target.value as ArtistId })} aria-label="화가 화풍">
-                {ARTISTS.map((a) => <option key={a.id} value={a.id}>{a.id === 'none' ? '없음' : `${a.name} (${a.years})`}</option>)}
-              </select>
-              <div className="small muted">{ARTIST_BY_ID[params.artist].desc}</div>
-            </div>
-            <div className="field" style={{ marginTop: 10 }}>
-              <div className="field-row"><b>강도</b><span className="muted">{intensityHint(params.intensity)}</span></div>
-              <input type="range" min={0} max={100} value={params.intensity} onChange={(e) => onParams({ intensity: Number(e.target.value) })} aria-label="강도" />
-            </div>
-          </>
         )}
+      </div>
+
+      {/* 유명 화가 프리셋: 화풍 위에 얹는 해석. AI 로 그릴 때만 쓰이므로 그렇게 적어 둔다 */}
+      <div className="field">
+        <div className="field-row"><b>화가 프리셋</b><span className="muted small">AI 전용 · {ARTISTS.length - 1}명</span></div>
+        <select className="text-input select" value={params.artist} onChange={(e) => onParams({ artist: e.target.value as ArtistId })} aria-label="화가 화풍">
+          {ARTISTS.map((a) => <option key={a.id} value={a.id}>{a.id === 'none' ? '없음 (화풍만)' : `${a.name} (${a.years})`}</option>)}
+        </select>
+        <div className="small muted">{ARTIST_BY_ID[params.artist].desc}</div>
       </div>
 
       <div className="field">
@@ -153,6 +146,10 @@ export function StylePanel({ params, onParams, paint, presets, onSavePreset, onD
           <input type="range" min={-50} max={50} value={params.contrast} onChange={(e) => onParams({ contrast: Number(e.target.value) })} aria-label="대비" />
         </div>
         <div className="small faint">밝기·대비는 결과에 즉시 적용되고, AI 생성 때 지시문에도 반영됩니다.</div>
+        <div className="field" style={{ marginTop: 10 }}>
+          <div className="field-row"><b>강도</b><span className="muted">{intensityHint(params.intensity)} · AI 전용</span></div>
+          <input type="range" min={0} max={100} value={params.intensity} onChange={(e) => onParams({ intensity: Number(e.target.value) })} aria-label="강도" />
+        </div>
       </details>
     </>
   );
