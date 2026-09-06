@@ -64,8 +64,8 @@ export function StylePanel({ params, onParams, paint, presets, onSavePreset, onD
           {tab === 'fav' && <span className="muted small">{presets.length}개 저장됨</span>}
         </div>
         <div className="seg engine-tabs" role="tablist" aria-label="드로잉 프리셋 구분">
-          <button role="tab" aria-selected={tab === 'fav'} className={tab === 'fav' ? 'on' : ''} onClick={() => setTab('fav')}>즐겨찾기</button>
           <button role="tab" aria-selected={tab === 'preset'} className={tab === 'preset' ? 'on' : ''} onClick={() => setTab('preset')}>프리셋</button>
+          <button role="tab" aria-selected={tab === 'fav'} className={tab === 'fav' ? 'on' : ''} onClick={() => setTab('fav')}>즐겨찾기</button>
         </div>
 
         {tab === 'fav' ? (
