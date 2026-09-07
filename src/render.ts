@@ -1037,9 +1037,9 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, onTick?: (f
   const g = Math.max(2, R * (impasto ? 0.38 : oil ? 0.28 : 0.4));
   const cols = Math.ceil(w / g), rows = Math.ceil(h / g);
   const order = shuffled(cols * rows, rng);
-  const rJit = 0.72 + 0.62 * rng(); // 이 붓칠의 크기 (같은 층 안에서도 붓마다 다르다)
+  const rJit = 0.65 + 0.85 * rng(); // 이 붓칠의 크기 (같은 층 안에서도 붓마다 다르다. 폭이 넓을수록 자국이 눈에 띈다)
   // 자국 사이를 벌린다 — 너무 겹치면 한 줄기 띠가 되어 붓 자국이 안 보인다
-  const step = R * (impasto ? 0.5 : oil ? 0.45 : 0.5), maxLen = R * ((oil ? 1.2 : 2.5) + (impasto ? 5 : oil ? 3 : 4) * clamp(c.p.strokeLength, 0, 100) / 100) * (st.len ?? 1);
+  const step = R * (impasto ? 0.58 : oil ? 0.55 : 0.6), maxLen = R * ((oil ? 1.2 : 2.5) + (impasto ? 5 : oil ? 3 : 4) * clamp(c.p.strokeLength, 0, 100) / 100) * (st.len ?? 1);
   const tickEvery = Math.max(1, Math.floor(order.length / 6));
   // 붓칠 색을 팔레트 안에 묶어 둘지 (사용자 요청: 붓칠 시 색상 팔레트 준수)
   const snapPal = c.color === 'color' && (c.p.palette === 'match' || c.p.palette === 'match2' || c.p.palette === 'vangogh');
@@ -1061,7 +1061,7 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, onTick?: (f
     const io = fi * 3;
     // 유화: 붓 자국마다 밝기가 조금씩 달라 붓결이 보인다 (임파스토 느낌)
     // 붓칠마다 색을 조금씩 달리한다 — 이래야 자국 하나하나가 눈에 보인다 (실제 물감도 섞을 때마다 조금씩 다르다)
-    const jit = oil ? 1 + (rng() - 0.5) * 0.3 : 1 + (rng() - 0.5) * 0.13;
+    const jit = oil ? 1 + (rng() - 0.5) * 0.42 : 1 + (rng() - 0.5) * 0.2;
     // 임파스토: 채널을 따로 흔들어 자국마다 색상이 조금씩 다르다 (노랑·주황·초록 줄무늬)
     const hj = impasto ? 0.28 * c.rnd : 0;
     const col: RGB = [want[io] * jit * (1 + (rng() - 0.5) * hj), want[io + 1] * jit * (1 + (rng() - 0.5) * hj), want[io + 2] * jit * (1 + (rng() - 0.5) * hj)];
@@ -1472,7 +1472,8 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   const acc = clamp(p.accuracy, 0, 100) / 100;
   const c: Ctx = {
     w, h, N, cv, field, texture, rng, p,
-    lw: clamp(p.lineWidth, 0.6, 8) * scale,
+    // 화면이 그릴 수 있는 가장 가는 선은 1 화소다 — 작은 사진에서 그보다 가늘어지지 않게 바닥을 둔다
+    lw: Math.max(1, clamp(p.lineWidth, 0.6, 8) * scale),
     ff: clamp(p.featureFollow, 0, 100) / 100,
     rnd: clamp(p.randomness, 0, 100) / 100,
     base: (p.baseAngle * Math.PI) / 180,
@@ -1518,7 +1519,9 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
       const R = Math.max(4, sizes[k] * 1.3);
       // 임파스토는 테두리·능선 때문에 목표와 늘 조금 다르므로 문턱을 높여 같은 칸을 끝없이 덧칠하지 않게 한다
       // 뒤 층(작은 붓)일수록 문턱을 높인다 — 그래야 넓은 면에는 큰 붓 자국이 남고 작은 붓은 세부만 짚는다
-      const Tk = (2.5 + 7 * (1 - acc)) * (p.brush === 'impasto' ? 2.2 : 1) * (1 + 1.1 * (passes > 1 ? k / (passes - 1) : 0));
+      // 1~6호 붓 굵기 차이를 벌리면서 마지막 붓이 아주 가늘어져, 그 붓이 큰 붓 자국을 다 덮고 사진처럼 매끈해졌다.
+      // 뒤 층일수록 문턱을 세게 올려(1.1 → 2.6) 작은 붓은 정말 다른 곳만 짚게 한다 — 넓은 면에는 큰 붓 자국이 남는다
+      const Tk = (2.5 + 7 * (1 - acc)) * (p.brush === 'impasto' ? 2.2 : 1) * (1 + 2.6 * (passes > 1 ? k / (passes - 1) : 0));
       // 층마다 목표를 붓 크기만큼 뭉갠 것을 본다 (Hertzmann): 큰 붓은 큰 색면만, 잎 하나하나에 걸려 짧게 끊기지 않는다
       const want = blurRGB(want0, w, h, Math.round(R * (p.brush === 'impasto' ? 0.5 : 0.35)));
       const stage: 0 | 1 | 2 = passes <= 1 ? 0 : k / (passes - 1) < 0.34 ? 0 : k / (passes - 1) < 0.67 ? 1 : 2;
@@ -1559,7 +1562,7 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
       const dt = clamp(realD, 0, 100) / 100;
       const Rf = Math.max(3.2, minSide * (0.015 - 0.010 * dt) * (fineSteps === 2 && f === 0 ? 1.7 : 1) * (p.brush === 'impasto' ? 1.6 : 1));
       stageLabel = fineSteps === 2 && f === 0 ? '세부 (작은 붓)' : '마무리 (가장 작은 붓)';
-      washSweep(c, blurRGB(want0, w, h, f === 0 && fineSteps === 2 ? 1 : 0), Rf, Math.max(7, 14 * (1 - acc)),
+      washSweep(c, blurRGB(want0, w, h, f === 0 && fineSteps === 2 ? 1 : 0), Rf, Math.max(13, 24 * (1 - acc)),
         (fr: number) => report(passes - 1, (f + fr) / fineSteps), { alpha: 1, len: 0.45, tip: tipForStage(p, 2) });
       report(passes - 1, (f + 1) / fineSteps, true);
     }

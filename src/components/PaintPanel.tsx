@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { samePaint } from '../presets';
-import { BRUSH_LABEL, BRUSH_SHORT, CLASSIC_PAINT, FINE_PAINT, PALETTE_12, PALETTE_LABEL, PALETTE_SHORT, PALETTE_VANGOGH, RICHEON_PAINT, TIP_LABEL, TIP_SHORT, type BrushKind, type PaintProfile, type PaletteId, type TipKind } from '../types';
+import { BRUSH_LABEL, BRUSH_SHORT, CLASSIC_PAINT, FINE_PAINT, PALETTE_12, PEN_WIDTHS, penWidthStep, PALETTE_LABEL, PALETTE_SHORT, PALETTE_VANGOGH, RICHEON_PAINT, TIP_LABEL, TIP_SHORT, type BrushKind, type PaintProfile, type PaletteId, type TipKind } from '../types';
 import { tipPreview } from '../render';
 
 interface Props {
@@ -172,10 +172,19 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset }: Props) {
         hint="높을수록 밝은 곳을 넓게 종이로 남깁니다" onChange={(paperKeep) => onChange({ paperKeep })} />
       <Range label={isPaint ? '물감 진하기' : '잉크 진하기'} value={s.ink} min={0} max={100} note={inkNote(s.ink)}
         hint="획 하나의 진하기. 아주 진하면 깊은 그림자를 먹으로 채웁니다" onChange={(ink) => onChange({ ink })} />
-      <Range label={isPaint ? '붓 굵기' : isStipple ? '점 굵기' : '선 굵기'} value={s.lineWidth} min={1} max={6} step={0.5}
-        note={isStipple ? dotNote(s.lineWidth) : widthNote(s.lineWidth)}
-        hint={isStipple ? '점 하나의 굵기입니다. 가장자리는 점마다 다르게 거칠어집니다' : undefined}
-        onChange={(lineWidth) => onChange({ lineWidth })} />
+      {/* 펜 굵기는 20 단계다 — 1 단계가 화면의 1 화소(더 가늘게는 못 그린다)이고 등비로 굵어진다.
+          붓·점은 예전처럼 값을 그대로 쓴다 */}
+      {isPaint || isStipple ? (
+        <Range label={isPaint ? '붓 굵기' : '점 굵기'} value={s.lineWidth} min={1} max={6} step={0.5}
+          note={isStipple ? dotNote(s.lineWidth) : widthNote(s.lineWidth)}
+          hint={isStipple ? '점 하나의 굵기입니다. 가장자리는 점마다 다르게 거칠어집니다' : undefined}
+          onChange={(lineWidth) => onChange({ lineWidth })} />
+      ) : (
+        <Range label="선 굵기" value={penWidthStep(s.lineWidth)} min={1} max={PEN_WIDTHS.length} step={1}
+          note={`${penWidthStep(s.lineWidth)}단계 · ${widthNote(PEN_WIDTHS[penWidthStep(s.lineWidth) - 1])}`}
+          hint="20 단계. 1 단계는 화면이 그릴 수 있는 가장 가는 선(1 화소)이고 단계마다 등비로 굵어집니다"
+          onChange={(step) => onChange({ lineWidth: PEN_WIDTHS[step - 1] })} />
+      )}
       {/* 선 방향(기준 각도) 슬라이더는 두지 않는다 — 각도는 화풍 프리셋이 정하고, 바꿀 때는 툴바의 "방향 지시"로 직접 긋는다 */}
       {!isPaint && !isStipple && s.brush !== 'tone' && (
         <Range label="형태 따라가기" value={s.featureFollow} min={0} max={100}

@@ -56,6 +56,24 @@ export const PALETTE_LABEL: Record<PaletteId, string> = {
   vangogh: '고흐 12색 (별이 빛나는 밤의 파랑·크림)',
 };
 export const PALETTE_SHORT: Record<PaletteId, string> = { photo: '기본', bright: '선명', mono: '단색', match: '12색', match2: '혼합', vangogh: '고흐' };
+/**
+ * 펜 굵기 20 단계 (사용자 요청: "PC 에서 그릴 수 있는 최대로 가는 선"을 1 단계로, 굵기는 20 종류).
+ * 값은 긴 변 1000px 기준의 픽셀 굵기라 1 단계가 화면의 1 화소 — 더 가늘게는 그릴 수 없다.
+ * 등비로 벌려 가는 쪽을 촘촘히 나눈다 (실제 펜도 0.03·0.05·0.1·0.2… 처럼 가는 쪽이 촘촘하다).
+ */
+export const PEN_WIDTHS: number[] = Array.from({ length: 20 }, (_, i) =>
+  Math.round(Math.pow(6, i / 19) * 100) / 100,
+);
+/** 굵기 값에 가장 가까운 단계 번호 (1~20). 옛 레코드의 값도 단계로 읽는다 */
+export function penWidthStep(lw: number): number {
+  let best = 1, bd = Infinity;
+  for (let i = 0; i < PEN_WIDTHS.length; i++) {
+    const d = Math.abs(PEN_WIDTHS[i] - lw);
+    if (d < bd) { bd = d; best = i + 1; }
+  }
+  return best;
+}
+
 /** 팔레트 12색 (수채 기본 세트). match·match2 가 이 색으로 옮긴다 */
 export const PALETTE_12: string[] = [
   '#f5d000', '#ef7b10', '#d9381e', '#a4123f', '#6b3fa0', '#2b4b9b',
