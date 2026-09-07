@@ -349,6 +349,36 @@ function applyPalette(r: number, g: number, b: number, pal: PaletteId, ink: RGB)
 
 /* ---------- 브러시 팁 ---------- */
 
+/**
+ * 펜촉 자국의 결 (사용자가 올린 펜 팁 영상 100 종을 보고 넣었다).
+ * 영상의 자국들은 **굵기에 따라 모양이 다르다**: 가장 가는 것은 털 한 올의 깨끗한 선이고,
+ * 굵어질수록 여러 가닥으로 갈라져 결과 틈이 보이며 가장자리가 부스러진다.
+ * 획을 가로지르는 16 점 프로필로 그 결을 만든다 — 획마다 새로 뽑아 자국이 똑같지 않다.
+ * 반지름 0.9 화소 이하(가장 가는 단계)는 결 없이 매끈한 한 줄이다.
+ */
+function makeNib(r: number, rng: () => number): Float32Array | null {
+  if (r <= 0.9) return null;
+  const N = 16;
+  const prof = new Float32Array(N);
+  const hairs = Math.min(7, Math.max(2, Math.round(r * 1.5)));
+  const pos: number[] = [], wid: number[] = [];
+  for (let k = 0; k < hairs; k++) {
+    pos.push(((k + 0.5) / hairs) * 2 - 1 + (rng() - 0.5) * (1.1 / hairs));
+    wid.push((0.9 / hairs) * (0.55 + 0.95 * rng()));
+  }
+  // 굵을수록 가닥 사이가 깊게 파인다 (가는 펜은 거의 한 줄로 이어진다)
+  const floor = clamp(0.82 - r * 0.13, 0.12, 0.75);
+  for (let i = 0; i < N; i++) {
+    const a = (i / (N - 1)) * 2 - 1;
+    let v = 0;
+    for (let k = 0; k < hairs; k++) v = Math.max(v, clamp(1 - Math.abs(a - pos[k]) / wid[k], 0, 1));
+    // 가장자리는 조금 부스러지게
+    const edge = 1 - 0.35 * clamp((Math.abs(a) - 0.72) / 0.28, 0, 1) * rng();
+    prof[i] = clamp((floor + (1 - floor) * v) * edge, 0, 1);
+  }
+  return prof;
+}
+
 /** 획 하나 동안 유지되는 팁 상태: 붓털 프로필(가로지름 방향 24점)과 젖은 붓의 가장자리 흔들림(각도 16점) */
 interface TipState { kind: Exclude<TipKind, 'auto'>; prof: Float32Array; wob: Float32Array; curl: number }
 
@@ -436,15 +466,29 @@ class Canvas {
     this.sw = new Float32Array(N);
     for (let i = 0; i < N; i++) { this.rgb[i * 3] = paper[0]; this.rgb[i * 3 + 1] = paper[1]; this.rgb[i * 3 + 2] = paper[2]; }
   }
-  /** 반지름 r 의 원 (antialias) — 덮임 0..1 을 화소별 최대로 모은다 */
-  dot(cx: number, cy: number, r: number, cov = 1) {
+  /**
+   * 반지름 r 의 원 (antialias) — 덮임 0..1 을 화소별 최대로 모은다.
+   * `nib` 을 주면 **획을 가로지르는 펜촉 결**을 곱한다 (굵은 펜은 가닥이 갈라져 결이 보인다).
+   * 방향 (dx,dy) 은 그 획의 진행 방향 — 결은 그 수직 방향으로 읽는다.
+   */
+  dot(cx: number, cy: number, r: number, cov = 1, nib?: Float32Array | null, dx = 0, dy = 0) {
     const x0 = Math.max(0, Math.floor(cx - r - 1)), x1 = Math.min(this.w - 1, Math.ceil(cx + r + 1));
     const y0 = Math.max(0, Math.floor(cy - r - 1)), y1 = Math.min(this.h - 1, Math.ceil(cy + r + 1));
     const { sw, w } = this;
+    const useNib = nib && r > 0.9;
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-      const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
-      const c = clamp(r + 0.5 - d, 0, 1) * cov;
+      const ox = x + 0.5 - cx, oy = y + 0.5 - cy;
+      const d = Math.hypot(ox, oy);
+      let c = clamp(r + 0.5 - d, 0, 1) * cov;
       if (c <= 0.002) continue;
+      if (useNib) {
+        // 획을 가로지르는 자리(-1..1)에서 펜촉 결을 읽는다
+        const a = clamp((ox * -dy + oy * dx) / r, -1, 1);
+        const t = (a + 1) / 2 * (nib.length - 1);
+        const k0 = t | 0, f = t - k0;
+        c *= nib[k0] * (1 - f) + nib[Math.min(nib.length - 1, k0 + 1)] * f;
+        if (c <= 0.002) continue;
+      }
       const i = y * w + x;
       if (sw[i] === 0) this.touched.push(i);
       if (c > sw[i]) sw[i] = c;
@@ -660,6 +704,7 @@ function penStroke(c: Ctx, ref: Float32Array, x0: number, y0: number, L: number,
   if (D0 <= 0.01) return;
   const [dx0, dy0] = dirAt(c, i0, rot + (rng() - 0.5) * 0.5 * c.rnd);
   const r = lw / 2;
+  const nib = makeNib(r, rng); // 이 획의 펜촉 결 (굵을수록 가닥이 갈라진다)
   const pressure = 0.8 + rng() * 0.4;
   const wobA = (0.4 + 1.6 * c.rnd) * Math.min(1, lw), wobF = 0.08 + rng() * 0.1, wobP = rng() * 6.28;
   const step = 0.7;
@@ -676,7 +721,7 @@ function penStroke(c: Ctx, ref: Float32Array, x0: number, y0: number, L: number,
       if (cv.dark[i] > ref[i] + 0.02) { if (++over > 2) break; } else over = 0;
       const taper = Math.min(1, (s + step) / 4, (half - s) / 4 + 0.35);
       const wob = Math.sin(s * wobF + wobP) * wobA;
-      cv.dot(x - dy * wob, y + dx * wob, r * (0.65 + 0.35 * taper) * pressure * c.wMul(i), 0.75 + 0.25 * taper);
+      cv.dot(x - dy * wob, y + dx * wob, r * (0.65 + 0.35 * taper) * pressure * c.wMul(i), 0.75 + 0.25 * taper, nib, dx, dy);
       // 방향장을 조금씩 따라감 (부호는 이전 방향과 맞춤)
       const wf = Math.max(c.ff * c.field.coh[i], c.field.man[i]);
       if (wf > 0.12 && c.texture[i] < 0.5) {
@@ -787,6 +832,7 @@ function edgePass(c: Ctx, mag: Float32Array, mass: { mag: Float32Array; gx: Floa
     const i0 = bi;
     // 접선 방향: 방향장(경계에서 확실함)
     const t0 = tangent(i0);
+    const nib = makeNib(lw * widthMul / 2, rng);
     let drawn = 0;
     for (const sign of [1, -1]) {
       let dx = t0[0] * sign, dy = t0[1] * sign, x = x0, y = y0, dup = 0;
@@ -801,7 +847,7 @@ function edgePass(c: Ctx, mag: Float32Array, mass: { mag: Float32Array; gx: Floa
         if (done[i] && done[i] !== sid) { if (++dup > 4) break; }
         mark(xi, yi);
         const k = clamp(m / th, 0.5, 1.6);
-        cv.dot(x, y, r * (0.6 + 0.4 * Math.min(1, k)) * c.wMul(i), 0.6 + 0.4 * Math.min(1, k));
+        cv.dot(x, y, r * (0.6 + 0.4 * Math.min(1, k)) * c.wMul(i), 0.6 + 0.4 * Math.min(1, k), nib, dx, dy);
         drawn++;
         // 경계 접선을 따라감 (부호 유지)
         let [fx, fy] = tangent(i);
@@ -965,6 +1011,7 @@ function toneHatch(c: Ctx, lum: Float32Array, white: number, bg: Float32Array | 
       const wobA = (0.3 + 1.5 * j) * Math.max(1, lw * 0.7);
       const wobF = 0.006 + rng() * 0.012, wobP = rng() * 6.28;
       const pressure = 0.85 + rng() * 0.3;
+      const nib = makeNib(r, rng); // 선마다 펜촉 결 (단계가 굵어질수록 가닥이 갈라진다)
       const seg: number[] = [];
       const flush = () => {
         if (seg.length >= 8) {
@@ -972,7 +1019,7 @@ function toneHatch(c: Ctx, lum: Float32Array, white: number, bg: Float32Array | 
           for (let q = 0; q < n; q++) {
             const taper = Math.min(1, (q + 1) / 4, (n - q) / 4);
             const di = (seg[q * 2 + 1] | 0) * w + (seg[q * 2] | 0);
-            cv.dot(seg[q * 2], seg[q * 2 + 1], r * (0.55 + 0.45 * taper) * pressure * c.wMul(di), 0.8 + 0.2 * taper);
+            cv.dot(seg[q * 2], seg[q * 2 + 1], r * (0.55 + 0.45 * taper) * pressure * c.wMul(di), 0.8 + 0.2 * taper, nib, dx, dy);
           }
           cv.end(clamp(alphaBase * (0.85 + rng() * 0.3), 0, 0.97), c.colorAt((seg[1] | 0) * w + (seg[0] | 0)));
         } else cv.end(0, [0, 0, 0]); // 너무 짧으면 버린다 (모아 둔 자국도 지운다)
