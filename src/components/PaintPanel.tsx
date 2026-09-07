@@ -162,7 +162,7 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset }: Props) {
       </div>
 
       {s.brush === 'tone' && (
-        <Range label="명암 단계" value={s.passes} min={3} max={15} unit="단계" note={`${s.passes}단계 · 선 ${s.passes - 1}겹`}
+        <Range label="명암 단계" value={s.passes} min={3} max={20} unit="단계" note={`${s.passes}단계 · 선 ${s.passes - 1}겹`}
           hint="밝기를 몇 단계로 나눌지. 가장 밝은 단계는 선이 없습니다" onChange={(passes) => onChange({ passes })} />
       )}
       <Range label={s.brush === 'tone' ? '선 간격' : '세밀함'} value={s.detail} min={0} max={100}
