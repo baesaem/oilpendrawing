@@ -64,6 +64,17 @@ export const PALETTE_SHORT: Record<PaletteId, string> = { photo: '기본', brigh
 export const PEN_WIDTHS: number[] = Array.from({ length: 20 }, (_, i) =>
   Math.round(Math.pow(6, i / 19) * 100) / 100,
 );
+/**
+ * 세밀할수록 펜을 가늘게 (사용자 요청: "인물화·세밀화일수록 펜을 가늘게").
+ * 세밀함이 높은 화풍은 작은 톤 차를 촘촘한 선으로 쌓는데, 선이 굵으면 그 차이가 뭉개진다.
+ * 제곱 곡선이라 보통 화풍(세밀함 45~65)은 0.90~0.79 배로 거의 그대로고, 인물화·세밀화(100)에서 절반이 된다.
+ * 점묘(점 굵기)와 그림붓에는 쓰지 않는다.
+ */
+export function detailThin(detail: number): number {
+  const d = Math.max(0, Math.min(100, detail)) / 100;
+  return 1 - 0.5 * d * d;
+}
+
 /** 굵기 값에 가장 가까운 단계 번호 (1~20). 옛 레코드의 값도 단계로 읽는다 */
 export function penWidthStep(lw: number): number {
   let best = 1, bd = Infinity;
@@ -157,7 +168,7 @@ export interface PaintProfile {
  */
 export const RICHEON_PAINT: PaintProfile = {
   brush: 'pen', tip: 'round', palette: 'photo', wet: 30, depth: 70, passes: 4, brushSize: 45, detail: 75, accuracy: 60, strokeLength: 60, featureFollow: 85, baseAngle: 55, randomness: 30,
-  lineWidth: 1.4, ink: 88, paperKeep: 66, edges: 80, vignette: 40, paperColor: '#f6f3ec', inkColor: '#17171a',
+  lineWidth: 1.76, ink: 88, paperKeep: 66, edges: 80, vignette: 40, paperColor: '#f6f3ec', inkColor: '#17171a',
 };
 /** 세밀 펜화: 아주 가늘고 고른 선으로 끝까지 완성, 수평 하늘 해칭, 먹 그림자 */
 export const FINE_PAINT: PaintProfile = {
@@ -173,14 +184,14 @@ export const DEFAULT_PAINT: PaintProfile = RICHEON_PAINT;
 
 /** 화풍마다 완전한 그리기 설정 (DAP 의 프리셋). 갤러리에서 화풍을 고르면 이 값이 그대로 들어간다 */
 export const PAINT_FOR_STYLE: Record<PenStyle, PaintProfile> = {
-  tonehatch: { ...CLASSIC_PAINT, brush: 'tone', passes: 15, brushSize: 50, detail: 62, accuracy: 70, strokeLength: 70, featureFollow: 0, baseAngle: 35, randomness: 22, lineWidth: 1.4, ink: 82, paperKeep: 58, edges: 45, vignette: 0 },
+  tonehatch: { ...CLASSIC_PAINT, brush: 'tone', passes: 15, brushSize: 50, detail: 62, accuracy: 70, strokeLength: 70, featureFollow: 0, baseAngle: 35, randomness: 22, lineWidth: 1.6, ink: 82, paperKeep: 58, edges: 45, vignette: 0 },
   richeon: RICHEON_PAINT,
   fineink: FINE_PAINT,
   hatching: CLASSIC_PAINT,
-  crosshatch: { ...CLASSIC_PAINT, brush: 'tone', passes: 6, detail: 75, accuracy: 70, strokeLength: 65, randomness: 25, lineWidth: 1.5, paperKeep: 50, edges: 55 },
+  crosshatch: { ...CLASSIC_PAINT, brush: 'tone', passes: 6, detail: 75, accuracy: 70, strokeLength: 65, randomness: 25, lineWidth: 2.34, paperKeep: 50, edges: 55 },
   contour: { ...CLASSIC_PAINT, brush: 'contour', passes: 2, brushSize: 40, detail: 60, accuracy: 50, strokeLength: 60, featureFollow: 70, baseAngle: 45, randomness: 25, ink: 85, paperKeep: 65, edges: 95 },
   stipple: { ...CLASSIC_PAINT, brush: 'stipple', passes: 4, brushSize: 40, detail: 85, accuracy: 65, strokeLength: 0, featureFollow: 0, randomness: 50, lineWidth: 1.6, ink: 90, edges: 30 },
-  engraving: { ...CLASSIC_PAINT, passes: 5, brushSize: 40, detail: 85, accuracy: 75, strokeLength: 90, featureFollow: 90, baseAngle: 0, randomness: 10, lineWidth: 1.4, ink: 82, paperKeep: 45, edges: 60 },
+  engraving: { ...CLASSIC_PAINT, passes: 5, brushSize: 40, detail: 85, accuracy: 75, strokeLength: 90, featureFollow: 90, baseAngle: 0, randomness: 10, lineWidth: 4.52, ink: 82, paperKeep: 45, edges: 60 },
   realistic: { ...CLASSIC_PAINT, brush: 'tone', passes: 6, brushSize: 35, detail: 100, accuracy: 95, strokeLength: 45, featureFollow: 70, baseAngle: 30, randomness: 15, lineWidth: 1, ink: 85, paperKeep: 35, edges: 75 },
   comic: { ...CLASSIC_PAINT, brush: 'contour', passes: 3, brushSize: 45, detail: 70, accuracy: 55, strokeLength: 55, featureFollow: 60, baseAngle: 45, randomness: 20, lineWidth: 2.4, ink: 95, paperKeep: 60, edges: 100 },
   carver: { ...CLASSIC_PAINT, brush: 'tone', tip: 'round', palette: 'mono', depth: 30, passes: 6, brushSize: 45, detail: 45, accuracy: 55, strokeLength: 90, featureFollow: 100, baseAngle: 0, randomness: 6, lineWidth: 2, ink: 95, paperKeep: 68, edges: 100, vignette: 0, paperColor: '#f4f2ee', inkColor: '#0f0f10' },

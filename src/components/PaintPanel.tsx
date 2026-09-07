@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { samePaint } from '../presets';
-import { BRUSH_LABEL, BRUSH_SHORT, CLASSIC_PAINT, FINE_PAINT, PALETTE_12, PEN_WIDTHS, penWidthStep, PALETTE_LABEL, PALETTE_SHORT, PALETTE_VANGOGH, RICHEON_PAINT, TIP_LABEL, TIP_SHORT, type BrushKind, type PaintProfile, type PaletteId, type TipKind } from '../types';
+import { BRUSH_LABEL, BRUSH_SHORT, CLASSIC_PAINT, FINE_PAINT, PALETTE_12, PEN_WIDTHS, detailThin, penWidthStep, PALETTE_LABEL, PALETTE_SHORT, PALETTE_VANGOGH, RICHEON_PAINT, TIP_LABEL, TIP_SHORT, type BrushKind, type PaintProfile, type PaletteId, type TipKind } from '../types';
 import { tipPreview } from '../render';
 
 interface Props {
@@ -181,8 +181,8 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset }: Props) {
           onChange={(lineWidth) => onChange({ lineWidth })} />
       ) : (
         <Range label="선 굵기" value={penWidthStep(s.lineWidth)} min={1} max={PEN_WIDTHS.length} step={1}
-          note={`${penWidthStep(s.lineWidth)}단계 · ${widthNote(PEN_WIDTHS[penWidthStep(s.lineWidth) - 1])}`}
-          hint="20 단계. 1 단계는 화면이 그릴 수 있는 가장 가는 선(1 화소)이고 단계마다 등비로 굵어집니다"
+          note={`${penWidthStep(s.lineWidth)}단계 · ${widthNote(PEN_WIDTHS[penWidthStep(s.lineWidth) - 1] * detailThin(s.detail))}`}
+          hint="20 단계. 1 단계는 화면이 그릴 수 있는 가장 가는 선(1 화소)이고 단계마다 등비로 굵어집니다. 세밀함이 높을수록 더 가늘게 긋습니다"
           onChange={(step) => onChange({ lineWidth: PEN_WIDTHS[step - 1] })} />
       )}
       {/* 선 방향(기준 각도) 슬라이더는 두지 않는다 — 각도는 화풍 프리셋이 정하고, 바꿀 때는 툴바의 "방향 지시"로 직접 긋는다 */}

@@ -15,7 +15,7 @@
  * 붓(brush) 이 획의 모양을 정한다: tone(명암 단계 평행선·교차선), pen(면을 따르는 짧은 획·나뭇잎 고리선),
  * contour(윤곽 위주), stipple(점), wash(수채 담채), oil(유화), impasto(고흐풍 임파스토).
  */
-import { PALETTE_COLORS, type ColorMode, type DirectionGuide, type PaintProfile, type PaletteId, type TipKind } from './types';
+import { PALETTE_COLORS, detailThin, type ColorMode, type DirectionGuide, type PaintProfile, type PaletteId, type TipKind } from './types';
 
 export interface RawImage { width: number; height: number; data: Uint8ClampedArray }
 export interface ProgressInfo { pass: number; passes: number; frac: number; strokes: number; /** 지금 단계 이름 (밑칠·중간·세부·윤곽) */ label?: string }
@@ -997,7 +997,8 @@ function toneHatch(c: Ctx, lum: Float32Array, white: number, bg: Float32Array | 
     const t = (k - 1) / spread;
     // 어두운 단계일수록 간격을 좁게 (가장 어두운 단계는 첫 단계의 1/3). 선이 붙어 먹이 되지 않게 굵기의 1.5배는 띄운다
     const spacing = Math.max(lw * 1.1, S0 * (1 - 0.66 * t));
-    const width = lw * (0.75 + 0.85 * t);
+    // 밝은 단계는 가는 선, 어두운 단계는 굵은 선 — 폭을 넓게 잡아야 "가는 선과 굵은 선"이 한 그림에 함께 보인다
+    const width = lw * (0.55 + 1.6 * t);
     const off = ANGLE_OFF[Math.min(k - 1, ANGLE_OFF.length - 1)] ?? 0;
     const phase = k === 2 ? 0.5 : rng();
     // 지시선이 없는 곳: 기준 각도로
@@ -1472,8 +1473,10 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
   const acc = clamp(p.accuracy, 0, 100) / 100;
   const c: Ctx = {
     w, h, N, cv, field, texture, rng, p,
-    // 화면이 그릴 수 있는 가장 가는 선은 1 화소다 — 작은 사진에서 그보다 가늘어지지 않게 바닥을 둔다
-    lw: Math.max(1, clamp(p.lineWidth, 0.6, 8) * scale),
+    // 화면이 그릴 수 있는 가장 가는 선은 1 화소다 — 그보다 가늘어지지 않게 바닥을 둔다.
+    // 세밀할수록 펜을 가늘게 (`detailThin`): 인물화·세밀화처럼 작은 톤 차를 촘촘히 쌓는 화풍은 굵은 선이면 그 차이가 뭉개진다.
+    // 점묘는 같은 값이 점 굵기라 건드리지 않는다.
+    lw: Math.max(1, clamp(p.lineWidth, 0.6, 8) * scale * (p.brush === 'stipple' ? 1 : detailThin(p.detail))),
     ff: clamp(p.featureFollow, 0, 100) / 100,
     rnd: clamp(p.randomness, 0, 100) / 100,
     base: (p.baseAngle * Math.PI) / 180,
