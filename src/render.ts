@@ -327,7 +327,9 @@ function applyPalette(r: number, g: number, b: number, pal: PaletteId, ink: RGB)
   const list = PALETTE_RGB[pal];
   if (!list) return [r, g, b];
   const chroma = Math.max(Math.abs(r - mean), Math.abs(g - mean), Math.abs(b - mean));
-  const strength = clamp((chroma - 0.012) * 14, 0, 1) * (pal === 'match2' ? 0.72 : 1);
+  // 12색(match)과 혼합(match2)의 차이가 0.72배뿐이라 결과가 거의 같아 보였다(사용자 지적).
+  // 12색은 물감색으로 **완전히** 묶고, 혼합은 사진색과 반씩 섞어 눈에 띄게 갈라 둔다
+  const strength = clamp((chroma - 0.012) * 14, 0, 1) * (pal === 'match2' ? 0.45 : 1);
   if (strength < 0.02) return [r, g, b];
   const sum = r + g + b + 0.03;
   const cr = r / sum, cg = g / sum;
@@ -1039,6 +1041,9 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, onTick?: (f
   // 자국 사이를 벌린다 — 너무 겹치면 한 줄기 띠가 되어 붓 자국이 안 보인다
   const step = R * (impasto ? 0.5 : oil ? 0.45 : 0.5), maxLen = R * ((oil ? 1.2 : 2.5) + (impasto ? 5 : oil ? 3 : 4) * clamp(c.p.strokeLength, 0, 100) / 100) * (st.len ?? 1);
   const tickEvery = Math.max(1, Math.floor(order.length / 6));
+  // 붓칠 색을 팔레트 안에 묶어 둘지 (사용자 요청: 붓칠 시 색상 팔레트 준수)
+  const snapPal = c.color === 'color' && (c.p.palette === 'match' || c.p.palette === 'match2' || c.p.palette === 'vangogh');
+  const inkC = hexToRgb(c.p.inkColor);
   for (let q = 0; q < order.length; q++) {
     if (onTick && q % tickEvery === 0) onTick(q / order.length);
     const cell = order[q];
@@ -1060,6 +1065,12 @@ function washSweep(c: Ctx, want: Float32Array, R: number, T: number, onTick?: (f
     // 임파스토: 채널을 따로 흔들어 자국마다 색상이 조금씩 다르다 (노랑·주황·초록 줄무늬)
     const hj = impasto ? 0.28 * c.rnd : 0;
     const col: RGB = [want[io] * jit * (1 + (rng() - 0.5) * hj), want[io + 1] * jit * (1 + (rng() - 0.5) * hj), want[io + 2] * jit * (1 + (rng() - 0.5) * hj)];
+    // 목표 색은 팔레트로 묶어 두었지만, 층마다 목표를 뭉개는 blurRGB 가 물감색 사이의 중간색을 만들고
+    // 붓칠마다 흔드는 jit·hj 가 거기서 더 벗어난다. **실제로 얹는 색**에서 한 번 더 묶어야 팔레트가 지켜진다.
+    if (snapPal) {
+      const [pr, pg, pb] = applyPalette(col[0] / 255, col[1] / 255, col[2] / 255, c.p.palette, inkC);
+      col[0] = pr * 255; col[1] = pg * 255; col[2] = pb * 255;
+    }
     const path: number[] = [];
     // 붓마다 방향을 흔든다 — 무작위성 슬라이더가 그 폭이다 (30 이면 ±19°, 100 이면 ±63°)
     let [dx, dy] = dirAt(c, fi, (rng() - 0.5) * 2.2 * c.rnd);
@@ -1271,8 +1282,10 @@ function paperFor(p: PaintProfile): RGB {
 /** 층별 획 크기: 첫 층(brushSize)에서 마지막 층(detail) 까지 등비로 */
 export function passSizes(p: PaintProfile, minSide: number): number[] {
   const passes = clamp(Math.round(p.passes), 1, 6);
-  const Rmax = minSide * (0.03 + 0.17 * clamp(p.brushSize, 0, 100) / 100);
-  const Rmin = Math.min(Rmax, minSide * (0.005 + 0.03 * (1 - clamp(p.detail, 0, 100) / 100)));
+  // 1~6호 붓의 굵기 차이를 크게 (사용자 요청): 첫 층은 더 큰 붓, 마지막 층은 더 가는 붓.
+  // 큰 붓 0.20 → 0.28·짧은 변, 가는 붓 0.005 → 0.0028·짧은 변 이라 굵기 비가 약 2배로 벌어진다.
+  const Rmax = minSide * (0.035 + 0.245 * clamp(p.brushSize, 0, 100) / 100);
+  const Rmin = Math.min(Rmax, minSide * (0.0028 + 0.022 * (1 - clamp(p.detail, 0, 100) / 100)));
   const out: number[] = [];
   for (let k = 0; k < passes; k++) {
     const t = passes === 1 ? 1 : k / (passes - 1);
@@ -1553,7 +1566,9 @@ export function renderDrawing(img: RawImage, opts: RenderOpts): RawImage {
     // 물감이 마르며 가장자리에 고이는 안료: 캔버스 밝기의 경계를 조금 어둡게
     if (!oil) pigmentEdges(cv, inky ? 0.10 : 0.12 + 0.34 * c.wet, mulberry32(77));
     // 7층: 원본 사진 겹치기. 표현↔사실 슬라이더가 사실 쪽일수록 원본이 진하게 비친다 (DAP 의 마지막 레이어)
-    const photoMix = inky ? 0 : clamp((acc - 0.5) / 0.5, 0, 1) * 0.5;
+    // 사실 쪽 끝(100)에서는 원본 사진과 같아지도록 완전히 겹친다 (사용자 요청).
+    // 세제곱 곡선이라 가운데(75)에서는 0.13 로 옅고, 90 에서 0.51, 100 에서 1 — 끝에서만 사진이 된다
+    const photoMix = inky ? 0 : Math.pow(clamp((acc - 0.5) / 0.5, 0, 1), 3);
     if (photoMix > 0.01) {
       stageLabel = '7층 · 원본 겹치기';
       const soft = [0, 1, 2].map((ch) => {
