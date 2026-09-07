@@ -9,6 +9,7 @@ import { StampPanel } from './components/StampPanel';
 import { DrawActions, Toolbar, ViewSeg } from './components/Toolbar';
 import type { GridSize } from './components/GridOverlay';
 import { FullscreenView } from './components/FullscreenView';
+import { HistoryModal } from './components/HistoryModal';
 import { applyTone, downloadBlob, estimateLight, imageSize, isGrayscale, prepareInput, toneFilter } from './image';
 import { analyzeSampleBlob, renderLocalDrawing } from './local';
 import { compositeStamps, defaultPlacement, loadStamps, saveStamps, type PlacedStamp, type StampItem, type StampState } from './stamps';
@@ -77,6 +78,8 @@ export function App() {
   const abortRef = useRef<AbortController | null>(null);
   /** 이력에서 불러올 때는 그 레코드의 그리기 설정을 유지해야 하므로 자동 재설정을 한 번 건너뜁니다 */
   const keepStrokesRef = useRef(false);
+  // 임시 저장 이미지를 모두 보는 창
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => { listDrawings().then(setHistory); }, []);
 
@@ -296,12 +299,13 @@ export function App() {
     });
   };
 
-  const download = async () => {
-    if (!current) return;
-    const toned = await applyTone(current.result, params.brightness, params.contrast);
-    const stamp = new Date(current.createdAt).toISOString().slice(0, 19).replace(/[:T]/g, '-');
-    downloadBlob(toned, `oilpen-${current.params.style}-${stamp}.png`);
+  // 이력의 한 장을 PNG 로 (지금 떠 있는 것도, "모두 보기" 창에서 고른 것도 같은 길로 저장한다)
+  const downloadDrawing = async (d: Drawing) => {
+    const toned = await applyTone(d.result, params.brightness, params.contrast);
+    const stamp = new Date(d.createdAt).toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    downloadBlob(toned, `oilpen-${d.params.style}-${stamp}.png`);
   };
+  const download = async () => { if (current) await downloadDrawing(current); };
 
   const selectHistory = (d: Drawing) => {
     keepStrokesRef.current = true;
@@ -396,7 +400,7 @@ export function App() {
         history={history} currentId={current?.id ?? null} onSelect={selectHistory}
         canDraw={!!input && !busy} onDraw={drawLocal}
         canAi={!!input && keyOk && !busy} onAi={drawAi}
-        busy={!!busy} progress={progress ? progress.info.frac : null} onCancel={cancel} onDownload={download}
+        busy={!!busy} progress={progress ? progress.info.frac : null} onCancel={cancel} onDownload={download} onOpenHistory={() => setHistoryOpen(true)}
         onFullscreen={() => setFullscreen(true)}
         directionEditing={directionEditing} guideCount={params.guides.length} onToggleDirection={toggleDirection}
         grid={grid} onGrid={setGrid}
@@ -407,6 +411,14 @@ export function App() {
           photo={stageOriginal} result={current?.result ?? null} grid={grid} onGrid={setGrid}
           showResult={view !== 'original'} onToggleResult={() => setView((v) => (v === 'original' ? 'result' : 'original'))}
           toneFilter={filter} onClose={() => setFullscreen(false)}
+        />
+      )}
+
+      {historyOpen && (
+        <HistoryModal
+          history={history} currentId={current?.id ?? null}
+          onSelect={selectHistory} onDownload={(d) => { void downloadDrawing(d); }}
+          onClose={() => setHistoryOpen(false)}
         />
       )}
 

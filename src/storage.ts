@@ -41,7 +41,7 @@ export function saveSettings(s: Settings) {
 
 const DB_NAME = 'oilpen';
 const STORE = 'drawings';
-const MAX_HISTORY = 30;
+const MAX_HISTORY = 60;
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((res, rej) => {

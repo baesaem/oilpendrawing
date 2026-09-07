@@ -15,6 +15,8 @@ interface Props {
   history: Drawing[];
   currentId: string | null;
   onSelect: (d: Drawing) => void;
+  /** 임시 저장 이미지를 모두 보는 창 열기 */
+  onOpenHistory: () => void;
   /** 로컬 렌더러로 그리기 (기본) */
   canDraw: boolean;
   onDraw: () => void;
@@ -69,8 +71,11 @@ export function Toolbar(p: Props) {
         <>
           <div className="sep" />
           <div className="hist" aria-label="이력">
-            {p.history.slice(0, 5).map((d) => <Thumb key={d.id} d={d} on={d.id === p.currentId} onClick={() => p.onSelect(d)} />)}
+            {p.history.slice(0, 8).map((d) => <Thumb key={d.id} d={d} on={d.id === p.currentId} onClick={() => p.onSelect(d)} />)}
           </div>
+          <button className="btn btn-ghost btn-sm" onClick={p.onOpenHistory} title="임시 저장한 그림을 모두 보고, 고르거나 낱장으로 저장합니다">
+            모두 보기<span className="badge">{p.history.length}</span>
+          </button>
         </>
       )}
 

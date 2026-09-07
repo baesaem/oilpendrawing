@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { samePaint } from '../presets';
-import { BRUSH_LABEL, BRUSH_SHORT, CLASSIC_PAINT, FINE_PAINT, PALETTE_12, PEN_WIDTHS, detailThin, penWidthStep, PALETTE_LABEL, PALETTE_SHORT, PALETTE_VANGOGH, RICHEON_PAINT, TIP_LABEL, TIP_SHORT, type BrushKind, type PaintProfile, type PaletteId, type TipKind } from '../types';
+import { CLASSIC_PAINT, FINE_PAINT, PALETTE_12, PEN_WIDTHS, detailThin, penWidthStep, PALETTE_LABEL, PALETTE_SHORT, PALETTE_VANGOGH, RICHEON_PAINT, TIP_LABEL, TIP_SHORT, type BrushKind, type PaintProfile, type PaletteId, type TipKind } from '../types';
 import { tipPreview } from '../render';
 
 interface Props {
@@ -11,8 +11,6 @@ interface Props {
   onReset: () => void;
 }
 
-const PEN_BRUSHES: BrushKind[] = ['tone', 'pen', 'contour', 'stipple'];
-const PAINT_BRUSHES: BrushKind[] = ['inkwash', 'wash', 'oil', 'impasto'];
 const TIPS: TipKind[] = ['auto', 'round', 'bristle', 'wet', 'chalk', 'swirl'];
 const PALETTES: PaletteId[] = ['photo', 'bright', 'mono', 'match', 'match2', 'vangogh'];
 
@@ -103,15 +101,7 @@ export function PaintPanel({ paint: s, onChange, fromSample, onReset }: Props) {
               onClick={() => onChange(brushPatch(s, k === 'paint' ? lastPaint.current : lastPen.current))}>{label}</button>
           ))}
         </div>
-        <div className="seg" style={{ gridTemplateColumns: `repeat(${(isPaint ? PAINT_BRUSHES : PEN_BRUSHES).length}, minmax(0, 1fr))`, marginTop: 6 }}
-          role="radiogroup" aria-label={isPaint ? '그림 붓' : '펜 붓'}>
-          {(isPaint ? PAINT_BRUSHES : PEN_BRUSHES).map((b) => (
-            <button key={b} className={s.brush === b ? 'on' : ''} role="radio" aria-checked={s.brush === b} onClick={() => onChange(brushPatch(s, b))} title={BRUSH_LABEL[b]} style={{ fontSize: 11 }}>
-              {BRUSH_SHORT[b]}
-            </button>
-          ))}
-        </div>
-        <div className="small faint">{BRUSH_LABEL[s.brush]}</div>
+        {/* 붓 하나하나를 고르는 줄(펜화·리천·윤곽·점묘 / 수묵·담채·유화·고흐)은 지웠다 — 붓은 드로잉 프리셋이 정한다 (사용자 요청) */}
       </div>
 
       {isPaint && (

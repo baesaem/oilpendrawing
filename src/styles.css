@@ -442,3 +442,22 @@ input[type=range]:focus-visible { outline: 1px solid var(--accent); outline-offs
 .preset-apply:hover { background: #23211e; }
 .preset-del { width: 30px; height: 32px; display: flex; align-items: center; justify-content: center; color: var(--faint); border-left: 1px solid var(--line); }
 .preset-del:hover { color: var(--danger); }
+
+/* 임시 저장 이미지 모두 보기 창 */
+.dialog.dialog-wide { width: min(1080px, 94vw); max-width: none; max-height: 88vh; display: flex; flex-direction: column; gap: 10px; }
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.hist-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;
+  overflow: auto; padding-right: 4px; flex: 1; min-height: 0;
+}
+.hist-cell { position: relative; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #1b1a18; }
+.hist-cell.on { border-color: var(--accent); }
+.hist-pick { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: pointer; }
+.hist-pick img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #f2ece0; }
+.hist-meta { display: flex; flex-direction: column; gap: 1px; padding: 5px 7px 6px; font-size: 11px; color: var(--text); }
+.hist-save {
+  position: absolute; right: 6px; bottom: 6px; width: 26px; height: 26px; padding: 0; border-radius: 6px;
+  border: 1px solid var(--line-strong); background: rgba(20,19,17,.82); color: var(--muted);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.hist-save:hover { color: var(--text); border-color: var(--accent); }
